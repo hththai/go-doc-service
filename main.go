@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	item "example/golang/internal/model"
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -88,70 +90,103 @@ func main() {
 	// item.ShowItemAsJson(*newItem)
 	// item.SaveToFileID(*newItem)
 
-	items := []item.Item{
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
-		{GUID: uuid.New().String(), Format: "pdf"},
-		{GUID: uuid.New().String(), Format: "docx"},
-		{GUID: uuid.New().String(), Format: "txt"},
+	// items := []item.Item{
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// 	{GUID: uuid.New().String(), Format: "pdf"},
+	// 	{GUID: uuid.New().String(), Format: "docx"},
+	// 	{GUID: uuid.New().String(), Format: "txt"},
+	// }
+
+	// item.SaveCollectionFileToFileID(items)
+	// item.ReadFileID()
+
+	// indexFolder := item.GetFolderIndexById(80890)
+
+	// fmt.Println(indexFolder)
+	// folderPath := fmt.Sprintf("filedata/%d", indexFolder)
+
+	// item.CreateFolderIfNotExist(fmt.Sprintf("filedata/%d", indexFolder))
+
+	newItem := item.Item{
+		GUID:   uuid.New().String(),
+		Id:     "5019",
+		Format: "pdf",
+		Name:   "sample",
+		Path:   "filedata",
 	}
 
-	item.SaveCollectionFileToFileID(items)
-	// item.ReadFileID()
+	convertedID, err := strconv.ParseInt(newItem.Id, 10, 64)
+
+	if err != nil {
+		fmt.Println("Invalid ID")
+		return
+	}
+
+	indexFolder := item.GetFolderIndexById(int(convertedID))
+
+	folderPath := item.CreateFolderIfNotExist(fmt.Sprintf("filedata/0/%d", indexFolder))
+
+	if folderPath != nil {
+		fmt.Println("Error of creating folder:::", err)
+		return
+	}
+
+	item.CreatePDF(fmt.Sprintf("filedata/0/%d/%s.%s", indexFolder, newItem.Id, newItem.Format))
 
 }
