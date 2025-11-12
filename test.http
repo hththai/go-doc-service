@@ -1,0 +1,17 @@
+get http://localhost:9090/todos
+
+###
+post http://localhost:9090/todos
+Content-Type: application/json
+
+{
+    "id":"1",
+    "title":"Make bed",
+    "completed": false
+}
+
+###
+get http://localhost:9090/todos/4
+
+###
+patch http://localhost:9090/todos/1
