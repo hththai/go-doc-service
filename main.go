@@ -2,13 +2,12 @@ package main
 
 import (
 	"errors"
-	item "example/golang/internal/model"
 	"fmt"
+	"io"
 	"net/http"
-	"strconv"
+	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type todo struct {
@@ -76,117 +75,68 @@ func getTodoById(id string) (*todo, error) {
 	return nil, errors.New("todo not found")
 }
 
-func main() {
-	// fmt.Println("hello world")
-	// router := gin.Default()
-	// router.GET("/todos", getTodos)
-	// router.GET("/todos/:id", getTodo)
-	// router.PATCH("/todos/:id", toggleTodoStatus)
-	// router.POST("/todos", addTodos)
-	// router.Run("localhost:9090")
+func uploadFile(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("File Upload Endpoint Hit")
 
-	// newItem := item.NewItem("Hello item")
-	// // item.ShowItem(*newItem)
-	// item.ShowItemAsJson(*newItem)
-	// item.SaveToFileID(*newItem)
-
-	// items := []item.Item{
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// 	{GUID: uuid.New().String(), Format: "pdf"},
-	// 	{GUID: uuid.New().String(), Format: "docx"},
-	// 	{GUID: uuid.New().String(), Format: "txt"},
-	// }
-
-	// item.SaveCollectionFileToFileID(items)
-	// item.ReadFileID()
-
-	// indexFolder := item.GetFolderIndexById(80890)
-
-	// fmt.Println(indexFolder)
-	// folderPath := fmt.Sprintf("filedata/%d", indexFolder)
-
-	// item.CreateFolderIfNotExist(fmt.Sprintf("filedata/%d", indexFolder))
-
-	newItem := item.Item{
-		GUID:   uuid.New().String(),
-		Id:     "5019",
-		Format: "pdf",
-		Name:   "sample",
-		Path:   "filedata",
-	}
-
-	convertedID, err := strconv.ParseInt(newItem.Id, 10, 64)
-
+	err := r.ParseMultipartForm(10 << 20) // 10MB max memory
 	if err != nil {
-		fmt.Println("Invalid ID")
+		http.Error(w, "Error parsing form", http.StatusBadRequest)
 		return
 	}
 
-	indexFolder := item.GetFolderIndexById(int(convertedID))
+	file, handler, err := r.FormFile("myFile")
+	if err != nil {
+		http.Error(w, "Error retrieving file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
 
-	folderPath := item.CreateFolderIfNotExist(fmt.Sprintf("filedata/0/%d", indexFolder))
+	fmt.Printf("Uploaded File: %s\n", handler.Filename)
+	fmt.Printf("File Size: %d bytes\n", handler.Size)
+	fmt.Printf("MIME Header: %+v\n", handler.Header)
 
-	if folderPath != nil {
-		fmt.Println("Error of creating folder:::", err)
+	// Validate file type
+	allowedTypes := map[string]bool{
+		"application/pdf":    true,
+		"application/msword": true,
+		"application/vnd.openxmlformats-officedocument.wordprocessingml.document": true,
+		"image/jpeg": true,
+	}
+
+	fileType := handler.Header.Get("Content-Type")
+	if !allowedTypes[fileType] {
+		http.Error(w, "File type not allowed", http.StatusBadRequest)
 		return
 	}
 
-	item.CreatePDF(fmt.Sprintf("filedata/0/%d/%s.%s", indexFolder, newItem.Id, newItem.Format))
+	// Ensure uploads directory exists
+	os.MkdirAll("uploads", os.ModePerm)
+
+	// Save file with original name
+	dst, err := os.Create("uploads/" + handler.Filename)
+	if err != nil {
+		http.Error(w, "Error saving file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, file)
+	if err != nil {
+		http.Error(w, "Error writing file", http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Fprintf(w, "Successfully Uploaded File: %s\n", handler.Filename)
+}
+
+func setupRoutes() {
+	http.HandleFunc("/upload", uploadFile)
+	fmt.Println("Server running on http://localhost:8088")
+	http.ListenAndServe(":8088", nil)
+}
+
+func main() {
+
+	setupRoutes()
 
 }
