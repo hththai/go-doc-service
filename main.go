@@ -135,6 +135,50 @@ func setupRoutes() {
 	http.ListenAndServe(":8088", nil)
 }
 
+func uploadHandler(c *gin.Context) {
+	name := c.PostForm("name")
+	description := c.PostForm("description")
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
+		return
+	}
+
+	uploadPath := "./files/" + file.Filename
+	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
+	csvFile := "./files/metadata.csv"
+	f, err := os.OpenFile(csvFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open CSV file"})
+		return
+	}
+	defer f.Close()
+
+	writer := csv.NewWriter(f)
+	defer writer.Flush()
+
+	// Write a row: name, description, file name, file size, upload path
+	record := []string{name, description, file.Filename, fmt.Sprintf("%d", file.Size), uploadPath}
+	if err := writer.Write(record); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write to CSV"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":     "File uploaded successfully",
+		"file_name":   file.Filename,
+		"file_size":   file.Size,
+		"upload_path": uploadPath,
+		"name":        name,
+		"description": description,
+	})
+}
+
 func main() {
 
 	// setupRoutes()
@@ -165,6 +209,8 @@ func main() {
 		c.String(http.StatusOK, fmt.Sprintf("%d files uploaded successfully", len(files)))
 
 	})
+
+	r.POST("/test-upload", uploadHandler)
 	
 	r.Run()
 
