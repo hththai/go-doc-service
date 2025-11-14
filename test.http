@@ -29,3 +29,20 @@ Content-Disposition: form-data; name="files"; filename="name.png"
 < .input/name.png
 
 --WebAppBoundary--
+
+###upload many files
+POST http://localhost:8088/upload HTTP/1.1
+Host: localhost
+Content-Type:  multipart/form-data; boundary=CustomBoundary
+
+--CustomBoundary
+Content-Disposition: form-data; name="files";filename="2.png"
+
+< .input/2.png
+--CustomBoundary--
+
+--CustomBoundary
+Content-Disposition: form-data; name="files";filename="1.pdf"
+
+< .input/1.pdf
+--CustomBoundary--
