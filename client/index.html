@@ -10,7 +10,9 @@
 
 <body>
     <form enctype="multipart/form-data" action="http://localhost:8088/upload" method="post">
-        <input type="file" name="myFile" />
+        <label for="title">Title</label>
+        <input type="text" id="title" name="title" /></br>
+        <input type="file" name="file" />
         <input type="submit" value="upload" />
     </form>
 </body>
