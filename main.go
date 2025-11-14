@@ -137,6 +137,35 @@ func setupRoutes() {
 
 func main() {
 
-	setupRoutes()
+	// setupRoutes()
+	r := gin.Default()
+
+	r.POST("/upload", func(c *gin.Context) {
+
+		form, err := c.MultipartForm()
+		if err != nil {
+			c.String(http.StatusBadRequest, fmt.Sprintf("Error parsing form: %v", err))
+			return
+		}
+
+		files := form.File["files"]
+
+		if len(files) == 0 {
+			c.String(http.StatusBadRequest, "No files uploaded")
+			return
+		}
+
+		for _, file := range files {
+			if err := c.SaveUploadedFile(file, "./files/"+file.Filename); err != nil {
+				c.String(http.StatusInternalServerError, fmt.Sprintf("Save error: %v", err))
+				return
+			}
+		}
+
+		c.String(http.StatusOK, fmt.Sprintf("%d files uploaded successfully", len(files)))
+
+	})
+	
+	r.Run()
 
 }
