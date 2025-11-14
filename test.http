@@ -46,3 +46,24 @@ Content-Disposition: form-data; name="files";filename="1.pdf"
 
 < .input/1.pdf
 --CustomBoundary--
+###
+
+POST http://localhost:8088/test-upload HTTP/1.1
+Host: localhost
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="name"
+
+This is file name
+--WebAppBoundary
+Content-Disposition: form-data; name="description"
+
+This is description
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sea_global_logo_copy.png"
+
+< .input/sea_global_logo_copy.png
+
+--WebAppBoundary--
+###
