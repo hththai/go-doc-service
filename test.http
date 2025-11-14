@@ -16,6 +16,7 @@ get http://localhost:9090/todos/4
 ###
 patch http://localhost:9090/todos/1
 
+###Using curl curl.exe -X POST -F "files[]=@C:\path\to\file1.txt" -F "files[]=@C:\path\to\file2.png" http://example.com/upload-endpoint
 
 ###
 POST http://localhost:8088/upload HTTP/1.1
