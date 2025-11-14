@@ -15,3 +15,16 @@ get http://localhost:9090/todos/4
 
 ###
 patch http://localhost:9090/todos/1
+
+
+###
+POST http://localhost:8088/upload HTTP/1.1
+Host: localhost
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="files"; filename="name.png"
+
+< .input/name.png
+
+--WebAppBoundary--
