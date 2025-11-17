@@ -70,6 +70,39 @@ func uploadHandler(c *gin.Context) {
 
 }
 
+func writeCSV(path string, header []string, content []string) error {
+	fileExists := false
+	if _, err := os.Stat(path); err == nil {
+		fileExists = true
+	}
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		return fmt.Errorf("error opening file::: %w", err)
+	}
+
+	defer f.Close()
+
+	writer := csv.NewWriter(f)
+
+	defer writer.Flush()
+
+	// If file is new, writer header first
+	if !fileExists {
+		if err := writer.Write(header); err != nil {
+			return fmt.Errorf("error writing header::: %w", err)
+		}
+	}
+
+	// Append content
+	if err := writer.Write(content); err != nil {
+		return fmt.Errorf("Error writing content::: %w", err)
+	}
+
+	return nil
+}
+
 func main() {
 	// doc := internal.CreateNewDoc("Hello")
 
