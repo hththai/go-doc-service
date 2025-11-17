@@ -28,46 +28,63 @@ func getDocs(c *gin.Context) {
 }
 
 func uploadHandler(c *gin.Context) {
-	Title := c.PostForm("title")
+	name := c.PostForm("name")
+	description := c.PostForm("description")
+	temId := c.PostForm("tempId")
 
 	file, err := c.FormFile("file")
-
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "File is required"})
 		return
 	}
 
-	uploadPath := "./filedata/0/" + file.Filename
-
+	uploadPath := "./files/" + file.Filename
 	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
-	csvFile := "./metadata/metadata.csv"
-	f, err := os.OpenFile(csvFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	csvFile := "./files/metadata.csv"
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open CSV File"})
-		return
+	fileExists := false
+	if _, err := os.Stat(csvFile); err == nil {
+		fileExists = true
 	}
 
+	f, err := os.OpenFile(csvFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open CSV file"})
+		return
+	}
 	defer f.Close()
 
 	writer := csv.NewWriter(f)
 	defer writer.Flush()
 
-	// Write a row
-	record := []string{uuid.New().String(), Title, time.Now().String(), file.Filename, fmt.Sprintf("%d", file.Size), uploadPath}
+	header := []string{"guid", "id", "nameortitle", "description", "filename", "size", "path"}
+
+	if !fileExists {
+		if err := writer.Write(header); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save header"})
+		}
+	}
+
+	// Write a row: name, description, file name, file size, upload path
+	record := []string{uuid.New().String(), temId, name, description, file.Filename, fmt.Sprintf("%d", file.Size), uploadPath}
 	if err := writer.Write(record); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write to CSV"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Filed Uploaded",
+		"message":     "File uploaded successfully",
+		"file_name":   file.Filename,
+		"file_size":   file.Size,
+		"upload_path": uploadPath,
+		"name":        name,
+		"description": description,
+		"id":          temId,
 	})
-
 }
 
 func writeCSV(path string, header []string, content []string) error {
