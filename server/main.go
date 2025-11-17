@@ -38,13 +38,13 @@ func uploadHandler(c *gin.Context) {
 		return
 	}
 
-	uploadPath := "./files/" + file.Filename
+	uploadPath := "./filedata/0/" + file.Filename
 	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
-	csvFile := "./files/metadata.csv"
+	csvFile := "./metadata/metadata.csv"
 
 	fileExists := false
 	if _, err := os.Stat(csvFile); err == nil {
