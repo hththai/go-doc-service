@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"time"
+	"time"	
+	"path/filepath"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -38,13 +40,26 @@ func uploadHandler(c *gin.Context) {
 		return
 	}
 
-	uploadPath := "./filedata/0/" + file.Filename
+	// rename the file to id file.
+	// Resolve the stored file path.
+	// uploadPath := "./files/" + file.Filename
+
+	getId, err := strconv.Atoi(temId)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
+		return
+	}
+
+	indexIdPath := getId / 100
+
+	uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
-	csvFile := "./metadata/metadata.csv"
+	csvFile := "./files/metadata.csv"
 
 	fileExists := false
 	if _, err := os.Stat(csvFile); err == nil {
