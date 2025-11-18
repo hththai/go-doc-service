@@ -18,3 +18,7 @@ Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 < .input/Hayden Thai_Resume-2.pdf
 
 --WebBoundary--
+
+###
+GET http://localhost:8088/preview?id=001&token=abc123
+###
