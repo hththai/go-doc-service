@@ -158,6 +158,41 @@ func previewPDF(c *gin.Context) {
 	c.File(filePath)
 }
 
+// Custom Util function to create a folder and name if it is not exist.
+func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error) {
+	 
+	// **************EXAMPLE LOG**************
+	logFile, err := createFolderAndFile("App", "app.log")
+
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+
+	log.SetOutput(logFile)
+	log.Println("This message goes to app.log")
+
+	customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
+	customLogger.Println("This message goes to standard output with a custom prefix and flags")
+
+	// *******************************
+	
+	err := os.MkdirAll("./"+folderName, os.ModePerm)
+	if err != nil {
+		log.Fatalf("Failed to create dictionary: %v", err)
+		return nil, errors.New("Failed to create dictionary")
+	}
+
+	// Open and Create the log file.
+	logFile, err := os.OpenFile("./"+folderName+"/"+fileWithExt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open file: %v", err)
+		return nil, errors.New("Failed to create file.")
+	}
+
+	return logFile, nil
+}
+
 func main() {
 	// doc := internal.CreateNewDoc("Hello")
 
