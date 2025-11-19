@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+  api:
+    build: .                # Current directory (where Dockerfile & main.go are)
+    container_name: golang_api
+    ports:
+      - "8088:8088"
+    volumes:
+      - mydata:/app/filedata
+
+volumes:
+  mydata:
