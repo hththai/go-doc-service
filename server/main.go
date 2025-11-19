@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"net/http"
+	"log"
 	"os"
 	"time"	
 	"path/filepath"
