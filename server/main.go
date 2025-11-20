@@ -3,13 +3,14 @@ package main
 import (
 	internal "2_Go/internal"
 	"encoding/csv"
+	"errors"
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
 	"os"
-	"time"	
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -60,7 +61,7 @@ func uploadHandler(c *gin.Context) {
 		return
 	}
 
-	csvFile := "./files/metadata.csv"
+	csvFile := "./metadata/metadata.csv"
 
 	fileExists := false
 	if _, err := os.Stat(csvFile); err == nil {
@@ -161,23 +162,7 @@ func previewPDF(c *gin.Context) {
 
 // Custom Util function to create a folder and name if it is not exist.
 func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error) {
-	 
-	// **************EXAMPLE LOG**************
-	logFile, err := createFolderAndFile("App", "app.log")
 
-	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
-	}
-	defer logFile.Close()
-
-	log.SetOutput(logFile)
-	log.Println("This message goes to app.log")
-
-	customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
-	customLogger.Println("This message goes to standard output with a custom prefix and flags")
-
-	// *******************************
-	
 	err := os.MkdirAll("./"+folderName, os.ModePerm)
 	if err != nil {
 		log.Fatalf("Failed to create dictionary: %v", err)
@@ -196,7 +181,21 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 
 func main() {
 	// doc := internal.CreateNewDoc("Hello")
+	// **************EXAMPLE LOG**************
+	logFile, err := createFolderAndFile("App", "app.log")
 
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+
+	log.SetOutput(logFile)
+	log.Println("This message goes to app.log")
+
+	customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
+	customLogger.Println("This message goes to standard output with a custom prefix and flags")
+
+	// *******************************
 	// fmt.Println("This is title:::", doc.Title)
 	r := gin.Default()
 
