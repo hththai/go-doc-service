@@ -2,6 +2,7 @@ package main
 
 import (
 	internal "2_Go/internal"
+	"database/sql"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
 var documents = []internal.Document{
@@ -179,7 +181,38 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 	return logFile, nil
 }
 
+// Database with sqlite
+type Todo struct {
+	ID    int
+	Title string
+}
+
+var DB *sql.DB
+
+func initDB() {
+	var err error
+	DB, err = sql.Open("sqlite3", "./metadata/app.db")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sqlStmt := `
+		CREATE TABLE IF NOT EXISTS todos (
+		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+		title TEXT
+		);
+	`
+
+	_, err = DB.Exec(sqlStmt)
+	if err != nil {
+		log.Fatal("Error creating table : %q: %s\n", err, sqlStmt)
+	}
+}
+
 func main() {
+
+	initDB()
 	// doc := internal.CreateNewDoc("Hello")
 	// **************EXAMPLE LOG**************
 	logFile, err := createFolderAndFile("App", "app.log")
