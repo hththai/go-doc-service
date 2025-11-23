@@ -2,7 +2,7 @@ package main
 
 import (
 	internal "2_Go/internal"
-	"database/sql"
+	config "2_Go/repo"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -181,38 +181,19 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 	return logFile, nil
 }
 
-// Database with sqlite
-type Todo struct {
-	ID    int
-	Title string
-}
+func main() {
 
-var DB *sql.DB
+	dbCredential := config.LoadConfig()
 
-func initDB() {
-	var err error
-	DB, err = sql.Open("sqlite3", "./metadata/app.db")
+	db, err := config.InitDB(dbCredential)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sqlStmt := `
-		CREATE TABLE IF NOT EXISTS todos (
-		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-		title TEXT
-		);
-	`
+	defer db.Close()
 
-	_, err = DB.Exec(sqlStmt)
-	if err != nil {
-		log.Fatal("Error creating table : %q: %s\n", err, sqlStmt)
-	}
-}
-
-func main() {
-
-	initDB()
+	fmt.Println("Database connection successfully!")
 	// doc := internal.CreateNewDoc("Hello")
 	// **************EXAMPLE LOG**************
 	logFile, err := createFolderAndFile("App", "app.log")

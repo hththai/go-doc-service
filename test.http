@@ -22,3 +22,12 @@ Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 ###
 GET http://localhost:8088/preview?id=001&token=abc123
 ###
+GET http://localhost:8088/testers
+###
+POST http://localhost:8088/testers
+Content-Type: application/json
+
+{
+    "name":"Hello"
+}
+###
