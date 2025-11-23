@@ -103,12 +103,6 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 }
 
 func mainTest() {
-	// connString := "appuser:password@tcp(127.0.0.1:3306)/goDocument?charset=utf8mb4&parseTime=True&loc=Local"
-	// db, err := sql.Open("mysql", connString)
-	// err := godotenv.Load()
-	// if err != nil {
-	// 	log.Fatalln("Error loading .env file")
-	// }
 
 	dbCredential := LoadConfig()
 
