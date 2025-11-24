@@ -11,8 +11,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// connString := "server=127.0.0,3306;database=sample_vault;uid=appuser;password=password"
-
 type Tester struct {
 	Id        int       `json:"id"`
 	Name      string    `json:"name"`
@@ -30,6 +28,7 @@ func EnsureTables(db *sql.DB) error {
 	return err
 }
 
+// Create OBJDOC table when init.
 func CreateDocumentTable(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS OBJDOC (
@@ -119,7 +118,7 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 		return nil, fmt.Errorf("Failed to connect to database %s: %w", dbCredential.dbName, err)
 	}
 
-	// Create ObjectDoc table.
+	// Create ObjDoc table.
 	if err := CreateDocumentTable(db); err != nil {
 		log.Fatalln(err)
 	}
