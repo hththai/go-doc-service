@@ -30,6 +30,28 @@ func EnsureTables(db *sql.DB) error {
 	return err
 }
 
+func CreateDocumentTable(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS OBJDOC (
+		guid varchar(16),
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		name_or_title varchar(100) NOT NULL,
+		description text,
+		created_at timestamp default current_timestamp,
+		modified_at timestamp,
+		buy_price real,
+		sold_price real,
+		buy_at timestamp,
+		sold_at timestamp,
+		file_size real,
+		extension varchar(20),
+		file_path varchar(255)		
+		)
+	`)
+
+	return err
+}
+
 type DBCredential struct {
 	user     string
 	password string
@@ -95,6 +117,11 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to database %s: %w", dbCredential.dbName, err)
+	}
+
+	// Create ObjectDoc table.
+	if err := CreateDocumentTable(db); err != nil {
+		log.Fatalln(err)
 	}
 
 	return db, nil
