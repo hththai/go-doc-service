@@ -31,11 +31,11 @@ func EnsureTables(db *sql.DB) error {
 // Create OBJDOC table when init.
 func CreateDocumentTable(db *sql.DB) error {
 	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS OBJDOC (
+		CREATE TABLE IF NOT EXISTS obj_doc (
 		guid varchar(16),
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		name_or_title varchar(100) NOT NULL,
-		description text,
+		description varchar(1000),
 		created_at timestamp default current_timestamp,
 		modified_at timestamp,
 		buy_price real,
@@ -43,8 +43,8 @@ func CreateDocumentTable(db *sql.DB) error {
 		buy_at timestamp,
 		sold_at timestamp,
 		file_size real,
-		extension varchar(20),
-		file_path varchar(255)		
+		extension varchar(10),
+		file_path varchar(4000)		
 		)
 	`)
 
