@@ -13,7 +13,7 @@ Network:
 Server:
 1) CORS
 2) temp folder
-3) scan process
+3) scan process : Check Malwatch or LMD
 4) size limit
 5) renamed
 6) binary
