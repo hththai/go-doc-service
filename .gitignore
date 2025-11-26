@@ -1,1 +1,8 @@
 .env.development
+.env.production
+.env*
+docker-compose.dev.yml
+*.dev.*
+**/sess/
+**/sigs/
+**/logs/

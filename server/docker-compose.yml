@@ -1,13 +1,58 @@
 version: '3.9'
 
 services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD:
+      MYSQL_DATABASE:
+      MYSQL_USER:
+      MYSQL_PASSWORD:
+    ports:
+      - "3307:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - backend
+
   api:
-    build: .                # Current directory (where Dockerfile & main.go are)
+    build: . # Current directory (where Dockerfile & main.go are)
     container_name: golang_api
     ports:
       - "8088:8088"
     volumes:
       - mydata:/app/filedata
+    environment:
+      - DB_USER=
+      - DB_PASSWORD=
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=
+    networks:
+      - backend
+
+  lmd:
+    image: neomediatech/lmd:latest # Lightweight LMD image
+    container_name: lmd_scanner
+    volumes:
+      - mydata:/app/filedata # mount same volume to scan
+      - ./quarantine:/usr/local/maldetect/quarantine
+      - ./logs:/usr/local/maldetect/logs
+      - ./sigs:/usr/local/maldetect/sigs
+      - ./sess:/usr/local/maldetect/sess
+    tty: true
+    stdin_open: true
+    command: tail -f /dev/null # keep container alive
+    networks:
+      - backend
 
 volumes:
   mydata:
+  dbdata:
+
+
+networks:
+  backend:
+    driver: bridge

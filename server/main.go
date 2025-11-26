@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -181,6 +182,20 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 	return logFile, nil
 }
 
+// Example using maldet.
+func scanWithMaldet(path string) error {
+	cmd := exec.Command("maldet", "--scan-all", path)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Maldet scan failed::: %v\nOutput: %s", err, string(output))
+	}
+
+	fmt.Println("Maldet output::: ", string(output))
+
+	return nil
+}
+
 func main() {
 
 	dbCredential := config.LoadConfig()
@@ -224,5 +239,5 @@ func main() {
 
 	r.GET("/preview", previewPDF)
 
-	r.Run("localhost:8088")
+	r.Run(":8088")
 }
