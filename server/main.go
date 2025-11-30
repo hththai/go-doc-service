@@ -145,16 +145,14 @@ func uploadHandler(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("File scan success:::\n")
-
 	// 3. Save file to file storage.
 	// Save to filedata
-	// getId, err := strconv.Atoi(temId)
+	getId, err := strconv.Atoi(temId)
 
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
-	// 	return
-	// }
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
+		return
+	}
 
 	// // Save to temp folder random folder.
 
@@ -162,17 +160,25 @@ func uploadHandler(c *gin.Context) {
 
 	// // If it is good. Continue to save to index file.
 
-	// indexIdPath := getId / 100
+	indexIdPath := getId / 100
 
 	// // uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
-	// uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
+	uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 
 	// if err := c.SaveUploadedFile(file, uploadPath); err != nil {
 	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 	// 	return
 	// }
 
+	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return
+	}
+
 	// -------
+
+	// Delete os temp final.
+	defer os.RemoveAll(filepath.Dir(tmpPath))
 
 	// **** save metadata process
 	// csvFile := "./metadata/metadata.csv"
