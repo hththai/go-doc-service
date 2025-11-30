@@ -6,7 +6,9 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -15,7 +17,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
@@ -34,6 +35,65 @@ func getDocs(c *gin.Context) {
 	c.JSON(http.StatusOK, documents)
 }
 
+// createAndSaveTempFolder.
+func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error) {
+
+	// Open the uploaded file
+	src, err := fileHeader.Open()
+	if err != nil {
+		return "", err
+	}
+
+	defer src.Close()
+
+	// Create a unique file in the system temp dir.
+	tempFile, err := os.CreateTemp("", "upload-*"+filepath.Ext(fileName))
+	if err != nil {
+		return "", err
+	}
+
+	defer tempFile.Close()
+
+	_, err = io.Copy(tempFile, src)
+
+	if err != nil {
+		return "", err
+	}
+
+	return tempFile.Name(), nil
+
+}
+
+// Scan virus and return.
+func fScan(tmpPath string) error {
+	cmd, err := exec.Command("/usr/local/maldetect/maldet", "-a", tmpPath).CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("maldet scan failed: %v, stderr : %s", err, cmd)
+	}
+
+	return nil
+}
+
+// Custom Util function to create a folder and name if it is not exist.
+func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error) {
+
+	err := os.MkdirAll("./"+folderName, os.ModePerm)
+	if err != nil {
+		log.Fatalf("Failed to create dictionary: %v", err)
+		return nil, errors.New("Failed to create dictionary")
+	}
+
+	// Open and Create the log file.
+	logFile, err := os.OpenFile("./"+folderName+"/"+fileWithExt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open file: %v", err)
+		return nil, errors.New("Failed to create file.")
+	}
+
+	return logFile, nil
+}
+
 func uploadHandler(c *gin.Context) {
 	name := c.PostForm("name")
 	description := c.PostForm("description")
@@ -49,58 +109,89 @@ func uploadHandler(c *gin.Context) {
 	// Resolve the stored file path.
 	// uploadPath := "./files/" + file.Filename
 
-	getId, err := strconv.Atoi(temId)
-
+	// Test to save temp file
+	tmpPath, err := saveTemp(file, file.Filename)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save file tmp"})
 		return
 	}
 
-	indexIdPath := getId / 100
+	fmt.Printf("Temp path is :::: %s\n", tmpPath)
+	// end test
 
-	uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
-	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
-
-	csvFile := "./metadata/metadata.csv"
-
-	fileExists := false
-	if _, err := os.Stat(csvFile); err == nil {
-		fileExists = true
-	}
-
-	f, err := os.OpenFile(csvFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// Scan virus and return.
+	err = fScan(tmpPath)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open CSV file"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
 		return
 	}
-	defer f.Close()
 
-	writer := csv.NewWriter(f)
-	defer writer.Flush()
+	fmt.Printf("File scan success:::\n")
+	// Save to filedata
+	// getId, err := strconv.Atoi(temId)
 
-	header := []string{"guid", "id", "nameortitle", "description", "filename", "size", "path"}
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
+	// 	return
+	// }
 
-	if !fileExists {
-		if err := writer.Write(header); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save header"})
-		}
-	}
+	// // Save to temp folder random folder.
 
-	// Write a row: name, description, file name, file size, upload path
-	record := []string{uuid.New().String(), temId, name, description, file.Filename, fmt.Sprintf("%d", file.Size), uploadPath}
-	if err := writer.Write(record); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write to CSV"})
-		return
-	}
+	// // Sanity scan virus by maldet. Return fail or true
+
+	// // If it is good. Continue to save to index file.
+
+	// indexIdPath := getId / 100
+
+	// // uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
+	// uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
+
+	// if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+	// 	return
+	// }
+
+	// -------
+
+	// **** save metadata process
+	// csvFile := "./metadata/metadata.csv"
+
+	// fileExists := false
+	// if _, err := os.Stat(csvFile); err == nil {
+	// 	fileExists = true
+	// }
+
+	// f, err := os.OpenFile(csvFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open CSV file"})
+	// 	return
+	// }
+	// defer f.Close()
+
+	// writer := csv.NewWriter(f)
+	// defer writer.Flush()
+
+	// header := []string{"guid", "id", "nameortitle", "description", "filename", "size", "path"}
+
+	// if !fileExists {
+	// 	if err := writer.Write(header); err != nil {
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save header"})
+	// 	}
+	// }
+
+	// // Write a row: name, description, file name, file size, upload path
+	// record := []string{uuid.New().String(), temId, name, description, file.Filename, fmt.Sprintf("%d", file.Size), uploadPath}
+	// if err := writer.Write(record); err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write to CSV"})
+	// 	return
+	// }
+	// ****
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":     "File uploaded successfully",
-		"file_name":   file.Filename,
-		"file_size":   file.Size,
-		"upload_path": uploadPath,
+		"message":   "File uploaded successfully",
+		"file_name": file.Filename,
+		"file_size": file.Size,
+		//"upload_path": uploadPath,
 		"name":        name,
 		"description": description,
 		"id":          temId,
@@ -161,25 +252,6 @@ func previewPDF(c *gin.Context) {
 
 	// Stream file.
 	c.File(filePath)
-}
-
-// Custom Util function to create a folder and name if it is not exist.
-func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error) {
-
-	err := os.MkdirAll("./"+folderName, os.ModePerm)
-	if err != nil {
-		log.Fatalf("Failed to create dictionary: %v", err)
-		return nil, errors.New("Failed to create dictionary")
-	}
-
-	// Open and Create the log file.
-	logFile, err := os.OpenFile("./"+folderName+"/"+fileWithExt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("Failed to open file: %v", err)
-		return nil, errors.New("Failed to create file.")
-	}
-
-	return logFile, nil
 }
 
 // Example using maldet.
