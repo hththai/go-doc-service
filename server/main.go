@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
+	log "github.com/sirupsen/logrus"
 )
 
 var documents = []internal.Document{
@@ -115,6 +115,9 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 }
 
 func uploadHandler(c *gin.Context) {
+
+	log.Debugf("upload file start %s", c.ClientIP())
+
 	name := c.PostForm("name")
 	description := c.PostForm("description")
 	temId := c.PostForm("tempId")
@@ -130,8 +133,11 @@ func uploadHandler(c *gin.Context) {
 	// uploadPath := "./files/" + file.Filename
 
 	// 1. Save to temp folder.
+
 	tmpPath, err := saveTemp(file, file.Filename)
 	if err != nil {
+		log.Errorf("Cannot save temp fild %s", file.Filename)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save file tmp"})
 		return
 	}
@@ -141,6 +147,9 @@ func uploadHandler(c *gin.Context) {
 	// 2. Scan virus and return.
 	err = fileScan(tmpPath)
 	if err != nil {
+
+		log.Errorf("Virus detected::: %s", file.Filename)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
 		return
 	}
@@ -150,31 +159,26 @@ func uploadHandler(c *gin.Context) {
 	getId, err := strconv.Atoi(temId)
 
 	if err != nil {
+
+		log.Errorf("Connot convert id::: %s", temId)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
 		return
 	}
 
-	// // Save to temp folder random folder.
-
-	// // Sanity scan virus by maldet. Return fail or true
-
-	// // If it is good. Continue to save to index file.
-
 	indexIdPath := getId / 100
 
-	// // uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 	uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 
-	// if err := c.SaveUploadedFile(file, uploadPath); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-	// 	return
-	// }
-
 	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+
+		log.Errorf("Error save file::: %s", file.Filename)
+
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
+	log.Debugf("Save file completed::: %s", file.Filename)
 	// -------
 
 	// Delete os temp final.
@@ -304,10 +308,18 @@ func main() {
 	defer logFile.Close()
 
 	log.SetOutput(logFile)
-	log.Println("This message goes to app.log")
+	// log.Println("This message goes to app.log")
 
-	customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
-	customLogger.Println("This message goes to standard output with a custom prefix and flags")
+	// customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
+	// customLogger.Println("This message goes to standard output with a custom prefix and flags")
+
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+
+	log.SetLevel(log.DebugLevel)
+
+	log.Info("Application started")
 
 	// *******************************
 	// fmt.Println("This is title:::", doc.Title)
