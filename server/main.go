@@ -3,6 +3,7 @@ package main
 import (
 	internal "2_Go/internal"
 	config "2_Go/repo"
+	"crypto/rand"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -35,6 +36,13 @@ func getDocs(c *gin.Context) {
 	c.JSON(http.StatusOK, documents)
 }
 
+// randomString generates a random hex string of length n*2.
+func randomString(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b) // ignore error for brevity
+	return fmt.Sprintf("%x", b)
+}
+
 // createAndSaveTempFolder.
 func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error) {
 
@@ -46,29 +54,41 @@ func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error)
 
 	defer src.Close()
 
-	// Create a unique file in the system temp dir.
-	tempFile, err := os.CreateTemp("", "upload-*"+filepath.Ext(fileName))
+	// Create a random folder under the temp dir.
+	randomDir := filepath.Join(os.TempDir(), "upload-"+randomString(8))
+	if err := os.MkdirAll(randomDir, 0755); err != nil {
+		return "", err
+	}
+
+	// Build the full path for the file.
+	destPath := filepath.Join(randomDir, fileName)
+
+	// Create the file.
+	dst, err := os.Create(destPath)
 	if err != nil {
 		return "", err
 	}
 
-	defer tempFile.Close()
+	defer dst.Close()
 
-	_, err = io.Copy(tempFile, src)
-
-	if err != nil {
+	if _, err := io.Copy(dst, src); err != nil {
 		return "", err
 	}
 
-	return tempFile.Name(), nil
+	return destPath, nil
 
 }
 
 // Scan virus and return.
-func fScan(tmpPath string) error {
+func fileScan(tmpPath string) error {
 	cmd, err := exec.Command("/usr/local/maldetect/maldet", "-a", tmpPath).CombinedOutput()
 
 	if err != nil {
+		// Delete path if it fail. Delete the parent folder.
+		if rmErr := os.RemoveAll(filepath.Dir(tmpPath)); rmErr != nil {
+			return fmt.Errorf("maldet scan failed: %v, cleanup error: %v", err, rmErr)
+		}
+
 		return fmt.Errorf("maldet scan failed: %v, stderr : %s", err, cmd)
 	}
 
@@ -109,7 +129,7 @@ func uploadHandler(c *gin.Context) {
 	// Resolve the stored file path.
 	// uploadPath := "./files/" + file.Filename
 
-	// Test to save temp file
+	// 1. Save to temp folder.
 	tmpPath, err := saveTemp(file, file.Filename)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save file tmp"})
@@ -117,16 +137,17 @@ func uploadHandler(c *gin.Context) {
 	}
 
 	fmt.Printf("Temp path is :::: %s\n", tmpPath)
-	// end test
 
-	// Scan virus and return.
-	err = fScan(tmpPath)
+	// 2. Scan virus and return.
+	err = fileScan(tmpPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
 		return
 	}
 
 	fmt.Printf("File scan success:::\n")
+
+	// 3. Save file to file storage.
 	// Save to filedata
 	// getId, err := strconv.Atoi(temId)
 
@@ -225,7 +246,7 @@ func writeCSV(path string, header []string, content []string) error {
 
 	// Append content
 	if err := writer.Write(content); err != nil {
-		return fmt.Errorf("Error writing content::: %w", err)
+		return fmt.Errorf("error writing content::: %w", err)
 	}
 
 	return nil
@@ -252,20 +273,6 @@ func previewPDF(c *gin.Context) {
 
 	// Stream file.
 	c.File(filePath)
-}
-
-// Example using maldet.
-func scanWithMaldet(path string) error {
-	cmd := exec.Command("maldet", "--scan-all", path)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Maldet scan failed::: %v\nOutput: %s", err, string(output))
-	}
-
-	fmt.Println("Maldet output::: ", string(output))
-
-	return nil
 }
 
 func main() {
