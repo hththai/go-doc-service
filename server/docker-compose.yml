@@ -35,7 +35,7 @@ services:
       - DB_USER=appuser
       - DB_PASSWORD=password
       - DB_HOST=db
-      - DB_PORT=3306
+      - DB_PORT=33067
       - DB_NAME=goDocument
     networks:
       - backend
