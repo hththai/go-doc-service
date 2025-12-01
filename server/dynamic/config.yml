@@ -1,0 +1,13 @@
+http:
+  routers:
+    apigolang:
+      rule: "Host(`api.golang.localhost`) || Host(`api.golang.hthai.cloud`)"
+      entryPoints:
+        - web
+      service: apigolang
+
+  services:
+    apigolang:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8088"  # Replace with your container's IP and port
