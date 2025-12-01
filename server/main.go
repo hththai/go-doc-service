@@ -18,7 +18,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var documents = []internal.Document{
@@ -116,7 +117,7 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 
 func uploadHandler(c *gin.Context) {
 
-	log.Debugf("upload file start %s", c.ClientIP())
+	log.Infof("Request upload from::: %s", c.ClientIP())
 
 	name := c.PostForm("name")
 	description := c.PostForm("description")
@@ -136,19 +137,19 @@ func uploadHandler(c *gin.Context) {
 
 	tmpPath, err := saveTemp(file, file.Filename)
 	if err != nil {
-		log.Errorf("Cannot save temp fild %s", file.Filename)
+
+		log.Errorf("Cannot save temp %s", file.Filename)
+		//log.Errorf("Cannot save temp fild %s", file.Filenam≥e)
 
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save file tmp"})
 		return
 	}
 
-	fmt.Printf("Temp path is :::: %s\n", tmpPath)
-
 	// 2. Scan virus and return.
 	err = fileScan(tmpPath)
 	if err != nil {
 
-		log.Errorf("Virus detected::: %s", file.Filename)
+		log.Debugf("Virus detected::: %s", file.Filename)
 
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
 		return
@@ -285,6 +286,8 @@ func previewPDF(c *gin.Context) {
 	c.File(filePath)
 }
 
+var log = logrus.New()
+
 func main() {
 
 	dbCredential := config.LoadConfig()
@@ -300,26 +303,39 @@ func main() {
 	fmt.Println("Database connection successfully!")
 	// doc := internal.CreateNewDoc("Hello")
 	// **************EXAMPLE LOG**************
-	logFile, err := createFolderAndFile("App", "app.log")
 
-	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
-	}
-	defer logFile.Close()
-
-	log.SetOutput(logFile)
-	// log.Println("This message goes to app.log")
-
-	// customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
-	// customLogger.Println("This message goes to standard output with a custom prefix and flags")
-
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp: true,
+	log.SetOutput(&lumberjack.Logger{
+		Filename:   "./app/log/myapp.log",
+		MaxSize:    10,
+		MaxBackups: 5,
+		MaxAge:     7,
+		Compress:   true,
 	})
 
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(logrus.DebugLevel)
 
-	log.Info("Application started")
+	log.Info("******APPLICATION STARTED*******")
+
+	// logFile, err := createFolderAndFile("App", "app.log")
+
+	// if err != nil {
+	// 	log.Fatalf("Failed to open log file: %v", err)
+	// }
+	// defer logFile.Close()
+
+	// log.SetOutput(logFile)
+	// // log.Println("This message goes to app.log")
+
+	// // customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
+	// // customLogger.Println("This message goes to standard output with a custom prefix and flags")
+
+	// log.SetFormatter(&log.TextFormatter{
+	// 	FullTimestamp: true,
+	// })
+
+	// log.SetLevel(log.DebugLevel)
+
+	// log.Info("Application started")
 
 	// *******************************
 	// fmt.Println("This is title:::", doc.Title)
