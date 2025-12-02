@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/timeout"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
@@ -69,6 +70,13 @@ func main() {
 
 	router.GET("/api2", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	})
+
+	// Example of timeout.
+	router.GET("/timeout", timeout.New(timeout.WithTimeout(100*time.Microsecond)), func(c *gin.Context) {
+		time.Sleep(200 * time.Microsecond)
+
+		c.JSON(http.StatusOK, gin.H{"message": "Good"})
 	})
 
 	router.Run(":8080")
