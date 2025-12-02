@@ -1,65 +1,75 @@
-
 package main
 
 import (
-    "net/http"
-    "sync"
-    "time"
+	"context"
+	"fmt"
+	"net/http"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    "golang.org/x/time/rate"
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-type RateLimiter struct {
-    mu       sync.Mutex
-    limiters map[string]*rate.Limiter
+var ctx = context.Background()
+
+type RedisRateLimiter struct {
+	client *redis.Client
+	limit  int
+	window time.Duration
 }
 
-func NewRateLimiter() *RateLimiter {
-    return &RateLimiter{
-        limiters: make(map[string]*rate.Limiter),
-    }
+func NewRedisRateLimiter(client *redis.Client, limit int, window time.Duration) *RedisRateLimiter {
+	return &RedisRateLimiter{client: client, limit: limit, window: window}
 }
 
-func (r *RateLimiter) GetLimiter(key string) *rate.Limiter {
-    r.mu.Lock()
-    defer r.mu.Unlock()
+func (r *RedisRateLimiter) Allow(key string) bool {
+	now := time.Now().Unix()
 
-    limiter, exists := r.limiters[key]
-    if !exists {
-        // 5 requests per minute
-        limiter = rate.NewLimiter(rate.Every(time.Minute/5), 5)
-        r.limiters[key] = limiter
-    }
-    return limiter
+	redisKey := fmt.Sprintf("rate:%s:%d", key, now/int64(r.window.Seconds()))
+
+	count, err := r.client.Incr(ctx, redisKey).Result()
+
+	if err != nil {
+		return false
+	}
+
+	if count == 1 {
+		r.client.Expire(ctx, redisKey, r.window)
+	}
+
+	return count <= int64(r.limit)
 }
 
-func RateLimitMiddleware(r *RateLimiter) gin.HandlerFunc {
-    return func(c *gin.Context) {
-        userID := c.GetHeader("X-User-ID") // or use JWT claims
-        if userID == "" {
-            userID = c.ClientIP() // fallback to IP
-        }
+func RateLimitMiddleware(r *RedisRateLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetHeader("X-User-ID")
+		if userID == "" {
+			userID = c.ClientIP()
+		}
 
-        limiter := r.GetLimiter(userID)
-        if !limiter.Allow() {
-            c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
-            c.Abort()
-            return
-        }
-        c.Next()
-    }
+		if !r.Allow(userID) {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+
+	}
 }
 
 func main() {
-    r := gin.Default()
-    rateLimiter := NewRateLimiter()
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
 
-    r.Use(RateLimitMiddleware(rateLimiter))
+	limiter := NewRedisRateLimiter(rdb, 10, time.Minute) // 10 requests per minute
 
-    r.GET("/api", func(c *gin.Context) {
-        c.JSON(http.StatusOK, gin.H{"message": "Success"})
-    })
+	router := gin.Default()
 
-    r.Run(":8080")
+	router.Use(RateLimitMiddleware(limiter))
+
+	router.GET("/api2", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	})
+
+	router.Run(":8080")
 }
