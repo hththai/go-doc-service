@@ -47,8 +47,8 @@ services:
       MYSQL_DATABASE: your
       MYSQL_USER: your
       MYSQL_PASSWORD: your
-    ports:
-      - "3307:3306"
+    # ports:
+    #   - "3307:3306"
     volumes:
       - dbdata:/var/lib/mysql
     networks:
@@ -63,8 +63,8 @@ services:
     build: . # Current directory (where Dockerfile & main.go are)
     container_name: golang_api
     user: "1000:1000"
-    ports:
-      - "8088:8088"
+    # ports:
+    #   - "8088:8088"
     volumes:
       - mydata:/app
     environment:
@@ -79,6 +79,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    labels:
+      #Using to resolve port managed by traefik
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.golang.localdomain`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8088"
 
 volumes:
   mydata:
@@ -88,5 +94,3 @@ volumes:
 networks:
   backend:
     driver: bridge
-  traefik:
-    external: true
