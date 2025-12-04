@@ -1,6 +1,8 @@
 https://dev.to/lucasdeataides/why-clean-architecture-struggles-in-golang-and-what-works-better-m4g
 
-example clean structure
+https://medium.com/@harshgharat663/understanding-handlers-services-repositories-middlewares-request-context-in-backend-2977539931d9
+
+###example clean structure
 
 handler(controller/api) --> services -->(interface) -> repo (database)
 
