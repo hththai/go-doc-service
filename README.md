@@ -3,3 +3,9 @@ https://dev.to/lucasdeataides/why-clean-architecture-struggles-in-golang-and-wha
 example clean structure
 
 handler(controller/api) --> services --> repo (database / behavior / interface)
+
+Client → Router → Middleware (CORS, Auth, Logging)
+       → Handler (Extract, Validate)
+       → Service (Business Logic)
+       → Repository (Database)
+       → Response to Client
