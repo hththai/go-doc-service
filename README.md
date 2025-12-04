@@ -9,3 +9,12 @@ Client → Router → Middleware (CORS, Auth, Logging)
        → Service (Business Logic)
        → Repository (Database)
        → Response to Client
+
+
+ Layer          | Responsibility            | Knows About                   |
+| -------------- | ------------------------- | ----------------------------- |
+| **Handler**    | Input/output format, HTTP | Request/Response              |
+| **Service**    | Core business logic       | Internal operations           |
+| **Repository** | Database interaction      | SQL, queries                  |
+| **Middleware** | Cross-cutting concerns    | Logging, auth, error handling |
+| **Context**    | Scoped request state      | Shared between layers         |
