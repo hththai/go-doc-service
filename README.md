@@ -2,4 +2,4 @@ https://dev.to/lucasdeataides/why-clean-architecture-struggles-in-golang-and-wha
 
 example clean structure
 
-handler(controller) --> services --> repo (database / behavior / interface) --> model
+handler(controller/api) --> services --> repo (database / behavior / interface) --> model
