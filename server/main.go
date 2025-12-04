@@ -215,7 +215,10 @@ func main() {
 	r.GET("/preview", previewPDF)
 
 	r.GET("/user", func(c *gin.Context) {
-		result, err := api.GetAllUser(c, userService)
+		// Prefer passing the request context.
+		ctx := c.Request.Context()
+		
+		result, err := api.GetAllUser(ctx, userService)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
