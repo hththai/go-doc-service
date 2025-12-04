@@ -180,6 +180,10 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 }
 
 func main() {
+	
+	userRepo := user.NewUserRepository()
+	userService := user.NewUserService(userRepo)
+	
 	// doc := internal.CreateNewDoc("Hello")
 	// **************EXAMPLE LOG**************
 	logFile, err := createFolderAndFile("App", "app.log")
@@ -209,6 +213,19 @@ func main() {
 	r.POST("/upload", uploadHandler)
 
 	r.GET("/preview", previewPDF)
+
+	r.GET("/user", func(c *gin.Context) {
+		result, err := api.GetAllUser(c, userService)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		fmt.Printf("This is result::: %s", result)
+
+		c.JSON(http.StatusOK, gin.H{"message": result})
+	})
 
 	r.Run("localhost:8088")
 }
