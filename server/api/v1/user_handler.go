@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetAllUser(c *gin.Context, u *user.UserService) (string, error) {
+func GetAllUser(c *Request.Context, u *user.UserService) (string, error) {
 	result, err := u.Repo.FindAll()
 
 	if err != nil {
