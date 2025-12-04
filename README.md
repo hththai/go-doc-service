@@ -2,7 +2,7 @@ https://dev.to/lucasdeataides/why-clean-architecture-struggles-in-golang-and-wha
 
 https://medium.com/@harshgharat663/understanding-handlers-services-repositories-middlewares-request-context-in-backend-2977539931d9
 
-###example clean structure
+### Example clean structure
 
 handler(controller/api) --> services -->(interface) -> repo (database)
 
