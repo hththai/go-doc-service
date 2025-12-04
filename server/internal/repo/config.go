@@ -32,7 +32,7 @@ func EnsureTables(db *sql.DB) error {
 func CreateDocumentTable(db *sql.DB) error {
 	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS obj_doc (
-		guid varchar(16),
+		guid char(36),
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		name_or_title varchar(100) NOT NULL,
 		description varchar(1000),

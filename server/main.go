@@ -1,9 +1,12 @@
 package main
 
 import (
-	internal "2_Go/internal"
-	config "2_Go/repo"
+	v1 "2_Go/api/v1"
+	"2_Go/internal/document"
+	internal "2_Go/internal/document"
+	config "2_Go/internal/repo"
 	"crypto/rand"
+	"database/sql"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -14,7 +17,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
@@ -22,20 +24,20 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var documents = []internal.Document{
-	{Id: "001", Title: "Example", CreatedAt: time.Now(), ModifiedAt: time.Now()},
-	{Id: "002", Title: "Example2", CreatedAt: time.Now(), ModifiedAt: time.Now()},
-}
+// var documents = []internal.Document{
+// 	{Id: "001", Title: "Example", CreatedAt: time.Now(), ModifiedAt: time.Now()},
+// 	{Id: "002", Title: "Example2", CreatedAt: time.Now(), ModifiedAt: time.Now()},
+// }
 
-func getDocs(c *gin.Context) {
-	err := c.ShouldBind(&documents)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+// func getDocs(c *gin.Context) {
+// 	err := c.ShouldBind(&documents)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, documents)
-}
+// 	c.JSON(http.StatusOK, documents)
+// }
 
 // randomString generates a random hex string of length n*2.
 func randomString(n int) string {
@@ -115,7 +117,7 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 	return logFile, nil
 }
 
-func uploadHandler(c *gin.Context) {
+func uploadHandler(c *gin.Context, repo config.DocObjectRepo, db *sql.DB) {
 
 	log.Infof("Request upload from::: %s", c.ClientIP())
 
@@ -146,14 +148,14 @@ func uploadHandler(c *gin.Context) {
 	}
 
 	// 2. Scan virus and return.
-	err = fileScan(tmpPath)
-	if err != nil {
+	// err = fileScan(tmpPath)
+	// if err != nil {
 
-		log.Debugf("Virus detected::: %s", file.Filename)
+	// 	log.Debugf("Virus detected::: %s", file.Filename)
 
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
-		return
-	}
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
+	// 	return
+	// }
 
 	// 3. Save file to file storage.
 	// Save to filedata
@@ -218,6 +220,16 @@ func uploadHandler(c *gin.Context) {
 	// 	return
 	// }
 	// ****
+
+	// Save to database mysql
+	objDoc := internal.Document{
+		Title: file.Filename,
+	}
+	if err := repo.SaveDoc(db, objDoc); err != nil {
+		log.Error("Failed to save to database")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save to database"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message":   "File uploaded successfully",
@@ -300,6 +312,8 @@ func main() {
 
 	defer db.Close()
 
+	repo := &config.MySQLDocRepo{}
+
 	fmt.Println("Database connection successfully!")
 	// doc := internal.CreateNewDoc("Hello")
 	// **************EXAMPLE LOG**************
@@ -316,30 +330,10 @@ func main() {
 
 	log.Info("******APPLICATION STARTED*******")
 
-	// logFile, err := createFolderAndFile("App", "app.log")
-
-	// if err != nil {
-	// 	log.Fatalf("Failed to open log file: %v", err)
-	// }
-	// defer logFile.Close()
-
-	// log.SetOutput(logFile)
-	// // log.Println("This message goes to app.log")
-
-	// // customLogger := log.New(os.Stdout, "MY_APP: ", log.Ldate|log.Ltime|log.Lshortfile)
-	// // customLogger.Println("This message goes to standard output with a custom prefix and flags")
-
-	// log.SetFormatter(&log.TextFormatter{
-	// 	FullTimestamp: true,
-	// })
-
-	// log.SetLevel(log.DebugLevel)
-
-	// log.Info("Application started")
-
-	// *******************************
-	// fmt.Println("This is title:::", doc.Title)
 	r := gin.Default()
+
+	docRepo := document.NewDocumentRepository(db)
+	docService := document.NewDocumentService(docRepo)
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -347,10 +341,23 @@ func main() {
 		})
 	})
 
-	r.GET("/documents", getDocs)
-	r.POST("/upload", uploadHandler)
-
+	// r.GET("/documents", getDocs)
+	// r.POST("/upload", uploadHandler)
+	r.POST("/upload", func(c *gin.Context) {
+		uploadHandler(c, repo, db)
+	})
 	r.GET("/preview", previewPDF)
 
+	r.POST("/testupload", func(c *gin.Context) {
+		err := v1.UploadDocument(c, docService)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Faild"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+
+	})
 	r.Run(":8088")
 }
