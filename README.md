@@ -20,3 +20,7 @@ Client → Router → Middleware (CORS, Auth, Logging)
 | **Repository** | Database interaction      | SQL, queries                  |
 | **Middleware** | Cross-cutting concerns    | Logging, auth, error handling |
 | **Context**    | Scoped request state      | Shared between layers         |
+
+
+### Channel and async golang
+https://medium.com/@gauravsingharoy/asynchronous-programming-with-go-546b96cd50c1
