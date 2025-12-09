@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+type Status int
+
+const (
+	StatusFailed  Status = -1 // -1
+	StatusPending Status = 0
+	StatusActive  Status = 1
+)
+
+var StatusLabels = map[Status]string{
+	StatusFailed:  "failed",
+	StatusPending: "pending",
+	StatusActive:  "active",
+}
+
 type Document struct {
 	GUID        string    `json:"guid"`
 	Id          string    `json:"id"`
@@ -12,9 +26,10 @@ type Document struct {
 	Description string    `json:"description"`
 	Extension   string    `json:"extension"`
 	FilePath    string    `json:"filepath"`
-	FileSize    float32   `json:"filesize"`
+	FileSize    float64   `json:"filesize"`
 	CreatedAt   time.Time `json:"createdAt"`
 	ModifiedAt  time.Time `json:"modifiedAt"`
+	Status      Status    `json:"status"`
 }
 
 func PrintHello() {

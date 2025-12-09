@@ -34,19 +34,31 @@ func CreateDocumentTable(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS obj_doc (
 		guid char(36),
 		id INT AUTO_INCREMENT PRIMARY KEY,
+		status int not null,
 		name_or_title varchar(100) NOT NULL,
 		description varchar(1000),
 		created_at timestamp default current_timestamp,
-		modified_at timestamp,
+		modified_at timestamp default current_timestamp on update current_timestamp,
 		buy_price real,
 		sold_price real,
 		buy_at timestamp,
 		sold_at timestamp,
 		file_size real,
-		extension varchar(10),
-		file_path varchar(4000)		
+		extension varchar(10)
 		)
 	`)
+
+	return err
+}
+
+// Create ObjDocPath table.
+func CreateFilePathTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_doc_path(
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		doc_id INT,
+		file_path varchar(4000)
+		)
+		`)
 
 	return err
 }
@@ -94,13 +106,13 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 	db, err := sql.Open("mysql", dsn)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connection: %w", err)
+		return nil, fmt.Errorf("failed to connection: %w", err)
 	}
 
 	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + dbCredential.dbName)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create database: %w", err)
+		return nil, fmt.Errorf("failed to create database: %w", err)
 	}
 
 	db.Close()
@@ -115,11 +127,16 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to connect to database %s: %w", dbCredential.dbName, err)
+		return nil, fmt.Errorf("failed to connect to database %s: %w", dbCredential.dbName, err)
 	}
 
 	// Create ObjDoc table.
 	if err := CreateDocumentTable(db); err != nil {
+		log.Fatalln(err)
+	}
+
+	// Create DocPath Tabl
+	if err := CreateFilePathTable(db); err != nil {
 		log.Fatalln(err)
 	}
 
