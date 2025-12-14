@@ -6,8 +6,8 @@ import (
 )
 
 type DocumentRepository interface {
-	SaveMetadata(document Document) (int64, error)
-	InsertFilePath(document *Document) error
+	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
+	InsertFilePath(tx *sql.Tx, document *Document) error
 }
 
 type documentRepositoryImpl struct {
@@ -19,28 +19,29 @@ func NewDocumentRepository(db *sql.DB) DocumentRepository {
 }
 
 // Return int objID, if not -1.
-func (r *documentRepositoryImpl) SaveMetadata(document Document) (int64, error) {
-	tx, err := r.db.Begin()
+func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (int64, error) {
+	// tx, err := r.db.Begin()
 
-	if err != nil {
-		return -1, err
-	}
+	// if err != nil {
+	// 	return -1, err
+	// }
 
-	result, err := r.db.Exec(
+	// result, err := r.db.Exec(
+	result, err := tx.Exec(
 		`INSERT INTO obj_doc (guid, name_or_title, description, file_size, extension, status)
 		VALUES (?,?,?,?,?,?)`,
 		document.GUID, document.Title, document.Description, document.FileSize, document.Extension, document.Status,
 	)
 
 	if err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return -1, err
 	}
 
 	id, err := result.LastInsertId()
 
 	if err != nil {
-		tx.Rollback()
+		// tx.Rollback()
 		return -1, err
 	}
 
@@ -48,14 +49,15 @@ func (r *documentRepositoryImpl) SaveMetadata(document Document) (int64, error) 
 }
 
 // Insert file path.
-func (r *documentRepositoryImpl) InsertFilePath(document *Document) error {
+func (r *documentRepositoryImpl) InsertFilePath(tx *sql.Tx, document *Document) error {
 
 	objId, err := strconv.ParseInt(document.Id, 10, 64)
 	if err != nil {
 		return err
 	}
 
-	_, err = r.db.Exec(
+	// _, err = r.db.Exec(
+	_, err = tx.Exec(
 		`INSERT INTO obj_doc_path (doc_id, file_path) VALUES (?,?)`, objId, document.FilePath,
 	)
 	if err != nil {

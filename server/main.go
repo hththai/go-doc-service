@@ -349,12 +349,24 @@ func main() {
 	r.GET("/preview", previewPDF)
 
 	r.POST("/testupload", func(c *gin.Context) {
-		err := v1.UploadDocument(c, docService)
+		// tx, err := db.Begin()
+		// if err != nil {
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		// 	return
+		// }
+
+		err = v1.UploadDocument(c, docService, db)
 
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Faild"})
+			// tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+
+		// if err := tx.Commit(); err != nil {
+		// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Commit failed"})
+		// 	return
+		// }
 
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 

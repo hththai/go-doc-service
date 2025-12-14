@@ -1,5 +1,7 @@
 package document
 
+import "database/sql"
+
 type DocumentService struct {
 	repo DocumentRepository
 }
@@ -8,11 +10,11 @@ func NewDocumentService(repo DocumentRepository) *DocumentService {
 	return &DocumentService{repo: repo}
 }
 
-func (s *DocumentService) SaveDocumentMetadata(document Document) (int64, error) {
+func (s *DocumentService) SaveDocumentMetadata(tx *sql.Tx, document *Document) (int64, error) {
 
-	return s.repo.SaveMetadata(document)
+	return s.repo.SaveMetadata(tx, document)
 }
 
-func (s *DocumentService) SaveFilePath(document *Document) error {
-	return s.repo.InsertFilePath(document)
+func (s *DocumentService) SaveFilePath(tx *sql.Tx, document *Document) error {
+	return s.repo.InsertFilePath(tx, document)
 }
