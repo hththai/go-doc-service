@@ -77,7 +77,10 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 	doc.Extension = filepath.Ext(file.Filename)
 
 	// 3. Save file to storage related to 2. ID result
-	objId, err := service.SaveDocumentMetadata(tx, &doc)
+	// objId, err := service.SaveDocumentMetadata(tx, &doc)
+	objId, err := service.SetLatestFileID(tx, &doc)
+
+	fmt.Printf("this is objID::: %d\n", objId)
 
 	if err != nil {
 		_ = tx.Rollback()
@@ -94,6 +97,10 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 		return fmt.Errorf("cannot save file: %w", err)
 	}
 
+	// last step: save the doc metadata.
+
+	_, err = service.SaveDocumentMetadata(tx, &doc)
+
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit failed: %w", err)
 	}
@@ -105,7 +112,7 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 // Update file path
 func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *document.Document, service *document.DocumentService, tx *sql.Tx) error {
 
-	return errors.New("failed save file and metadata")
+	//return errors.New("failed save file and metadata")
 
 	tmpPath, err := saveTemp(file, file.Filename)
 
@@ -262,14 +269,14 @@ func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error
 	err := os.MkdirAll("./"+folderName, os.ModePerm)
 	if err != nil {
 
-		return nil, errors.New("Failed to create dictionary")
+		return nil, errors.New("failed to create dictionary")
 	}
 
 	// Open and Create the log file.
 	logFile, err := os.OpenFile("./"+folderName+"/"+fileWithExt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 
-		return nil, errors.New("Failed to create file.")
+		return nil, errors.New("failed to create file")
 	}
 
 	return logFile, nil

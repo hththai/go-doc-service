@@ -63,6 +63,23 @@ func CreateFilePathTable(db *sql.DB) error {
 	return err
 }
 
+// Create Record Object ID counter.
+func CreateObjIdTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_id_counter (obj_id bigint, name varchar(100) primary key, created_at timestamp default current_timestamp on update current_timestamp)`)
+
+	if err != nil {
+		return fmt.Errorf("failed to create obj_id_counter: %w", err)
+	}
+
+	// Insert initial row only if it doesn't exist.
+	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES(0,'document') ON DUPLICATE KEY UPDATE obj_id=obj_id`)
+
+	if err != nil {
+		return fmt.Errorf("failed to initialize counter row: %w", err)
+	}
+	return nil
+}
+
 type DBCredential struct {
 	user     string
 	password string
@@ -133,11 +150,19 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 	// Create ObjDoc table.
 	if err := CreateDocumentTable(db); err != nil {
 		log.Fatalln(err)
+		return nil, fmt.Errorf("failed to create document table: %w", err)
 	}
 
 	// Create DocPath Tabl
 	if err := CreateFilePathTable(db); err != nil {
 		log.Fatalln(err)
+		return nil, fmt.Errorf("failed to create file path table: %w", err)
+	}
+
+	// Create ObjID Table
+	if err := CreateObjIdTable(db); err != nil {
+		log.Fatalln(err)
+		return nil, fmt.Errorf("failed to create objId table: %w", err)
 	}
 
 	return db, nil

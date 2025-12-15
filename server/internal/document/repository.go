@@ -2,10 +2,12 @@ package document
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 )
 
 type DocumentRepository interface {
+	SetLatestObjId(tx *sql.Tx, document *Document) (int64, error)
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
 }
@@ -16,6 +18,42 @@ type documentRepositoryImpl struct {
 
 func NewDocumentRepository(db *sql.DB) DocumentRepository {
 	return &documentRepositoryImpl{db: db}
+}
+
+// Resolve objID gapless by table if there is file(s) attachment.
+func (r *documentRepositoryImpl) SetLatestObjId(tx *sql.Tx, document *Document) (int64, error) {
+
+	var objID int64
+
+	// Lock the counter row.
+	err := tx.QueryRow(`
+	SELECT obj_id FROM obj_id_counter WHERE name='document' FOR UPDATE
+	`).Scan(&objID)
+
+	// fmt.Printf("the current objID::: %d\n", objID)
+
+	if err != nil {
+		return -1, fmt.Errorf("failed to lock obj_id_counter: %w", err)
+	}
+
+	_, err = tx.Exec(`
+	UPDATE obj_id_counter SET obj_id = obj_id + 1 WHERE name = 'document'
+	`)
+
+	if err != nil {
+		return -1, fmt.Errorf("failed to update latest obj ID: %w", err)
+	}
+
+	// Get the objID after updated.
+	err = tx.QueryRow(`
+	SELECT obj_id FROM obj_id_counter WHERE name='document'
+		`).Scan(&objID)
+
+	if err != nil {
+		return -1, fmt.Errorf("failed to get latest obj ID: %w", err)
+	}
+
+	return objID, nil
 }
 
 // Return int objID, if not -1.
