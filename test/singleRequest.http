@@ -1,0 +1,30 @@
+POST /testupload HTTP/1.1
+Host: api.golang.localdomain
+Content-Type: multipart/form-data; boundary=WebBoundary
+
+--WebBoundary
+Content-Disposition: form-data; name="title"
+
+Hayden Thai Resume
+--WebBoundary
+Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
+
+< .input/Hayden Thai_Resume-2.pdf
+
+--WebBoundary--
+###
+
+POST /testupload HTTP/1.1
+Host: api.golang.localdomain
+Content-Type: multipart/form-data; boundary=WebBoundary
+
+--WebBoundary
+Content-Disposition: form-data; name="name"
+
+This is title
+--WebBoundary--
+Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
+Content-Type: application/pdf
+
+< ./Hayden Thai_Resume-2.pdf
+--WebBoundary--
