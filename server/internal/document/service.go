@@ -10,8 +10,12 @@ func NewDocumentService(repo DocumentRepository) *DocumentService {
 	return &DocumentService{repo: repo}
 }
 
-func (s *DocumentService) SetLatestFileID(tx *sql.Tx, document *Document) (int64, error) {
+func (s *DocumentService) SetLatestObjID(tx *sql.Tx, document *Document) (int64, error) {
 	return s.repo.SetLatestObjId(tx, document)
+}
+
+func (s *DocumentService) SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error) {
+	return s.repo.SaveMetadataWithObjId(tx, objId, document)
 }
 
 func (s *DocumentService) SaveDocumentMetadata(tx *sql.Tx, document *Document) (int64, error) {

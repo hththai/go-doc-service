@@ -34,6 +34,7 @@ func CreateDocumentTable(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS obj_doc (
 		guid char(36),
 		id INT AUTO_INCREMENT PRIMARY KEY,
+		obj_id BIGINT,
 		status int not null,
 		name_or_title varchar(100) NOT NULL,
 		description varchar(1000),

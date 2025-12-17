@@ -8,6 +8,7 @@ import (
 
 type DocumentRepository interface {
 	SetLatestObjId(tx *sql.Tx, document *Document) (int64, error)
+	SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error)
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
 }
@@ -54,6 +55,35 @@ func (r *documentRepositoryImpl) SetLatestObjId(tx *sql.Tx, document *Document) 
 	}
 
 	return objID, nil
+}
+
+func (r *documentRepositoryImpl) SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error) {
+	// tx, err := r.db.Begin()
+
+	// if err != nil {
+	// 	return -1, err
+	// }
+
+	// result, err := r.db.Exec(
+	result, err := tx.Exec(
+		`INSERT INTO obj_doc (guid, obj_id, name_or_title, description, file_size, extension, status)
+		VALUES (?,?,?,?,?,?,?)`,
+		document.GUID, objId, document.Title, document.Description, document.FileSize, document.Extension, document.Status,
+	)
+
+	if err != nil {
+		// tx.Rollback()
+		return -1, err
+	}
+
+	id, err := result.LastInsertId()
+
+	if err != nil {
+		// tx.Rollback()
+		return -1, err
+	}
+
+	return id, nil
 }
 
 // Return int objID, if not -1.
