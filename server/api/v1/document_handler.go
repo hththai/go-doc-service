@@ -5,11 +5,9 @@ import (
 	"2_Go/utils"
 	"crypto/rand"
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,8 +50,6 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 	// Retrieve and update latest objID.
 	objId, err := service.SetLatestObjID(tx, &doc)
 
-	fmt.Printf("this is objID::: %d\n", objId)
-
 	if err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("metadata save failed: %w", err)
@@ -65,11 +61,6 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 	if err != nil {
 		// Continue to save metadata
 
-		// if err := saveMetadataOnly(&doc, service, c, tx); err != nil {
-		// 	_ = tx.Rollback()
-		// 	return fmt.Errorf("metadata save failed: %w", err)
-		// }
-
 		if err := saveMetadataOnlyWithObjId(&objId, &doc, service, c, tx); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("metadata save failed: %w", err)
@@ -79,35 +70,16 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 
 	}
 
-	// 1. Validate file
-
-	// 2. Begin transaction
-
-	// if err != nil {
-	// 	return err
-	// }
-
 	// Update related fields.
 	doc.Title = file.Filename
 	doc.FileSize = float64(file.Size)
 	doc.Extension = filepath.Ext(file.Filename)
 
-	// 3. Save file to storage related to 2. ID result
-	// objId, err := service.SaveDocumentMetadata(tx, &doc)
-	// objId, err := service.SetLatestObjID(tx, &doc)
-
-	// fmt.Printf("this is objID::: %d\n", objId)
-
-	// if err != nil {
-	// 	_ = tx.Rollback()
-	// 	return fmt.Errorf("metadata save failed: %w", err)
-	// }
 	// 4. Update status
 	doc.Id = strconv.FormatInt(objId, 10)
 	// doc.Status = 1
 	// 5. Commit.
 
-	// return saveFileAndMetadata(file, c, temId, derscription, service)
 	if err := saveFileAndMetadata(file, c, &doc, service, tx); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("cannot save file: %w", err)
@@ -115,7 +87,6 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 
 	// last step: save the doc metadata.
 
-	// _, err = service.SaveDocumentMetadata(tx, &doc)
 	_, err = service.SaveMetadataWithObjId(tx, &objId, &doc)
 
 	if err = tx.Commit(); err != nil {
@@ -138,8 +109,8 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 	defer os.RemoveAll(filepath.Dir(tmpPath)) // Consider remove only temp file.
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save file tmp"})
-		return err
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot save file tmp"})
+		return fmt.Errorf("cannot save file tmp: %w", err)
 	}
 
 	// Process to scan and save file.
@@ -147,8 +118,8 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 	if utils.IsProduction() {
 		err = fileScan(tmpPath)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
-			return err
+			// c.JSON(http.StatusInternalServerError, gin.H{"error": "File error with Scan"})
+			return fmt.Errorf("file error with scan")
 		}
 	}
 
@@ -159,15 +130,15 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 	getId, err := strconv.Atoi(doc.Id)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
-		return err
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "Cannot convert id"})
+		return fmt.Errorf("connot convert id")
 	}
 
 	uploadPath := buildUploadPath(getId, doc.Id, file, INDEX_FOLDER)
 
 	if err := c.SaveUploadedFile(file, uploadPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return err
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+		return fmt.Errorf("failed to save file")
 	}
 
 	doc.FilePath = uploadPath
@@ -179,10 +150,6 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 	if err != nil {
 		return err
 	}
-
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"message": "File Uploaded Succesful",
-	// })
 
 	return nil
 }
@@ -199,24 +166,10 @@ func buildUploadPath(getId int, temId string, file *multipart.FileHeader, index_
 func saveMetadataOnlyWithObjId(objId *int64, doc *document.Document, service *document.DocumentService, c *gin.Context, tx *sql.Tx) error {
 
 	if _, err := service.SaveMetadataWithObjId(tx, objId, doc); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save metadata"})
-		return err
+		// c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save metadata"})
+
+		return fmt.Errorf("failed to save metadata")
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Success"})
-
-	return nil
-}
-
-// Save MetadaOnly if there is no attached file upload.
-func saveMetadataOnly(doc *document.Document, service *document.DocumentService, c *gin.Context, tx *sql.Tx) error {
-
-	if _, err := service.SaveDocumentMetadata(tx, doc); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save metadata"})
-		return err
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Success"})
 
 	return nil
 }
@@ -278,23 +231,4 @@ func fileScan(tmpPath string) error {
 	}
 
 	return nil
-}
-
-// Custom Util function to create a folder and name if it is not exist.
-func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error) {
-
-	err := os.MkdirAll("./"+folderName, os.ModePerm)
-	if err != nil {
-
-		return nil, errors.New("failed to create dictionary")
-	}
-
-	// Open and Create the log file.
-	logFile, err := os.OpenFile("./"+folderName+"/"+fileWithExt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-
-		return nil, errors.New("failed to create file")
-	}
-
-	return logFile, nil
 }

@@ -22,6 +22,7 @@ func NewDocumentRepository(db *sql.DB) DocumentRepository {
 }
 
 // Resolve objID gapless by table if there is file(s) attachment.
+// TODO: use InnoDB
 func (r *documentRepositoryImpl) SetLatestObjId(tx *sql.Tx, document *Document) (int64, error) {
 
 	var objID int64
@@ -30,8 +31,6 @@ func (r *documentRepositoryImpl) SetLatestObjId(tx *sql.Tx, document *Document) 
 	err := tx.QueryRow(`
 	SELECT obj_id FROM obj_id_counter WHERE name='document' FOR UPDATE
 	`).Scan(&objID)
-
-	// fmt.Printf("the current objID::: %d\n", objID)
 
 	if err != nil {
 		return -1, fmt.Errorf("failed to lock obj_id_counter: %w", err)
@@ -88,13 +87,7 @@ func (r *documentRepositoryImpl) SaveMetadataWithObjId(tx *sql.Tx, objId *int64,
 
 // Return int objID, if not -1.
 func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (int64, error) {
-	// tx, err := r.db.Begin()
 
-	// if err != nil {
-	// 	return -1, err
-	// }
-
-	// result, err := r.db.Exec(
 	result, err := tx.Exec(
 		`INSERT INTO obj_doc (guid, name_or_title, description, file_size, extension, status)
 		VALUES (?,?,?,?,?,?)`,
@@ -102,14 +95,12 @@ func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (i
 	)
 
 	if err != nil {
-		// tx.Rollback()
 		return -1, err
 	}
 
 	id, err := result.LastInsertId()
 
 	if err != nil {
-		// tx.Rollback()
 		return -1, err
 	}
 
@@ -124,7 +115,6 @@ func (r *documentRepositoryImpl) InsertFilePath(tx *sql.Tx, document *Document) 
 		return err
 	}
 
-	// _, err = r.db.Exec(
 	_, err = tx.Exec(
 		`INSERT INTO obj_doc_path (doc_id, file_path) VALUES (?,?)`, objId, document.FilePath,
 	)

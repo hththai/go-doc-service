@@ -80,8 +80,6 @@ func main() {
 		})
 	})
 
-	// r.GET("/documents", getDocs)
-
 	r.GET("/preview", previewPDF)
 
 	r.POST("/upload", func(c *gin.Context) {
@@ -89,11 +87,12 @@ func main() {
 		err = v1.UploadDocument(c, docService, db)
 
 		if err != nil {
-			// tx.Rollback()
+			log.Errorf("%s Error Upload: %s", c.ClientIP(), err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
+		log.Debugf("%s Upload Success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 
 	})
