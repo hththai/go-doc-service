@@ -1,0 +1,46 @@
+tx, err := db.BeginTx(ctx, nil)
+if err != nil {
+    return err
+}
+
+defer tx.Rollback()
+
+// Lock counter
+var objID int64
+err = tx.QueryRow(`
+    UPDATE obj_id_counter
+    SET last_id = last_id + 1
+    WHERE name = 'document'
+    RETURNING last_id
+`).Scan(&objID)
+if err != nil {
+    return err
+}
+
+// Move files (MUST be atomic at filesystem level)
+err = moveTempToFinal(tmpDir, objID)
+if err != nil {
+    return err
+}
+
+// Insert document
+_, err = tx.Exec(`
+    INSERT INTO documents (obj_id, title)
+    VALUES (?, ?)
+`, objID, title)
+if err != nil {
+    return err
+}
+
+// Insert attachments
+for _, f := range files {
+    _, err = tx.Exec(`
+        INSERT INTO attachments (obj_id, filename, path)
+        VALUES (?, ?, ?)
+    `, objID, finalPath(objID, f))
+    if err != nil {
+        return err
+    }
+}
+
+return tx.Commit()
