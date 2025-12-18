@@ -4,14 +4,17 @@ import (
 	v1 "2_Go/api/v1"
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -41,6 +44,57 @@ func previewPDF(c *gin.Context) {
 
 var log = logrus.New()
 
+// Rate limit
+var ctx = context.Background()
+
+type RedisRateLimiter struct {
+	client *redis.Client
+	limit  int
+	window time.Duration
+}
+
+func NewRedisRateLimiter(client *redis.Client, limit int, window time.Duration) *RedisRateLimiter {
+	return &RedisRateLimiter{client: client, limit: limit, window: window}
+}
+
+func (r *RedisRateLimiter) Allow(key string) bool {
+	now := time.Now().Unix()
+
+	redisKey := fmt.Sprintf("rate:%s:%d", key, now/int64(r.window.Seconds()))
+
+	count, err := r.client.Incr(ctx, redisKey).Result()
+
+	if err != nil {
+		return false
+	}
+
+	if count == 1 {
+		r.client.Expire(ctx, redisKey, r.window)
+	}
+
+	return count <= int64(r.limit)
+}
+
+func RateLimitMiddleware(r *RedisRateLimiter) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.GetHeader("X-User-ID")
+
+		if userID == "" {
+			userID = c.ClientIP()
+		}
+
+		if !r.Allow(userID) {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// ************END Rate limit********
+
 func main() {
 
 	dbCredential := config.LoadConfig()
@@ -69,7 +123,21 @@ func main() {
 
 	log.Info("******APPLICATION STARTED*******")
 
+	//TODO: make a function, or interface.
+	// Redis middle ware
+	rdb := redis.NewClient(&redis.Options{Addr: "redis-service:6379"})
+	err = rdb.Ping(context.Background()).Err()
+	if err != nil {
+		log.Fatalf("Redis not reachable: %v", err)
+	}
+
+	fmt.Println("Redis connection successfully!")
+
+	limiter := NewRedisRateLimiter(rdb, 10, time.Minute)
+	//*******
+
 	r := gin.Default()
+	r.Use(RateLimitMiddleware(limiter))
 
 	docRepo := document.NewDocumentRepository(db)
 	docService := document.NewDocumentService(docRepo)

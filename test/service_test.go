@@ -26,7 +26,7 @@ func TestConcurrentPing(t *testing.T) {
 	e := httpexpect.New(t, "http://api.golang.localdomain")
 
 	// Number of concurrent requests.
-	const workers = 10
+	const workers = 15
 
 	var wg sync.WaitGroup
 	wg.Add(workers)
