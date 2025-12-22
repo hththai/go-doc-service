@@ -28,6 +28,21 @@ func EnsureTables(db *sql.DB) error {
 	return err
 }
 
+// Create User Account table when init.
+func CreateAccountTable(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS account(
+		guid char(36),
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		username varchar(100),
+		password varchar(255),
+		created_at timestamp default current_timestamp,
+		modified_at timestamp default current_timestamp on update current_timestamp)
+	`)
+
+	return err
+}
+
 // Create OBJDOC table when init.
 func CreateDocumentTable(db *sql.DB) error {
 	_, err := db.Exec(`
@@ -146,6 +161,12 @@ func InitDB(dbCredential DBCredential) (*sql.DB, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database %s: %w", dbCredential.dbName, err)
+	}
+
+	// Create Account table.
+	if err := CreateAccountTable(db); err != nil {
+		log.Fatalln(err)
+		return nil, fmt.Errorf("failed to create account table: %w", err)
 	}
 
 	// Create ObjDoc table.
