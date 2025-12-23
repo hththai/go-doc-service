@@ -30,6 +30,32 @@ func (s *AuthoService) RegisterService(user User) (User, error) {
 	return s.repo.Register(user)
 }
 
+func (s *AuthoService) ChangePasswordService(user *User, newPassword string) (*User, error) {
+	if user == nil || strings.TrimSpace(newPassword) == "" {
+		return nil, fmt.Errorf("Invalid new password")
+	}
+
+	hashedPassword, err := s.HashPassword(newPassword)
+	if err != nil {
+		return nil, fmt.Errorf("cannot update password:: %v", err)
+	}
+
+	user.Password = hashedPassword
+
+	return s.repo.ChangePassword(user, newPassword)
+}
+
+func (s *AuthoService) ValidatePassword(user *User, inputPassword string) (bool, error) {
+
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(inputPassword))
+
+	if err != nil {
+		return false, fmt.Errorf("Invalid password")
+	}
+
+	return s.repo.ValidatePassword(user, inputPassword)
+}
+
 func (s *AuthoService) ShowName(user *User) {
 	if user == nil {
 		fmt.Printf("Invalid user")
@@ -61,7 +87,7 @@ func (s *AuthoService) handlePassword(user *User) (*User, error) {
 		return user, fmt.Errorf("Invalid user password")
 	}
 
-	hashedPassword, err := s.hashPassword(user.Password)
+	hashedPassword, err := s.HashPassword(user.Password)
 	if err != nil {
 		return user, fmt.Errorf("Cannot process password")
 	}
@@ -71,7 +97,7 @@ func (s *AuthoService) handlePassword(user *User) (*User, error) {
 	return user, nil
 }
 
-func (s *AuthoService) hashPassword(password string) (string, error) {
+func (s *AuthoService) HashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	if err != nil {
