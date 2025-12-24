@@ -1,0 +1,129 @@
+package autho_test
+
+import (
+	"2_Go/internal/auth"
+	"fmt"
+	"testing"
+)
+
+func TestValidate(t *testing.T) {
+	accounts := []struct {
+		name     string
+		account  auth.Account
+		expected bool
+	}{
+		{
+			name:    "Invalid username",
+			account: auth.Account{Email: "hello"}, expected: false,
+		},
+		{
+			name:     "Empty Input",
+			account:  auth.Account{},
+			expected: false,
+		},
+		{
+			name:     "Invalid password less than 5 words",
+			account:  auth.Account{Username: "hello", Password: "acb"},
+			expected: false,
+		},
+		{
+			name:     "Valid Account",
+			account:  auth.Account{Username: "hello", Password: "thisis5"},
+			expected: true,
+		},
+	}
+
+	for _, tc := range accounts {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.account.Validate()
+
+			if err != nil && tc.expected {
+				t.Errorf("UNEXPECTED error: %v with the expected %v with error: %v", tc.name, tc.expected, err)
+			}
+
+			if err == nil && !tc.expected {
+				t.Fatalf("EXPECTED error, got nil %v %v and %v with error %v", tc.name, tc.expected, !tc.expected, err)
+			}
+		})
+	}
+}
+
+type MockAuthoRepo struct {
+	RegisterFn func(auth.Account) (*auth.Account, error)
+}
+
+func (m *MockAuthoRepo) Register(a auth.Account) (*auth.Account, error) {
+	return m.RegisterFn(a)
+}
+
+func TestHandleHashPassword(t *testing.T) {
+	accounts := []struct {
+		name     string
+		account  auth.Account
+		mockRepo func() *MockAuthoRepo
+		expected bool
+	}{
+		{
+			name:    "Empty Password",
+			account: auth.Account{Username: "hello"},
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{}
+			},
+			expected: false,
+		},
+		{
+			name:    "Space Password",
+			account: auth.Account{Username: "hello", Password: ""},
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return nil, fmt.Errorf("Invalid account")
+				}}
+			},
+			expected: false,
+		},
+		{
+			name:    "Invalid password less than 5 words",
+			account: auth.Account{Username: "hello", Password: "acb"},
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return nil, fmt.Errorf("Invalid account")
+				}}
+			},
+			expected: false,
+		},
+		{
+			name:    "Valid Account",
+			account: auth.Account{Username: "hello", Password: "thisis5"},
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return &a, nil
+				}}
+			},
+			expected: true,
+		},
+	}
+
+	for _, tc := range accounts {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.mockRepo()
+			svc := auth.NewAuthService(repo)
+
+			result, err := svc.Register(tc.account)
+
+			if err != nil && tc.expected {
+				t.Errorf("UNEXPECTED error: %v with the expected %v with error: %v", tc.name, tc.expected, err)
+			}
+
+			if err == nil && !tc.expected {
+				t.Fatalf("EXPECTED error, got nil %v %v and %v with error %v", tc.name, tc.expected, !tc.expected, err)
+			}
+
+			// Checking if password different hash password.
+			if err == nil && result != nil {
+				if result.Password == tc.account.Password {
+					t.Fatalf("expected hashed password, got plain text")
+				}
+			}
+		})
+	}
+}
