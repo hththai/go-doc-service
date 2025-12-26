@@ -5,7 +5,7 @@ import (
 )
 
 type AuthRepository interface {
-	Register(account Account) (*Account, error)
+	Register(tx *sql.Tx, account Account) (*Account, error)
 }
 
 type AuthRepositoryImpl struct {
@@ -16,6 +16,6 @@ func NewAuthRepoImpl(db *sql.DB) AuthRepository {
 	return &AuthRepositoryImpl{db: db}
 }
 
-func (r *AuthRepositoryImpl) Register(account Account) (*Account, error) {
+func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, error) {
 	return &account, nil
 }

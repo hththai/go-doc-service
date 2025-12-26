@@ -2,6 +2,7 @@ package autho_test
 
 import (
 	"2_Go/internal/auth"
+	"database/sql"
 	"fmt"
 	"testing"
 )
@@ -49,11 +50,11 @@ func TestValidate(t *testing.T) {
 }
 
 type MockAuthoRepo struct {
-	RegisterFn func(auth.Account) (*auth.Account, error)
+	RegisterFn func(*sql.Tx, auth.Account) (*auth.Account, error)
 }
 
-func (m *MockAuthoRepo) Register(a auth.Account) (*auth.Account, error) {
-	return m.RegisterFn(a)
+func (m *MockAuthoRepo) Register(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
+	return m.RegisterFn(tx, a)
 }
 
 func TestHandleHashPassword(t *testing.T) {
@@ -75,7 +76,7 @@ func TestHandleHashPassword(t *testing.T) {
 			name:    "Space Password",
 			account: auth.Account{Username: "hello", Password: ""},
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+				return &MockAuthoRepo{RegisterFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 					return nil, fmt.Errorf("Invalid account")
 				}}
 			},
@@ -85,7 +86,7 @@ func TestHandleHashPassword(t *testing.T) {
 			name:    "Invalid password less than 5 words",
 			account: auth.Account{Username: "hello", Password: "acb"},
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+				return &MockAuthoRepo{RegisterFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 					return nil, fmt.Errorf("Invalid account")
 				}}
 			},
@@ -95,7 +96,7 @@ func TestHandleHashPassword(t *testing.T) {
 			name:    "Valid Account",
 			account: auth.Account{Username: "hello", Password: "thisis5"},
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+				return &MockAuthoRepo{RegisterFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 					return &a, nil
 				}}
 			},
@@ -108,7 +109,7 @@ func TestHandleHashPassword(t *testing.T) {
 			repo := tc.mockRepo()
 			svc := auth.NewAuthService(repo)
 
-			result, err := svc.Register(tc.account)
+			result, err := svc.Register(nil, tc.account)
 
 			if err != nil && tc.expected {
 				t.Errorf("UNEXPECTED error: %v with the expected %v with error: %v", tc.name, tc.expected, err)
@@ -142,9 +143,7 @@ func TestChangePassword(t *testing.T) {
 			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
 			newPassword: "thisd",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
-					return &a, nil
-				}}
+				return &MockAuthoRepo{}
 			},
 			expected: true,
 		},
@@ -153,9 +152,7 @@ func TestChangePassword(t *testing.T) {
 			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
 			newPassword: "th",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
-					return &a, nil
-				}}
+				return &MockAuthoRepo{}
 			},
 			expected: false,
 		},
@@ -164,9 +161,7 @@ func TestChangePassword(t *testing.T) {
 			account:     auth.Account{Username: "username"},
 			newPassword: "th",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
-					return &a, nil
-				}}
+				return &MockAuthoRepo{}
 			},
 			expected: false,
 		},
@@ -212,7 +207,7 @@ func TestCheckPassword(t *testing.T) {
 			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
 			newPassword: "This_isSimplePassword",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+				return &MockAuthoRepo{RegisterFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 					return &a, nil
 				}}
 			},
@@ -223,7 +218,7 @@ func TestCheckPassword(t *testing.T) {
 			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
 			newPassword: "th",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+				return &MockAuthoRepo{RegisterFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 					return &a, nil
 				}}
 			},
@@ -236,7 +231,7 @@ func TestCheckPassword(t *testing.T) {
 			repo := tc.mockRepo()
 			svc := auth.NewAuthService(repo)
 
-			registeredAccount, err := svc.Register(tc.account)
+			registeredAccount, err := svc.Register(nil, tc.account)
 
 			if err != nil {
 				t.Fatalf("error of set up account %v", err)

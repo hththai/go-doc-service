@@ -2,6 +2,7 @@ package auth
 
 import (
 	"2_Go/internal/obj"
+	"database/sql"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
@@ -16,7 +17,7 @@ func NewAuthService(authRepo AuthRepository) *AuthService {
 }
 
 // Register account.
-func (s *AuthService) Register(account Account) (*Account, error) {
+func (s *AuthService) Register(tx *sql.Tx, account Account) (*Account, error) {
 	if err := account.Validate(); err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func (s *AuthService) Register(account Account) (*Account, error) {
 		account.ErrorResult = obj.ResultError(err)
 		return nil, account.ErrorResult.Error
 	}
-	return s.authRepo.Register(account)
+	return s.authRepo.Register(tx, account)
 }
 
 // Change Password.
@@ -61,6 +62,7 @@ func (s *AuthService) CheckPassword(account *Account, inputPassword string) erro
 	}
 
 	return nil
+
 }
 
 // Ecrypt password
