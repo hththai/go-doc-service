@@ -52,6 +52,17 @@ func (s *AuthService) ChangePasswordService(account Account, newPassword string)
 
 }
 
+// Comparing password.
+func (s *AuthService) CheckPassword(account *Account, inputPassword string) error {
+	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(inputPassword))
+
+	if err != nil {
+		return fmt.Errorf("Invalid password")
+	}
+
+	return nil
+}
+
 // Ecrypt password
 func (s *AuthService) handlePassword(account *Account) (*Account, error) {
 	if err := account.Validate(); err != nil {

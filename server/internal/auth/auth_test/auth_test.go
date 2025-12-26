@@ -197,3 +197,62 @@ func TestChangePassword(t *testing.T) {
 	}
 
 }
+
+// Test comparing password
+func TestCheckPassword(t *testing.T) {
+	accounts := []struct {
+		name        string
+		account     auth.Account
+		newPassword string
+		mockRepo    func() *MockAuthoRepo
+		expected    bool
+	}{
+		{
+			name:        "Correct Password",
+			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
+			newPassword: "This_isSimplePassword",
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return &a, nil
+				}}
+			},
+			expected: true,
+		},
+		{
+			name:        "Invalid Password",
+			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
+			newPassword: "th",
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return &a, nil
+				}}
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range accounts {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.mockRepo()
+			svc := auth.NewAuthService(repo)
+
+			registeredAccount, err := svc.Register(tc.account)
+
+			if err != nil {
+				t.Fatalf("error of set up account %v", err)
+			}
+
+			err = svc.CheckPassword(registeredAccount, tc.newPassword)
+
+			if err != nil && tc.expected {
+				t.Fatalf("unexpected error %v with case %v", err, tc.name)
+			}
+
+			if err == nil && !tc.expected {
+				t.Fatalf("expected error %v with case %v", err, tc.name)
+			}
+
+		})
+	}
+
+}
