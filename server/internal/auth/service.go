@@ -15,6 +15,7 @@ func NewAuthService(authRepo AuthRepository) *AuthService {
 	return &AuthService{authRepo: authRepo}
 }
 
+// Register account.
 func (s *AuthService) Register(account Account) (*Account, error) {
 	if err := account.Validate(); err != nil {
 		return nil, err
@@ -28,14 +29,38 @@ func (s *AuthService) Register(account Account) (*Account, error) {
 	return s.authRepo.Register(account)
 }
 
+// Change Password.
+func (s *AuthService) ChangePasswordService(account Account, newPassword string) (*Account, error) {
+	if err := account.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid account")
+	}
+
+	// Copy account
+	updatedAccount := account
+	updatedAccount.Password = newPassword
+
+	// Validate new Password.
+	if err := updatedAccount.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Password")
+	}
+
+	if _, err := s.handlePassword(&updatedAccount); err != nil {
+		return nil, fmt.Errorf("unsuccess change password")
+	}
+
+	return &updatedAccount, nil
+
+}
+
+// Ecrypt password
 func (s *AuthService) handlePassword(account *Account) (*Account, error) {
 	if err := account.Validate(); err != nil {
-		return nil, fmt.Errorf("Invalid account")
+		return nil, fmt.Errorf("invalid account")
 	}
 
 	hashedPassword, err := s.hashPassword(account.Password)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot process password")
+		return nil, fmt.Errorf("cannot process password")
 	}
 
 	account.Password = hashedPassword

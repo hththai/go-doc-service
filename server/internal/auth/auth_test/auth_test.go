@@ -127,3 +127,73 @@ func TestHandleHashPassword(t *testing.T) {
 		})
 	}
 }
+
+// Test change password
+func TestChangePassword(t *testing.T) {
+	accounts := []struct {
+		name        string
+		account     auth.Account
+		newPassword string
+		mockRepo    func() *MockAuthoRepo
+		expected    bool
+	}{
+		{
+			name:        "Good Reset Password",
+			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
+			newPassword: "thisd",
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return &a, nil
+				}}
+			},
+			expected: true,
+		},
+		{
+			name:        "Invalid New Password",
+			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
+			newPassword: "th",
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return &a, nil
+				}}
+			},
+			expected: false,
+		},
+		{
+			name:        "Invalid current account",
+			account:     auth.Account{Username: "username"},
+			newPassword: "th",
+			mockRepo: func() *MockAuthoRepo {
+				return &MockAuthoRepo{RegisterFn: func(a auth.Account) (*auth.Account, error) {
+					return &a, nil
+				}}
+			},
+			expected: false,
+		},
+	}
+
+	for _, tc := range accounts {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.mockRepo()
+			svc := auth.NewAuthService(repo)
+
+			result, err := svc.ChangePasswordService(tc.account, tc.newPassword)
+
+			if err != nil && tc.expected {
+				t.Fatalf("unexpected error %v with case %v", err, tc.name)
+			}
+
+			if err == nil && !tc.expected {
+				t.Fatalf("expected error %v with case %v", err, tc.name)
+			}
+
+			if err == nil && result != nil {
+				if result.Password == tc.newPassword {
+					t.Fatalf("Unexpected error with hash new password")
+				}
+			}
+
+		})
+	}
+
+}
