@@ -3,6 +3,7 @@ package obj
 import "time"
 
 type DefaultObj struct {
+	GUID       string    `json:"guid"`
 	CreatedAt  time.Time `json:"createdAt"`
 	ModifiedAt time.Time `json:"modifiedAt"`
 }

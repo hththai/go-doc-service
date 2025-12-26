@@ -2,6 +2,7 @@ package main
 
 import (
 	v1 "2_Go/api/v1"
+	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
 	rateLimit "2_Go/middleware"
@@ -120,5 +121,23 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 
 	})
+
+	// Register service.
+	acctRepo := auth.NewAuthRepoImpl(db)
+	acctSvc := auth.NewAuthService(acctRepo)
+
+	r.POST("/register", func(c *gin.Context) {
+		err = v1.Register(c, acctSvc, db)
+
+		if err != nil {
+			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		log.Debugf("%s register success", c.ClientIP())
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	})
+
 	r.Run(":8088")
 }

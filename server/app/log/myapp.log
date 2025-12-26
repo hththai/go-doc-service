@@ -4,3 +4,6 @@ time="2025-12-18T23:15:32+11:00" level=info msg="******APPLICATION STARTED******
 time="2025-12-18T23:37:14+11:00" level=info msg="******APPLICATION STARTED*******"
 time="2025-12-18T23:38:26+11:00" level=info msg="******APPLICATION STARTED*******"
 time="2025-12-22T23:28:02+11:00" level=info msg="******APPLICATION STARTED*******"
+time="2025-12-26T22:47:07+11:00" level=info msg="******APPLICATION STARTED*******"
+time="2025-12-26T22:48:14+11:00" level=debug msg="127.0.0.1 register success"
+time="2025-12-26T22:48:18+11:00" level=debug msg="127.0.0.1 register success"
