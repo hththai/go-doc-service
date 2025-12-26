@@ -21,7 +21,7 @@ func NewAuthRepoImpl(db *sql.DB) AuthRepository {
 // TODO: check if needs to return account as result.
 func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, error) {
 
-	_, err := tx.Exec(`INSERT INTO account (username, password) VALUES (?,?)`, account.Username, account.Password)
+	_, err := tx.Exec(`INSERT INTO account (guid, username, password) VALUES (?,?,?)`, account.DefaultObj.GUID, account.Username, account.Password)
 
 	if err != nil {
 		return nil, err
