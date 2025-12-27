@@ -50,11 +50,16 @@ func TestValidate(t *testing.T) {
 }
 
 type MockAuthoRepo struct {
-	RegisterFn func(*sql.Tx, auth.Account) (*auth.Account, error)
+	RegisterFn     func(*sql.Tx, auth.Account) (*auth.Account, error)
+	ValidateUserFn func(*sql.DB, string) (*auth.Account, error)
 }
 
 func (m *MockAuthoRepo) Register(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 	return m.RegisterFn(tx, a)
+}
+
+func (m *MockAuthoRepo) ValidateUser(db *sql.DB, username string) (*auth.Account, error) {
+	return m.ValidateUserFn(db, username)
 }
 
 func TestHandleHashPassword(t *testing.T) {

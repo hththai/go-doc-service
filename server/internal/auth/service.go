@@ -53,6 +53,23 @@ func (s *AuthService) ChangePasswordService(account Account, newPassword string)
 
 }
 
+// Service Login.
+func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, error) {
+	// step 1: fetch user.
+	account, err := s.authRepo.ValidateUser(db, username)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Compare password.
+	if err := s.CheckPassword(account, password); err != nil {
+		return nil, err
+	}
+
+	return account, err
+}
+
 // Comparing password.
 func (s *AuthService) CheckPassword(account *Account, inputPassword string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(inputPassword))

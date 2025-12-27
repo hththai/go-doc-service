@@ -45,8 +45,33 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	// Call service.
 	_, err = service.Register(tx, account)
 
+	// Check if register fail
+	if err != nil {
+		return err
+	}
+
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit failed: %w", err)
+	}
+
+	return nil
+}
+
+// Login
+func Login(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		return err
+	}
+
+	_, err := service.Login(db, req.Username, req.Password)
+
+	if err != nil {
+		return err
 	}
 
 	return nil
