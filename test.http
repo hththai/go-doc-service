@@ -35,7 +35,7 @@ POST http://localhost:8088/register
 Content-Type: application/json
 
 {
-    "username": "carlsonmelissa",
+    "username": "tim",
     "password": "password2"    
 }
 
@@ -44,6 +44,16 @@ POST http://localhost:8088/login
 Content-Type: application/json
 
 {
-    "username": "user2",
-    "password": "password"    
+    "username": "tim",
+    "password": "hellopassword"    
+}
+
+###
+POST http://localhost:8088/changepassword
+Content-Type: application/json
+
+{
+    "username": "tim",
+    "password": "password2",
+    "newpassword": "helloworldpassword"    
 }

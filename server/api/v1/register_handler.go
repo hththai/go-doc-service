@@ -59,6 +59,48 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 
 // Change password.
 func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+	var req struct {
+		Username    string `json:"username"`
+		Password    string `json:"password"`
+		NewPassword string `json:"newpassword"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return err
+	}
+
+	// bind to account.
+	var account auth.Account
+	account.Username = req.Username
+	account.Password = req.Password
+
+	// Begin transaction.
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Always ensure roll back if something goes wrong.
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Call update pasword service.
+	_, err = service.ChangePasswordService(tx, account, req.NewPassword)
+	// Check if register fail
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+
 	return nil
 }
 

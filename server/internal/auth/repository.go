@@ -8,7 +8,7 @@ import (
 type AuthRepository interface {
 	Register(tx *sql.Tx, account Account) (*Account, error)
 	ValidateUser(db *sql.DB, username string) (*Account, error)
-	ChangePassword(tx *sql.Tx, account Account) (*Account, error)
+	UpdatePassword(tx *sql.Tx, account Account) (*Account, error)
 }
 
 type AuthRepositoryImpl struct {
@@ -63,6 +63,16 @@ func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account
 }
 
 // Change Password. Find the user and update password.
-func (r *AuthRepositoryImpl) ChangePassword(tx *sql.Tx, account Account) (*Account, error) {
+// Update based on username
+func (r *AuthRepositoryImpl) UpdatePassword(tx *sql.Tx, account Account) (*Account, error) {
+	_, err := tx.Exec(`
+		UPDATE user SET password=? WHERE user_name=?
+	`,
+		account.Password, account.Username)
+
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }

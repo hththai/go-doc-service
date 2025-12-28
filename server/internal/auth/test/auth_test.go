@@ -52,7 +52,7 @@ func TestValidate(t *testing.T) {
 type MockAuthoRepo struct {
 	RegisterFn       func(*sql.Tx, auth.Account) (*auth.Account, error)
 	ValidateUserFn   func(*sql.DB, string) (*auth.Account, error)
-	ChangePasswordFn func(*sql.Tx, auth.Account) (*auth.Account, error)
+	UpdatePasswordFn func(*sql.Tx, auth.Account) (*auth.Account, error)
 }
 
 func (m *MockAuthoRepo) Register(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
@@ -63,8 +63,8 @@ func (m *MockAuthoRepo) ValidateUser(db *sql.DB, username string) (*auth.Account
 	return m.ValidateUserFn(db, username)
 }
 
-func (m *MockAuthoRepo) ChangePassword(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
-	return m.ChangePasswordFn(tx, a)
+func (m *MockAuthoRepo) UpdatePassword(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
+	return m.UpdatePasswordFn(tx, a)
 }
 
 func TestHandleHashPassword(t *testing.T) {
@@ -153,7 +153,9 @@ func TestChangePassword(t *testing.T) {
 			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
 			newPassword: "thisd",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{}
+				return &MockAuthoRepo{UpdatePasswordFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
+					return nil, nil
+				}}
 			},
 			expected: true,
 		},
@@ -162,7 +164,9 @@ func TestChangePassword(t *testing.T) {
 			account:     auth.Account{Username: "username", Password: "This_isSimplePassword"},
 			newPassword: "th",
 			mockRepo: func() *MockAuthoRepo {
-				return &MockAuthoRepo{}
+				return &MockAuthoRepo{UpdatePasswordFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
+					return nil, nil
+				}}
 			},
 			expected: false,
 		},
@@ -182,7 +186,7 @@ func TestChangePassword(t *testing.T) {
 			repo := tc.mockRepo()
 			svc := auth.NewAuthService(repo)
 
-			result, err := svc.ChangePasswordService(tc.account, tc.newPassword)
+			result, err := svc.ChangePasswordService(nil, tc.account, tc.newPassword)
 
 			if err != nil && tc.expected {
 				t.Fatalf("unexpected error %v with case %v", err, tc.name)

@@ -31,7 +31,7 @@ func (s *AuthService) Register(tx *sql.Tx, account Account) (*Account, error) {
 }
 
 // Change Password.
-func (s *AuthService) ChangePasswordService(account Account, newPassword string) (*Account, error) {
+func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error) {
 	if err := account.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid account")
 	}
@@ -42,12 +42,15 @@ func (s *AuthService) ChangePasswordService(account Account, newPassword string)
 
 	// Validate new Password.
 	if err := updatedAccount.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid Password")
+		return nil, fmt.Errorf("invalid Password criteria")
 	}
 
 	if _, err := s.handlePassword(&updatedAccount); err != nil {
 		return nil, fmt.Errorf("unsuccess change password")
 	}
+
+	// Add to repo.
+	s.authRepo.UpdatePassword(tx, updatedAccount)
 
 	return &updatedAccount, nil
 
