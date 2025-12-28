@@ -45,15 +45,35 @@ Content-Type: application/json
 
 {
     "username": "tim",
-    "password": "hellopassword"    
+    "password": "helasdasda"    
 }
 
 ###
-POST http://localhost:8088/changepassword
+POST http://localhost:8088/users/tim/changepassword
 Content-Type: application/json
 
 {
     "username": "tim",
-    "password": "password2",
-    "newpassword": "helloworldpassword"    
+    "password": "helasd",
+    "newpassword": "helasdasda"    
+}
+
+###
+POST http://localhost:8088/loginjwt
+Content-Type: application/json
+
+{
+    "username": "tim",
+    "password": "helasdasda"    
+}
+
+###
+POST http://localhost:8088/auth/users/tim/changepassword
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjcwMTE4NTksInVzZXJuYW1lIjoidGltIn0.0kKfUbnb5m9KruVyHTlb-YKwZ-DVDD-BRPWvcWTPWjQ
+Content-Type: application/json
+
+{
+    "username": "tim",
+    "password": "helasd",
+    "newpassword": "helasdasda123"    
 }

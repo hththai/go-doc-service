@@ -3,6 +3,7 @@ package v1
 import (
 	"2_Go/internal/auth"
 	"2_Go/internal/obj"
+	"2_Go/middleware/authen"
 	"database/sql"
 	"fmt"
 
@@ -122,4 +123,31 @@ func Login(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	}
 
 	return nil
+}
+
+// Login with jwt
+func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, error) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		return "", err
+	}
+
+	account, err := service.Login(db, req.Username, req.Password)
+
+	if err != nil {
+		return "", err
+	}
+
+	// issue token.
+	token, err := authen.CreateToken(account.Username)
+
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
 }

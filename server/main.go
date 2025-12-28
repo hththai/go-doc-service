@@ -6,6 +6,7 @@ import (
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
 	rateLimit "2_Go/middleware"
+	"2_Go/middleware/authen"
 	"2_Go/utils"
 	"context"
 	"fmt"
@@ -163,6 +164,36 @@ func main() {
 		}
 
 		log.Debugf("%s register success", c.ClientIP())
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	})
+
+	// Protected
+	authGroup := r.Group("/auth", authen.JWTAuth())
+
+	r.POST("/loginjwt", func(c *gin.Context) {
+		token, err := v1.LoginJwt(c, acctSvc, db)
+
+		if err != nil {
+			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		log.Debugf("%s register success", c.ClientIP())
+		c.JSON(http.StatusOK, gin.H{"token": token})
+	})
+
+	authGroup.POST("/users/:username/changepassword", func(c *gin.Context) {
+
+		err = v1.ChangePassword(c, acctSvc, db)
+
+		if err != nil {
+			log.Errorf("%s Error Change: %s", c.ClientIP(), err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		log.Debugf("%s password updated success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 

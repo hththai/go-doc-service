@@ -42,7 +42,7 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 
 	// Validate new Password.
 	if err := updatedAccount.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid Password criteria")
+		return nil, fmt.Errorf("invalid password criteria")
 	}
 
 	if _, err := s.handlePassword(&updatedAccount); err != nil {
