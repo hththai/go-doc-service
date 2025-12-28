@@ -152,7 +152,8 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
-	r.POST("/changepassword", func(c *gin.Context) {
+	r.POST("/users/:username/changepassword", func(c *gin.Context) {
+
 		err = v1.ChangePassword(c, acctSvc, db)
 
 		if err != nil {

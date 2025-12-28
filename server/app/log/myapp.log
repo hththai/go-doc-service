@@ -64,3 +64,7 @@ time="2025-12-28T15:46:46+11:00" level=info msg="******APPLICATION STARTED******
 time="2025-12-28T15:46:51+11:00" level=error msg="127.0.0.1 Error Register: invalid Password criteria"
 time="2025-12-28T15:46:58+11:00" level=debug msg="127.0.0.1 register success"
 time="2025-12-28T15:47:04+11:00" level=debug msg="127.0.0.1 register success"
+time="2025-12-28T15:52:28+11:00" level=info msg="******APPLICATION STARTED*******"
+time="2025-12-28T15:52:31+11:00" level=debug msg="127.0.0.1 register success"
+time="2025-12-28T15:52:47+11:00" level=debug msg="127.0.0.1 register success"
+time="2025-12-28T15:53:00+11:00" level=debug msg="127.0.0.1 register success"
