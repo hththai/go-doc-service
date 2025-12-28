@@ -29,12 +29,13 @@ func EnsureTables(db *sql.DB) error {
 }
 
 // Create User Account table when init.
+// TODO: change username user_name
 func CreateAccountTable(db *sql.DB) error {
 	_, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS account(
+		CREATE TABLE IF NOT EXISTS user(
 		guid char(36),
 		id INT AUTO_INCREMENT PRIMARY KEY,
-		username varchar(100),
+		user_name varchar(100),
 		password varchar(255),
 		created_at timestamp default current_timestamp,
 		modified_at timestamp default current_timestamp on update current_timestamp)

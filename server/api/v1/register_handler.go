@@ -57,6 +57,11 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	return nil
 }
 
+// Change password.
+func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+	return nil
+}
+
 // Login
 func Login(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	var req struct {

@@ -8,6 +8,7 @@ import (
 type AuthRepository interface {
 	Register(tx *sql.Tx, account Account) (*Account, error)
 	ValidateUser(db *sql.DB, username string) (*Account, error)
+	ChangePassword(tx *sql.Tx, account Account) (*Account, error)
 }
 
 type AuthRepositoryImpl struct {
@@ -24,7 +25,7 @@ func NewAuthRepoImpl(db *sql.DB) AuthRepository {
 func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, error) {
 
 	// Check if the account username exist.
-	row := tx.QueryRow(`SELECT COUNT(username) FROM account WHERE username = ?`, account.Username)
+	row := tx.QueryRow(`SELECT COUNT(user_name) FROM user WHERE user_name = ?`, account.Username)
 
 	var count int
 
@@ -36,7 +37,7 @@ func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, er
 		return nil, fmt.Errorf("username exists")
 	}
 
-	_, err := tx.Exec(`INSERT INTO account (guid, username, password) VALUES (?,?,?)`, account.DefaultObj.GUID, account.Username, account.Password)
+	_, err := tx.Exec(`INSERT INTO user (guid, user_name, password) VALUES (?,?,?)`, account.DefaultObj.GUID, account.Username, account.Password)
 
 	if err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, er
 
 func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account, error) {
 
-	row := db.QueryRow(`SELECT username, password from account where username=?`, username)
+	row := db.QueryRow(`SELECT user_name, password from user where user_name=?`, username)
 
 	var account Account
 	if err := row.Scan(&account.Username, &account.Password); err != nil {
@@ -59,4 +60,9 @@ func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account
 	}
 
 	return &account, nil
+}
+
+// Change Password. Find the user and update password.
+func (r *AuthRepositoryImpl) ChangePassword(tx *sql.Tx, account Account) (*Account, error) {
+	return nil, nil
 }
