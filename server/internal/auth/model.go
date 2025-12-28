@@ -25,3 +25,12 @@ func (r *Account) Validate() error {
 
 	return nil
 }
+
+// Validate Password only.
+func (r *Account) ValidatePassword() error {
+	if err := validate.StructPartial(r, "Password"); err != nil {
+		return fmt.Errorf("Invalid password %v", err)
+	}
+
+	return nil
+}

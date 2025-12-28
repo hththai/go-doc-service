@@ -31,10 +31,13 @@ func (s *AuthService) Register(tx *sql.Tx, account Account) (*Account, error) {
 }
 
 // Change Password.
+
 func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error) {
-	if err := account.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid account")
-	}
+	// if err := account.Validate(); err != nil {
+	// 	return nil, fmt.Errorf("invalid account")
+	// }
+
+	// TODO: Check if valid user.
 
 	// Copy account
 	updatedAccount := account
@@ -50,7 +53,10 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 	}
 
 	// Add to repo.
-	s.authRepo.UpdatePassword(tx, updatedAccount)
+	_, err := s.authRepo.UpdatePassword(tx, updatedAccount)
+	if err != nil {
+		return nil, err
+	}
 
 	return &updatedAccount, nil
 

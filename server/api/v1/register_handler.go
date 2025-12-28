@@ -59,6 +59,8 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 }
 
 // Change password.
+// TODO: check the validated account or not with matching username and password.
+// TODO: Do we need password field. or JWT. if yes, handle validate correct account with current username and password.
 func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	var req struct {
 		Username    string `json:"username"`

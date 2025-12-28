@@ -49,6 +49,40 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+// validate password
+func TestValidatePassword(t *testing.T) {
+	accounts := []struct {
+		name     string
+		account  auth.Account
+		expected bool
+	}{
+		{
+			name:     "Wrong password case 1",
+			account:  auth.Account{Password: "He"},
+			expected: false,
+		},
+		{
+			name:     "Valid password",
+			account:  auth.Account{Password: "helooworld"},
+			expected: true,
+		},
+	}
+
+	for _, tc := range accounts {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.account.ValidatePassword()
+
+			if err != nil && tc.expected {
+				t.Fatalf("UNEXPECTED error with case::: %v with error::: %v", tc.name, err)
+			}
+
+			if err == nil && !tc.expected {
+				t.Fatalf("EXPECTED error with case::: %v with error::: %v", tc.name, err)
+			}
+		})
+	}
+}
+
 type MockAuthoRepo struct {
 	RegisterFn       func(*sql.Tx, auth.Account) (*auth.Account, error)
 	ValidateUserFn   func(*sql.DB, string) (*auth.Account, error)
