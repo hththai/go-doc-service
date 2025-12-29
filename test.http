@@ -80,8 +80,8 @@ Content-Type: application/json
 }
 
 ###
-POST http://localhost:8088/auth/users/tim/changepassword
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjY5ODI3OTksInVzZXJuYW1lIjoiIn0.lZ440B9XUpTfLJlaITUmybD6eKo2CI3rRtSJBbHXkz0
+POST http://localhost:8088/v1/auth/users/tim/changepassword
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjY5ODg4NjMsImlhdCI6MTc2Njk4NTI2MywidXNlcm5hbWUiOiJ0aW0yMzQifQ.xtqFqbzpIUBY65iThW2PCAHpBAtrSkVCl1h2r5ud6jo
 Content-Type: application/json
 
 {
@@ -89,3 +89,7 @@ Content-Type: application/json
     "password": "helasdasda",
     "newpassword": "helasdasda1234"    
 }
+
+### test auth
+GET http://localhost:8088/v1/auth/test
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjcwMDY1NjIsImlhdCI6MTc2NzAwMjk2MiwidXNlcm5hbWUiOiJ0aW0yMzQifQ.RH5R6CFdJ7Yp1YYVZNovqj-7PKZx2uifqFwsB1gtakQ

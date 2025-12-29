@@ -4,6 +4,7 @@ import (
 	"2_Go/internal/auth"
 	"2_Go/internal/obj"
 	"2_Go/middleware/authen"
+	"net/http"
 
 	"database/sql"
 	"fmt"
@@ -63,8 +64,9 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 // TODO: check the validated account or not with matching username and password.
 // TODO: Do we need password field. or JWT. if yes, handle validate correct account with current username and password.
 func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+
 	var req struct {
-		Username    string `json:"username"`
+		// Username    string `json:"username"`
 		Password    string `json:"password"`
 		NewPassword string `json:"newpassword"`
 	}
@@ -73,9 +75,13 @@ func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error
 		return err
 	}
 
+	// Prevent wrong username.
+	reqUser := c.Param("username")
+
 	// bind to account.
 	var account auth.Account
-	account.Username = req.Username
+	// account.Username = req.Username
+	account.Username = reqUser
 	account.Password = req.Password
 
 	// Validate current user by password.
@@ -153,12 +159,51 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, er
 	// Assign account username.
 	account.Username = req.Username
 
-	// issue token.
-	token, err := authen.CreateToken(account.Username)
+	// issue accessToken.
+	accessToken, err := handleAccessToken(account, c)
+	if err != nil {
+		return "", err
+	}
+	// Handle refresh token
+	_ = handleRefreshToken(account, c)
 
+	// c.SetCookie("jwt", token, 3600, "/", "localhost", true, true)
+
+	return accessToken, nil
+}
+
+func handleAccessToken(account *auth.Account, c *gin.Context) (string, error) {
+	token, err := authen.CreateAccessToken(account.Username)
 	if err != nil {
 		return "", err
 	}
 
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
 	return token, nil
+}
+
+// Set refreshtoken and secure for cookies access.
+func handleRefreshToken(account *auth.Account, c *gin.Context) error {
+	refreshToken, err := authen.CreateRefreshToken(account.Username)
+
+	if err != nil {
+		return fmt.Errorf("login failed with token")
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshToken,
+		Path:     "/auth/refresh",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	return nil
 }

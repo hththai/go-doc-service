@@ -12,6 +12,7 @@ func IsProduction() bool {
 	return os.Getenv("GO_ENV") == "production"
 }
 
+// TODO: May need to make it more automation.
 func GetConfigJWT() string {
 	_ = godotenv.Load(".env")
 

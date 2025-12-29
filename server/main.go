@@ -169,7 +169,7 @@ func main() {
 	})
 
 	// Protected
-	authGroup := r.Group("/auth", authen.JWTAuth())
+	authGroup := r.Group("/v1/auth", authen.JWTAuth())
 
 	r.POST("/loginjwt", func(c *gin.Context) {
 		token, err := v1.LoginJwt(c, acctSvc, db)
@@ -185,6 +185,14 @@ func main() {
 	})
 
 	authGroup.POST("/users/:username/changepassword", func(c *gin.Context) {
+
+		jwtUser := c.GetString("username") // from Token
+		reqUser := c.Param("username")     // from request
+
+		if jwtUser != reqUser {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			return
+		}
 
 		err = v1.ChangePassword(c, acctSvc, db)
 

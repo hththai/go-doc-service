@@ -16,8 +16,8 @@ func TestSayHello(t *testing.T) {
 
 }
 
-func TestCreateToken(t *testing.T) {
-	token, err := authen.CreateToken("hthai")
+func TestCreateAccessToken(t *testing.T) {
+	token, err := authen.CreateAccessToken("hthai")
 
 	if err != nil {
 		t.Errorf("error")
@@ -27,7 +27,7 @@ func TestCreateToken(t *testing.T) {
 }
 
 func TestVerifyToken(t *testing.T) {
-	token, err := authen.CreateToken("hthai")
+	token, err := authen.CreateAccessToken("hthai")
 	if err != nil {
 		t.Fatalf("error of creating token")
 	}
@@ -40,4 +40,13 @@ func TestVerifyToken(t *testing.T) {
 	}
 
 	t.Logf("value username is %v", (*claims)["username"])
+}
+
+func TestCreateRefreshToken(t *testing.T) {
+	token, err := authen.CreateRefreshToken("hthai")
+	if err != nil {
+		t.Fatalf("error of creating refresh token %v", err)
+	}
+
+	t.Logf("refresh token is::: %v", token)
 }

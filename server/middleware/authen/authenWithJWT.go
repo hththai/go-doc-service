@@ -19,7 +19,8 @@ func SayHello() error {
 	return nil
 }
 
-func CreateToken(username string) (string, error) {
+// Short token Access Token
+func CreateAccessToken(username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
 			"username": username,
@@ -51,6 +52,24 @@ func VerifyToken(tokenString string) (*jwt.MapClaims, error) {
 
 	claims := token.Claims.(jwt.MapClaims)
 	return &claims, nil
+}
+
+// Create refresh token.
+func CreateRefreshToken(username string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
+		jwt.MapClaims{
+			"username": username,
+			"exp":      time.Now().Add(7 * 24 * time.Hour).Unix(),
+			"type":     "refresh",
+		})
+
+	singedToken, err := token.SignedString(secretKey)
+
+	if err != nil {
+		return "", err
+	}
+
+	return singedToken, nil
 }
 
 func JWTAuth() gin.HandlerFunc {
