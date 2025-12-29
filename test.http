@@ -55,7 +55,7 @@ Content-Type: application/json
 
 {
     "username": "tim234",
-    "password": "password2"    
+    "password": "helasdasda"    
 }
 
 ###
@@ -65,8 +65,8 @@ POST http://localhost:8088/users/tim/changepassword
 Content-Type: application/json
 
 {
-    "username": "tim",
-    "password": "helasd",
+    "username": "tim234",
+    "password": "password2",
     "newpassword": "helasdasda"    
 }
 
@@ -75,17 +75,17 @@ POST http://localhost:8088/loginjwt
 Content-Type: application/json
 
 {
-    "username": "tim",
-    "password": "helasdasda"    
+    "username": "tim234",
+    "password": "helasdasda1234"    
 }
 
 ###
 POST http://localhost:8088/auth/users/tim/changepassword
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjcwMTE4NTksInVzZXJuYW1lIjoidGltIn0.0kKfUbnb5m9KruVyHTlb-YKwZ-DVDD-BRPWvcWTPWjQ
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjY5ODI3OTksInVzZXJuYW1lIjoiIn0.lZ440B9XUpTfLJlaITUmybD6eKo2CI3rRtSJBbHXkz0
 Content-Type: application/json
 
 {
-    "username": "tim",
-    "password": "helasd",
-    "newpassword": "helasdasda123"    
+    "username": "tim234",
+    "password": "helasdasda",
+    "newpassword": "helasdasda1234"    
 }

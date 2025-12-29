@@ -149,6 +149,10 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, er
 		return "", err
 	}
 
+	// Assign account username.
+	account.Username = req.Username
+	fmt.Printf("debug: this is account username %v ...or %v", account.Username, req.Username)
+
 	// issue token.
 	token, err := authen.CreateToken(account.Username)
 
