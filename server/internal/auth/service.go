@@ -31,20 +31,25 @@ func (s *AuthService) Register(tx *sql.Tx, account Account) (*Account, error) {
 }
 
 // Change Password.
-
 func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error) {
 	// if err := account.Validate(); err != nil {
 	// 	return nil, fmt.Errorf("invalid account")
 	// }
 
 	// TODO: Check if valid user.
+	// Comparing input old password and existing password.
 
 	// Copy account
 	updatedAccount := account
 	updatedAccount.Password = newPassword
 
 	// Validate new Password.
-	if err := updatedAccount.Validate(); err != nil {
+	// if err := updatedAccount.Validate(); err != nil {
+	// 	return nil, fmt.Errorf("invalid password criteria")
+	// }
+
+	// Validate new password
+	if err := updatedAccount.ValidatePassword(); err != nil {
 		return nil, fmt.Errorf("invalid password criteria")
 	}
 
@@ -62,21 +67,52 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 
 }
 
+// Validate current username and password.
+// TODO: build unit test.
+func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputPwd string) error {
+
+	// 1. Get current pwd.
+	var crtPwd string
+	crtPwd, err := s.authRepo.GetUsrPassword(db, username)
+
+	if err != nil {
+		return fmt.Errorf("invalid account")
+	}
+
+	var _tempAcct Account
+	_tempAcct.Password = crtPwd
+
+	// 2. Compare to input.
+	err = s.CheckPassword(&_tempAcct, inputPwd)
+
+	if err != nil {
+		return fmt.Errorf("incorrect password")
+	}
+	return nil
+
+}
+
 // Service Login.
 func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, error) {
 	// step 1: fetch user.
-	account, err := s.authRepo.ValidateUser(db, username)
+	// account, err := s.authRepo.ValidateUser(db, username)
+	var account Account
+
+	// Fetch only password.
+	pwd, err := s.authRepo.GetUsrPassword(db, username)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot retrieve account")
 	}
+
+	account.Password = pwd
 
 	// Compare password.
-	if err := s.CheckPassword(account, password); err != nil {
-		return nil, err
+	if err := s.CheckPassword(&account, password); err != nil {
+		return nil, fmt.Errorf("incorrect password")
 	}
 
-	return account, err
+	return &account, err
 }
 
 // Comparing password.
@@ -84,7 +120,7 @@ func (s *AuthService) CheckPassword(account *Account, inputPassword string) erro
 	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(inputPassword))
 
 	if err != nil {
-		return fmt.Errorf("Invalid password")
+		return fmt.Errorf("invalid password")
 	}
 
 	return nil

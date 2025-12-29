@@ -87,6 +87,7 @@ type MockAuthoRepo struct {
 	RegisterFn       func(*sql.Tx, auth.Account) (*auth.Account, error)
 	ValidateUserFn   func(*sql.DB, string) (*auth.Account, error)
 	UpdatePasswordFn func(*sql.Tx, auth.Account) (*auth.Account, error)
+	GetUsrPasswordFn func(*sql.DB, string) (string, error)
 }
 
 func (m *MockAuthoRepo) Register(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
@@ -99,6 +100,10 @@ func (m *MockAuthoRepo) ValidateUser(db *sql.DB, username string) (*auth.Account
 
 func (m *MockAuthoRepo) UpdatePassword(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 	return m.UpdatePasswordFn(tx, a)
+}
+
+func (m *MockAuthoRepo) GetUsrPassword(db *sql.DB, username string) (string, error) {
+	return m.GetUsrPasswordFn(db, username)
 }
 
 func TestHandleHashPassword(t *testing.T) {

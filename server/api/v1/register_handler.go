@@ -77,6 +77,11 @@ func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error
 	account.Username = req.Username
 	account.Password = req.Password
 
+	// Validate current user by password.
+	if err := service.ValidateAccountService(db, account.Username, account.Password); err != nil {
+		return fmt.Errorf("incorrect login")
+	}
+
 	// Begin transaction.
 	tx, err := db.Begin()
 	if err != nil {
