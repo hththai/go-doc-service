@@ -36,9 +36,6 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 	// 	return nil, fmt.Errorf("invalid account")
 	// }
 
-	// TODO: Check if valid user.
-	// Comparing input old password and existing password.
-
 	// Copy account
 	updatedAccount := account
 	updatedAccount.Password = newPassword
@@ -68,7 +65,6 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 }
 
 // Validate current username and password.
-// TODO: build unit test.
 func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputPwd string) error {
 
 	// 1. Get current pwd.

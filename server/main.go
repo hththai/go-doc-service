@@ -7,6 +7,7 @@ import (
 	config "2_Go/internal/repo"
 	rateLimit "2_Go/middleware"
 	"2_Go/middleware/authen"
+
 	"2_Go/utils"
 	"context"
 	"fmt"
@@ -195,6 +196,10 @@ func main() {
 
 		log.Debugf("%s password updated success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	})
+
+	authGroup.GET("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
 	r.Run(":8088")

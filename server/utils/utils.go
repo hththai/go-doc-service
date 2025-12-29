@@ -2,11 +2,29 @@ package utils
 
 import (
 	"errors"
+	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func IsProduction() bool {
 	return os.Getenv("GO_ENV") == "production"
+}
+
+func GetConfigJWT() string {
+	_ = godotenv.Load(".env")
+
+	env := os.Getenv("GO_ENV")
+	switch env {
+	case "development":
+		_ = godotenv.Overload(".env.development")
+	case "production":
+		_ = godotenv.Overload(".env.production")
+	default:
+		log.Println("GO_ENV not set, using defaults from .env")
+	}
+	return os.Getenv("JWT_SECRET")
 }
 
 // Custom Util function to create a folder and name if it is not exist.

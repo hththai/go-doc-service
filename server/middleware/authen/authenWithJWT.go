@@ -1,6 +1,7 @@
 package authen
 
 import (
+	"2_Go/utils"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte("secret-key")
+var secretKey = []byte(utils.GetConfigJWT())
 
 // For testing purpose
 func SayHello() error {
@@ -23,6 +24,7 @@ func CreateToken(username string) (string, error) {
 		jwt.MapClaims{
 			"username": username,
 			"exp":      time.Now().Add(time.Minute * 60).Unix(),
+			"iat":      time.Now().Unix(),
 		})
 
 	tokenString, err := token.SignedString(secretKey)
