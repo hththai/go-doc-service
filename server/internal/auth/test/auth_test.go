@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestValidate(t *testing.T) {
@@ -303,4 +305,49 @@ func TestCheckPassword(t *testing.T) {
 		})
 	}
 
+}
+
+func TestValidateAccountService(t *testing.T) {
+	var db *sql.DB = nil
+
+	mockRepo := &MockAuthoRepo{}
+	svc := auth.NewAuthService(mockRepo)
+
+	hash := func(pwd string) string {
+		h, _ := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+		return string(h)
+	}
+
+	t.Run("user not found", func(t *testing.T) {
+		mockRepo.GetUsrPasswordFn = func(db *sql.DB, username string) (string, error) {
+			return "", fmt.Errorf("no user")
+		}
+
+		err := svc.ValidateAccountService(db, "huy", "12345")
+		if err == nil || err.Error() != "invalid account" {
+			t.Errorf("expected invalid account error, got %v", err)
+		}
+	})
+
+	t.Run("incorrect password", func(t *testing.T) {
+		mockRepo.GetUsrPasswordFn = func(db *sql.DB, username string) (string, error) {
+			return hash("correctpwd"), nil
+		}
+
+		err := svc.ValidateAccountService(db, "huy", "wrongpwd")
+		if err == nil || err.Error() != "incorrect password" {
+			t.Errorf("expected incorrect password error, got %v", err)
+		}
+	})
+
+	t.Run("correct password", func(t *testing.T) {
+		mockRepo.GetUsrPasswordFn = func(db *sql.DB, username string) (string, error) {
+			return hash("correctpwd"), nil
+		}
+
+		err := svc.ValidateAccountService(db, "huy", "correctpwd")
+		if err != nil {
+			t.Errorf("expected success, got error %v", err)
+		}
+	})
 }
