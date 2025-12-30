@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 	"github.com/redis/go-redis/v9"
@@ -94,6 +95,17 @@ func main() {
 		//*******
 	}
 
+	// CORS config.
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+		AllowOriginFunc: func(origin string) bool {
+			return true
+		},
+	}))
+
 	// // TODO: Review the order of middleware
 	// r := gin.Default()
 	// r.Use(rateLimit.RateLimitMiddleware(limiter))
@@ -169,7 +181,8 @@ func main() {
 	})
 
 	// Protected
-	authGroup := r.Group("/v1/auth", authen.JWTAuth())
+	// authGroup := r.Group("/v1/auth", authen.JWTAuth())
+	authGroup := r.Group("/v1/auth", authen.JWTAuthByCookies())
 
 	r.POST("/loginjwt", func(c *gin.Context) {
 		token, err := v1.LoginJwt(c, acctSvc, db)
@@ -184,13 +197,11 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"token": token})
 	})
 
+	// reset password endpoint.
 	authGroup.POST("/users/:username/changepassword", func(c *gin.Context) {
 
-		jwtUser := c.GetString("username") // from Token
-		reqUser := c.Param("username")     // from request
-
-		if jwtUser != reqUser {
-			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		shouldReturn := validateUser(c)
+		if shouldReturn {
 			return
 		}
 
@@ -206,9 +217,36 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
+	// Refresh token endpoint.
+	r.POST("/v1/auth/refresh", func(c *gin.Context) {
+		err = v1.Refresh(c)
+
+		if err != nil {
+			log.Errorf("%s Error Change: %s", c.ClientIP(), err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		log.Debugf("%s password updated success", c.ClientIP())
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	})
+
+	// Testing authorize.
 	authGroup.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
 	r.Run(":8088")
+}
+
+// validate if the user is matched the token.
+func validateUser(c *gin.Context) bool {
+	jwtUser := c.GetString("username") // from Token
+	reqUser := c.Param("username")     // from request
+
+	if jwtUser != reqUser {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return true
+	}
+	return false
 }

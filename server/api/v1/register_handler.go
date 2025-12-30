@@ -61,8 +61,6 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 }
 
 // Change password.
-// TODO: check the validated account or not with matching username and password.
-// TODO: Do we need password field. or JWT. if yes, handle validate correct account with current username and password.
 func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 
 	var req struct {
@@ -160,20 +158,41 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, er
 	account.Username = req.Username
 
 	// issue accessToken.
-	accessToken, err := handleAccessToken(account, c)
+	accessToken, err := handleAccessToken(account.Username, c)
 	if err != nil {
 		return "", err
 	}
 	// Handle refresh token
-	_ = handleRefreshToken(account, c)
+	_ = handleRefreshToken(account.Username, c)
 
 	// c.SetCookie("jwt", token, 3600, "/", "localhost", true, true)
 
 	return accessToken, nil
 }
 
-func handleAccessToken(account *auth.Account, c *gin.Context) (string, error) {
-	token, err := authen.CreateAccessToken(account.Username)
+// Handle refresh token when access token invalid.
+func Refresh(c *gin.Context) error {
+	fmt.Println("Cookies:::", c.Request.Cookies())
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil {
+		return fmt.Errorf("missing refresh token")
+	}
+
+	claims, err := authen.VerifyToken(refreshToken)
+	if err != nil {
+		return fmt.Errorf("invalid refresh token")
+	}
+
+	username := (*claims)["username"].(string)
+
+	// Issue new token.
+	_, err = handleAccessToken(username, c)
+
+	return nil
+}
+
+func handleAccessToken(username string, c *gin.Context) (string, error) {
+	token, err := authen.CreateAccessToken(username)
 	if err != nil {
 		return "", err
 	}
@@ -190,8 +209,8 @@ func handleAccessToken(account *auth.Account, c *gin.Context) (string, error) {
 }
 
 // Set refreshtoken and secure for cookies access.
-func handleRefreshToken(account *auth.Account, c *gin.Context) error {
-	refreshToken, err := authen.CreateRefreshToken(account.Username)
+func handleRefreshToken(username string, c *gin.Context) error {
+	refreshToken, err := authen.CreateRefreshToken(username)
 
 	if err != nil {
 		return fmt.Errorf("login failed with token")
@@ -199,10 +218,10 @@ func handleRefreshToken(account *auth.Account, c *gin.Context) error {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/auth/refresh",
+		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		Secure:   false, // for testing purpose without https
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	return nil

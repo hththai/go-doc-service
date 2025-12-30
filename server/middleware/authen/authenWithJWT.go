@@ -97,3 +97,25 @@ func JWTAuth() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// Example of using cookies access token
+func JWTAuthByCookies() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token, err := c.Cookie("access_token")
+		if err != nil {
+			c.JSON(401, gin.H{"error": "missing token"})
+			c.Abort()
+			return
+		}
+
+		claims, err := VerifyToken(token)
+		if err != nil {
+			c.JSON(401, gin.H{"error": "expired or invalid token"})
+			c.Abort()
+			return
+		}
+
+		c.Set("username", (*claims)["username"])
+		c.Next()
+	}
+}
