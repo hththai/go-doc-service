@@ -181,7 +181,7 @@ func main() {
 	})
 
 	// Protected
-	// authGroup := r.Group("/v1/auth", authen.JWTAuth())
+	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
 	authGroup := r.Group("/v1/auth", authen.JWTAuthByCookies())
 
 	r.POST("/loginjwt", func(c *gin.Context) {
@@ -200,7 +200,7 @@ func main() {
 	// reset password endpoint.
 	authGroup.POST("/users/:username/changepassword", func(c *gin.Context) {
 
-		shouldReturn := validateUser(c)
+		shouldReturn := IsValidUser(c)
 		if shouldReturn {
 			return
 		}
@@ -236,11 +236,29 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
+	// validate access token.
+	authGroup.GET("/me", func(c *gin.Context) {
+		// TODO: should check IsValidUser
+
+		err = v1.IsValidToken(c, acctSvc)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// Test
+	authGrouptest.GET("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
 	r.Run(":8088")
 }
 
 // validate if the user is matched the token.
-func validateUser(c *gin.Context) bool {
+func IsValidUser(c *gin.Context) bool {
 	jwtUser := c.GetString("username") // from Token
 	reqUser := c.Param("username")     // from request
 

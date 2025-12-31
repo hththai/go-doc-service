@@ -170,9 +170,24 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, er
 	return accessToken, nil
 }
 
+// Validate access token.
+func IsValidToken(c *gin.Context, service *auth.AuthService) error {
+	access_token, err := c.Cookie("access_token")
+	if err != nil {
+		return fmt.Errorf("missing access token")
+	}
+
+	_, err = authen.VerifyToken(access_token)
+
+	if err != nil {
+		return fmt.Errorf("invalid token")
+	}
+	return nil
+}
+
 // Handle refresh token when access token invalid.
 func Refresh(c *gin.Context) error {
-	fmt.Println("Cookies:::", c.Request.Cookies())
+	// fmt.Println("Cookies:::", c.Request.Cookies())
 	refreshToken, err := c.Cookie("refresh_token")
 	if err != nil {
 		return fmt.Errorf("missing refresh token")
@@ -202,7 +217,7 @@ func handleAccessToken(username string, c *gin.Context) (string, error) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
 	})
 	return token, nil

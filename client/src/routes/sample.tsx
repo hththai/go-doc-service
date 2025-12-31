@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { useState } from "react";
 import { useLogin } from "../hooks/useLogin";
 import { useRefresh } from "../hooks/useRefresh";
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 
 
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/sample')({
 function LoginComponent() {
     const login = useLogin();
     const refresh = useRefresh();
+    const { refetch, data, isLoading, isError } = useCurrentUser();
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -27,6 +29,10 @@ function LoginComponent() {
     }
     function handleRefresh() {
         refresh.mutate();
+    }
+
+    function handlePing() {
+        refetch();
     }
 
     return (
@@ -75,6 +81,12 @@ function LoginComponent() {
             {login.isSuccess && (
                 <p style={{ color: "green", marginTop: 10 }}>Login successful</p>
             )}
+
+            <div>
+                <button onClick={handlePing}>Test</button>
+                {isLoading && <p>Loading...</p>}
+                {isError && <p>Error</p>}
+            </div>
         </div>
     );
 }

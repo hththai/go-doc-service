@@ -26,6 +26,7 @@ func CreateAccessToken(username string) (string, error) {
 			"username": username,
 			"exp":      time.Now().Add(time.Minute * 60).Unix(),
 			"iat":      time.Now().Unix(),
+			"type":     "access",
 		})
 
 	tokenString, err := token.SignedString(secretKey)
@@ -84,15 +85,30 @@ func JWTAuth() gin.HandlerFunc {
 
 		tokenString := strings.TrimPrefix(header, "Bearer ")
 
-		claims, err := VerifyToken(tokenString)
-
+		// Validate if it access_token.
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return secretKey, nil
+		})
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
-			c.Abort()
+			c.AbortWithStatusJSON(401, gin.H{"error": "invalid token"})
+		}
+
+		claims := token.Claims.(jwt.MapClaims)
+
+		if claims["type"] != "access" {
+			c.AbortWithStatusJSON(401, gin.H{"error": "invalid access token"})
 			return
 		}
 
-		c.Set("username", (*claims)["username"])
+		// claims, err := VerifyToken(tokenString)
+
+		// if err != nil {
+		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+		// 	c.Abort()
+		// 	return
+		// }
+
+		c.Set("username", (claims)["username"])
 
 		c.Next()
 	}
