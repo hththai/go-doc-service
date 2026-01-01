@@ -170,6 +170,29 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, er
 	return accessToken, nil
 }
 
+// Logout with jwt
+func Logout(c *gin.Context, service *auth.AuthService) error {
+	err := handleLogout(c)
+	if err != nil {
+		return fmt.Errorf("Error of log out")
+	}
+
+	return nil
+}
+
+func handleLogout(c *gin.Context) error {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+	return nil
+}
+
 // Validate access token.
 func IsValidToken(c *gin.Context, service *auth.AuthService) error {
 	access_token, err := c.Cookie("access_token")
@@ -219,6 +242,7 @@ func handleAccessToken(username string, c *gin.Context) (string, error) {
 		HttpOnly: true,
 		Secure:   false,
 		SameSite: http.SameSiteStrictMode,
+		MaxAge:   604800,
 	})
 	return token, nil
 }

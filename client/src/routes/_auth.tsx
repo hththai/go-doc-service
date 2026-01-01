@@ -1,13 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Link, Outlet, redirect, useRouter } from '@tanstack/react-router'
-
+import * as React from 'react'
 import { useAuth } from '../auth'
 
 export const Route = createFileRoute('/_auth')({
     beforeLoad: ({ context, location }) => {
+        const auth = context.auth;
+        if (auth.isLoading) {
+            return;
+        }
+
         if (!context.auth.isAuthenticated) {
             throw redirect({
-                to: '/login',
+                to: '/signin',
                 search: {
                     redirect: location.href,
                 },
@@ -25,13 +30,19 @@ function AuthLayout() {
 
     const handleLogout = () => {
         if (window.confirm('Are you sure you want to logout?')) {
-            // auth.logout().then(() => {
-            //     router.invalidate().finally(() => {
-            //         navigate({ to: '/' })
-            //     })
-            // })
+            auth.logout().then(() => {
+                router.invalidate().finally(() => {
+                    navigate({ to: '/' })
+                })
+            })
         }
     }
+
+    React.useEffect(() => {
+        if (!auth.isLoading && !auth.isAuthenticated) {
+            navigate({ to: "/signin" });
+        }
+    }, [auth.isLoading, auth.isAuthenticated]);
 
     return (
         <div className="p-2 h-full">

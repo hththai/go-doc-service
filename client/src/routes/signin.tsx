@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { redirect, useRouter, useRouterState } from '@tanstack/react-router'
+import { redirect, useRouter, useRouterState, useSearch } from '@tanstack/react-router'
 import * as React from 'react'
 import { useAuth } from '../auth'
 import { sleep } from '../utils'
@@ -8,26 +8,76 @@ import { useState } from "react";
 import { useLogin } from "../hooks/useLogin";
 import { useRefresh } from "../hooks/useRefresh";
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useQueryClient } from '@tanstack/react-query';
+
+const fallback = '/welcome' as const
 
 
 
-export const Route = createFileRoute('/sample')({
-    component: LoginComponent,
+export const Route = createFileRoute('/signin')({
+    validateSearch: z.object({
+        redirect: z.string().optional().catch(''),
+    }),
+    beforeLoad: ({ context, search }) => {
+        if (context.auth.isAuthenticated) {
+            throw redirect({ to: search.redirect || fallback })
+        }
+    },
+    component: SigninComponent,
 })
 
-function LoginComponent() {
+function SigninComponent() {
+    const auth = useAuth();
     const login = useLogin();
     const refresh = useRefresh();
-    const { refetch, data, isLoading, isError } = useCurrentUser();
+    const { refetch } = useCurrentUser();
+    const router = useRouter();
+    const { redirect: redirectTarget } = useSearch({ from: '/signin' })
+    // const queryClient = useQueryClient();
+
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        login.mutate({ username, password });
+        setIsSubmitting(true)
+
+        try {
+            // queryClient.setQueryData(["me"], null);
+            // 1. Perform Login.
+            await auth.login(username, password);
+
+            // 2. Fetch the user profile and wait for it.
+            await refetch();
+
+            // 3. Invalidate the router to re-run 'beforeLoad' and refresh context.
+            // reforec tanstack to validate auth again.
+            // isAuthenticated is validate.
+            await router.invalidate();
+
+            // Redirect after successful login.
+            // 4. Navigate to the intended destination or the welcome page.
+            if (redirectTarget) {
+                await router.navigate({ to: redirectTarget })
+            } else {
+                await router.navigate({
+                    to: '/welcome/$username',
+                    params: { username },
+                })
+            }
+
+        } catch (err) {
+            console.error(err);
+        }
+        finally {
+            setIsSubmitting(false)
+        }
     }
-    function handleRefresh() {
+
+
+    async function handleRefresh() {
         refresh.mutate();
     }
 
@@ -84,8 +134,6 @@ function LoginComponent() {
 
             <div>
                 <button onClick={handlePing}>Test</button>
-                {isLoading && <p>Loading...</p>}
-                {isError && <p>Error</p>}
             </div>
         </div>
     );

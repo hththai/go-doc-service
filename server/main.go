@@ -244,9 +244,22 @@ func main() {
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err})
+			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
+	})
+
+	// logout
+	authGroup.POST("/logout", func(c *gin.Context) {
+		err = v1.Logout(c, acctSvc)
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "logout"})
 	})
 
 	// Test
