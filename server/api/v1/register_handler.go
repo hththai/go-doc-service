@@ -137,37 +137,75 @@ func Login(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	return nil
 }
 
-// Login with jwt
-func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, error) {
+//// Login with jwt
+// func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, error) {
+// 	var req struct {
+// 		Username string `json:"username"`
+// 		Password string `json:"password"`
+// 	}
+
+// 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+// 		return "", err
+// 	}
+
+// 	account, err := service.Login(db, req.Username, req.Password)
+
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	// Assign account username.
+// 	account.Username = req.Username
+
+// 	// issue accessToken.
+// 	accessToken, err := handleAccessToken(account.Username, c)
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	// Handle refresh token
+// 	_ = handleRefreshToken(account.Username, c)
+
+// 	// c.SetCookie("jwt", token, 3600, "/", "localhost", true, true)
+
+// 	return accessToken, nil
+// }
+
+// Test return with token object
+func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (obj.AuthToken, error) {
+	var tokenReturn obj.AuthToken
+
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	}
 
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		return "", err
+		return tokenReturn, err
 	}
 
 	account, err := service.Login(db, req.Username, req.Password)
 
 	if err != nil {
-		return "", err
+		return tokenReturn, err
 	}
 
 	// Assign account username.
 	account.Username = req.Username
 
 	// issue accessToken.
-	accessToken, err := handleAccessToken(account.Username, c)
+	_, err = handleAccessToken(account.Username, &tokenReturn, c)
 	if err != nil {
-		return "", err
+		return tokenReturn, err
 	}
+
+	// Assign token value.
+
 	// Handle refresh token
 	_ = handleRefreshToken(account.Username, c)
 
 	// c.SetCookie("jwt", token, 3600, "/", "localhost", true, true)
 
-	return accessToken, nil
+	return tokenReturn, nil
 }
 
 // Logout with jwt
@@ -194,21 +232,29 @@ func handleLogout(c *gin.Context) error {
 }
 
 // Validate access token.
-func IsValidToken(c *gin.Context, service *auth.AuthService) error {
+func IsValidToken(c *gin.Context, service *auth.AuthService) (string, error) {
 	access_token, err := c.Cookie("access_token")
 	if err != nil {
-		return fmt.Errorf("missing access token")
+		return "", fmt.Errorf("missing access token")
 	}
 
-	_, err = authen.VerifyToken(access_token)
+	claims, err := authen.VerifyToken(access_token)
 
 	if err != nil {
-		return fmt.Errorf("invalid token")
+		return "", fmt.Errorf("invalid token")
 	}
-	return nil
+
+	// Claim token.
+
+	// username, ok := (*claims)["username"].(string)
+	username, ok := (*claims)["tokenId"].(string)
+	if !ok {
+		return "", fmt.Errorf("username not found in token")
+	}
+
+	return username, nil
 }
 
-// Handle refresh token when access token invalid.
 func Refresh(c *gin.Context) error {
 	// fmt.Println("Cookies:::", c.Request.Cookies())
 	refreshToken, err := c.Cookie("refresh_token")
@@ -223,17 +269,43 @@ func Refresh(c *gin.Context) error {
 
 	username := (*claims)["username"].(string)
 
+	var newTokenReturn obj.AuthToken
+
 	// Issue new token.
-	_, err = handleAccessToken(username, c)
+	_, err = handleAccessToken(username, &newTokenReturn, c)
 
 	return nil
 }
 
-func handleAccessToken(username string, c *gin.Context) (string, error) {
-	token, err := authen.CreateAccessToken(username)
+// Handle refresh token when access token invalid.
+// func Refresh(c *gin.Context) error {
+// 	// fmt.Println("Cookies:::", c.Request.Cookies())
+// 	refreshToken, err := c.Cookie("refresh_token")
+// 	if err != nil {
+// 		return fmt.Errorf("missing refresh token")
+// 	}
+
+// 	claims, err := authen.VerifyToken(refreshToken)
+// 	if err != nil {
+// 		return fmt.Errorf("invalid refresh token")
+// 	}
+
+// 	username := (*claims)["username"].(string)
+
+// 	// Issue new token.
+// 	_, err = handleAccessToken(username, c)
+
+// 	return nil
+// }
+
+func handleAccessToken(username string, tokenReturn *obj.AuthToken, c *gin.Context) (*obj.AuthToken, error) {
+	token, tokenId, err := authen.CreateAccessToken(username)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+
+	tokenReturn.AccessToken = token
+	tokenReturn.TokenId = tokenId
 
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
@@ -244,8 +316,26 @@ func handleAccessToken(username string, c *gin.Context) (string, error) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   604800,
 	})
-	return token, nil
+	return tokenReturn, nil
 }
+
+// func handleAccessToken(username string, c *gin.Context) (string, error) {
+// 	token, err := authen.CreateAccessToken(username)
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	http.SetCookie(c.Writer, &http.Cookie{
+// 		Name:     "access_token",
+// 		Value:    token,
+// 		Path:     "/",
+// 		HttpOnly: true,
+// 		Secure:   false,
+// 		SameSite: http.SameSiteStrictMode,
+// 		MaxAge:   604800,
+// 	})
+// 	return token, nil
+// }
 
 // Set refreshtoken and secure for cookies access.
 func handleRefreshToken(username string, c *gin.Context) error {

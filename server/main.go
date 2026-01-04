@@ -237,17 +237,33 @@ func main() {
 	})
 
 	// validate access token.
-	authGroup.GET("/me", func(c *gin.Context) {
+	authGroup.POST("/users/me", func(c *gin.Context) {
 		// TODO: should check IsValidUser
+		// shouldReturn := IsValidUser(c)
+		// if shouldReturn {
+		// 	return
+		// }
+		var req struct {
+			TokenId string `json:"tokenId"`
+		}
 
-		err = v1.IsValidToken(c, acctSvc)
-
-		if err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": err})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "success"})
+		jwtUsername, err := v1.IsValidToken(c, acctSvc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err})
+			return
+		}
+		// check if the token match the current user session in local host.
+		if req.TokenId != jwtUsername {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"sessionId": jwtUsername})
 	})
 
 	// logout
@@ -260,6 +276,37 @@ func main() {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"message": "logout"})
+	})
+
+	// Upload file.
+	authGroup.POST("/upload", func(c *gin.Context) {
+		tokenId := c.PostForm("tokenId")
+
+		if tokenId == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "missing tokenId"})
+			return
+		}
+		jwtUsername, err := v1.IsValidToken(c, acctSvc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": err})
+			return
+		}
+		// check if the token match the current user session in local host.
+		if tokenId != jwtUsername {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
+			return
+		}
+		err = v1.UploadDocument(c, docService, db)
+
+		if err != nil {
+			log.Errorf("%s Error Upload: %s", c.ClientIP(), err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		log.Debugf("%s Upload Success", c.ClientIP())
+		c.JSON(http.StatusOK, gin.H{"message": "Success"})
+
 	})
 
 	// Test
@@ -281,3 +328,9 @@ func IsValidUser(c *gin.Context) bool {
 	}
 	return false
 }
+
+// func IsValidSession(c *gin.Context) bool {
+// 	jwtUser := c.GetString("tokenId")
+
+// 	return false
+// }

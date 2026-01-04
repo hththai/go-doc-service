@@ -4,11 +4,13 @@ import * as React from 'react'
 import { useAuth } from '../auth'
 
 export const Route = createFileRoute('/_auth')({
+
     beforeLoad: ({ context, location }) => {
-        const auth = context.auth;
-        if (auth.isLoading) {
-            return;
-        }
+        // const auth = context.auth;
+        // if (auth.isLoading) {
+        //     return;
+        //     // throw new Promise(() => { })
+        // }
 
         if (!context.auth.isAuthenticated) {
             throw redirect({
@@ -32,17 +34,17 @@ function AuthLayout() {
         if (window.confirm('Are you sure you want to logout?')) {
             auth.logout().then(() => {
                 router.invalidate().finally(() => {
-                    navigate({ to: '/' })
+                    navigate({ to: '/', replace: true })
                 })
             })
         }
     }
 
-    React.useEffect(() => {
-        if (!auth.isLoading && !auth.isAuthenticated) {
-            navigate({ to: "/signin" });
-        }
-    }, [auth.isLoading, auth.isAuthenticated]);
+    // React.useEffect(() => {
+    //     if (!auth.isLoading && !auth.isAuthenticated) {
+    //         navigate({ to: "/signin" });
+    //     }
+    // }, [auth.isLoading, auth.isAuthenticated]);
 
     return (
         <div className="p-2 h-full">

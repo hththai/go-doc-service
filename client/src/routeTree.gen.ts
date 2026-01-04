@@ -14,9 +14,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthWelcomeRouteImport } from './routes/_auth.welcome'
 import { Route as AuthDashboardRouteImport } from './routes/_auth.dashboard'
-import { Route as AuthWelcomeIndexRouteImport } from './routes/_auth.welcome.index'
-import { Route as AuthWelcomeUserRouteImport } from './routes/_auth.welcome.$user'
 
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
@@ -42,19 +41,14 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthWelcomeRoute = AuthWelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthDashboardRoute = AuthDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthWelcomeIndexRoute = AuthWelcomeIndexRouteImport.update({
-  id: '/welcome/',
-  path: '/welcome/',
-  getParentRoute: () => AuthRoute,
-} as any)
-const AuthWelcomeUserRoute = AuthWelcomeUserRouteImport.update({
-  id: '/welcome/$user',
-  path: '/welcome/$user',
   getParentRoute: () => AuthRoute,
 } as any)
 
@@ -64,8 +58,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signin': typeof SigninRoute
   '/dashboard': typeof AuthDashboardRoute
-  '/welcome/$user': typeof AuthWelcomeUserRoute
-  '/welcome': typeof AuthWelcomeIndexRoute
+  '/welcome': typeof AuthWelcomeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -73,8 +66,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/signin': typeof SigninRoute
   '/dashboard': typeof AuthDashboardRoute
-  '/welcome/$user': typeof AuthWelcomeUserRoute
-  '/welcome': typeof AuthWelcomeIndexRoute
+  '/welcome': typeof AuthWelcomeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -84,28 +76,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signin': typeof SigninRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
-  '/_auth/welcome/$user': typeof AuthWelcomeUserRoute
-  '/_auth/welcome/': typeof AuthWelcomeIndexRoute
+  '/_auth/welcome': typeof AuthWelcomeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/about'
-    | '/login'
-    | '/signin'
-    | '/dashboard'
-    | '/welcome/$user'
-    | '/welcome'
+  fullPaths: '/' | '/about' | '/login' | '/signin' | '/dashboard' | '/welcome'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/about'
-    | '/login'
-    | '/signin'
-    | '/dashboard'
-    | '/welcome/$user'
-    | '/welcome'
+  to: '/' | '/about' | '/login' | '/signin' | '/dashboard' | '/welcome'
   id:
     | '__root__'
     | '/'
@@ -114,8 +91,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signin'
     | '/_auth/dashboard'
-    | '/_auth/welcome/$user'
-    | '/_auth/welcome/'
+    | '/_auth/welcome'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -163,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth/welcome': {
+      id: '/_auth/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof AuthWelcomeRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/dashboard': {
       id: '/_auth/dashboard'
       path: '/dashboard'
@@ -170,33 +153,17 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthDashboardRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/welcome/': {
-      id: '/_auth/welcome/'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof AuthWelcomeIndexRouteImport
-      parentRoute: typeof AuthRoute
-    }
-    '/_auth/welcome/$user': {
-      id: '/_auth/welcome/$user'
-      path: '/welcome/$user'
-      fullPath: '/welcome/$user'
-      preLoaderRoute: typeof AuthWelcomeUserRouteImport
-      parentRoute: typeof AuthRoute
-    }
   }
 }
 
 interface AuthRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
-  AuthWelcomeUserRoute: typeof AuthWelcomeUserRoute
-  AuthWelcomeIndexRoute: typeof AuthWelcomeIndexRoute
+  AuthWelcomeRoute: typeof AuthWelcomeRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
-  AuthWelcomeUserRoute: AuthWelcomeUserRoute,
-  AuthWelcomeIndexRoute: AuthWelcomeIndexRoute,
+  AuthWelcomeRoute: AuthWelcomeRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)

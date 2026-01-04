@@ -35,7 +35,7 @@ POST http://localhost:8088/register
 Content-Type: application/json
 
 {
-    "username": "tim5",
+    "username": "tim589",
     "password": "password2"    
 }
 
@@ -44,8 +44,8 @@ POST http://localhost:8088/login
 Content-Type: application/json
 
 {
-    "username": "tim",
-    "password": "helasdasda"    
+    "username": "tim589",
+    "password": "password2"    
 }
 
 ###
@@ -55,7 +55,7 @@ Content-Type: application/json
 
 {
     "username": "tim234",
-    "password": "helasdasda"    
+    "password": "password2"    
 }
 
 ###
@@ -81,13 +81,13 @@ Content-Type: application/json
 
 ###
 POST http://localhost:8088/v1/auth/users/tim5/changepassword
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjcwNTQwNDcsImlhdCI6MTc2NzA1MDQ0NywidXNlcm5hbWUiOiJ0aW01In0.r9Hq1GbLWd3ECEdIKZ_rfPdpD7bj615MVFmN3mFcSyc
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjA2MTgsInR5cGUiOiJyZWZyZXNoIiwidXNlcm5hbWUiOiJ0aW01In0.ZucVaT6ZIrqXaGA-APZ_Kzas15bY4zxqnILTZQ3MCug
 Content-Type: application/json
 
 {
     "username": "tim5",
-    "password": "helasdasda12346",
-    "newpassword": "helasdasda12346"    
+    "password": "hello",
+    "newpassword": "hello"    
 }
 
 ### test auth
@@ -101,8 +101,46 @@ Content-Type: application/json
 
 {
    "username": "tim5",
-    "password": "helasdasda12346"      
+    "password": "hello"      
 }
 
 ###
 POST http://localhost:8088/v1/auth/refresh
+
+###
+GET http://localhost:8088/v1/auth/me
+
+###
+POST http://localhost:8088/v1/auth/users/me
+Content-Type: application/json
+
+{
+    "tokenId": "3cf1a029-5525-4610-8a93-0e01d1323bfe"
+}
+
+###
+POST http://localhost:8088/v1/auth/logout
+
+###Test
+GET http://localhost:8088/v2/auth/test
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc0MjkxMjQsImlhdCI6MTc2NzQyNTUyNCwidG9rZW5JZCI6ImIxMGQyOTMwLTAwMTEtNDM4Ni1iNTk4LWE1YmRkMzRkNzE5NiIsInR5cGUiOiJhY2Nlc3MiLCJ1c2VybmFtZSI6InRpbTUifQ.gHhZNncd6heEaoidVcm0KWthepuZfTqswCPTP3TAG6E
+
+### Test autho upload
+POST http://localhost:8088/v1/auth/upload HTTP/1.1
+Host: localhost
+Content-Type: multipart/form-data; boundary=WebBoundary
+
+--WebBoundary
+Content-Disposition: form-data; name="title"
+
+Hayden Thai Resume
+--WebBoundary
+Content-Disposition: form-data; name="tokenId"
+
+3cf1a029-5525-4610-8a93-0e01d1323bfe
+--WebBoundary
+Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
+
+< .input/Hayden Thai_Resume-2.pdf
+
+--WebBoundary--

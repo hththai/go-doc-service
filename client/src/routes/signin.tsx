@@ -12,8 +12,6 @@ import { useQueryClient } from '@tanstack/react-query';
 
 const fallback = '/welcome' as const
 
-
-
 export const Route = createFileRoute('/signin')({
     validateSearch: z.object({
         redirect: z.string().optional().catch(''),
@@ -28,45 +26,45 @@ export const Route = createFileRoute('/signin')({
 
 function SigninComponent() {
     const auth = useAuth();
-    const login = useLogin();
+
+    const tokenId = auth.tokenId
+    const { data: user, isLoading } = useCurrentUser(tokenId);
+
+    console.log("\nValue return current user::: ", user)
+    // const login = useLogin();
     const refresh = useRefresh();
-    const { refetch } = useCurrentUser();
+    const navigate = Route.useNavigate();
+    const search = Route.useSearch();
+
     const router = useRouter();
-    const { redirect: redirectTarget } = useSearch({ from: '/signin' })
-    // const queryClient = useQueryClient();
+    // const { redirect: redirectTarget } = useSearch({ from: '/signin' })
+    const queryClient = useQueryClient();
 
 
     const [username, setUsername] = useState("");
+    // const { refetch } = useCurrentUser(username);
     const [password, setPassword] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     async function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
         setIsSubmitting(true)
-
+        console.log("current auth::: ", auth)
         try {
+            e.preventDefault();
             // queryClient.setQueryData(["me"], null);
             // 1. Perform Login.
             await auth.login(username, password);
 
-            // 2. Fetch the user profile and wait for it.
-            await refetch();
-
-            // 3. Invalidate the router to re-run 'beforeLoad' and refresh context.
-            // reforec tanstack to validate auth again.
-            // isAuthenticated is validate.
             await router.invalidate();
 
-            // Redirect after successful login.
-            // 4. Navigate to the intended destination or the welcome page.
-            if (redirectTarget) {
-                await router.navigate({ to: redirectTarget })
-            } else {
-                await router.navigate({
-                    to: '/welcome/$username',
-                    params: { username },
-                })
-            }
+            await queryClient.invalidateQueries({ queryKey: ["me", auth.tokenId] })
+
+            // await sleep(1)
+
+            // if (!isLoading) {
+            //     await navigate({ to: search.redirect || fallback })
+            // }
+            await navigate({ to: search.redirect || fallback })
 
         } catch (err) {
             console.error(err);
@@ -78,11 +76,15 @@ function SigninComponent() {
 
 
     async function handleRefresh() {
-        refresh.mutate();
+        // refresh.mutate();
+        // const result = await queryClient.fetchQuery({ queryKey: ["login", username] })
+        const result2 = await queryClient.fetchQuery({ queryKey: ["me"] })
+        console.log(`result of testing::: ${result2}`)
+
     }
 
     function handlePing() {
-        refetch();
+        // refetch();
     }
 
     return (
@@ -106,8 +108,8 @@ function SigninComponent() {
                     style={{ width: "100%", marginBottom: 10 }}
                 />
 
-                <button type="submit" disabled={login.isPending} style={{ width: "100%" }}>
-                    {login.isPending ? "Logging in..." : "Login"}
+                <button type="submit" disabled={false} style={{ width: "100%" }}>
+                    Sign In
                 </button>
             </form>
 
@@ -124,13 +126,13 @@ function SigninComponent() {
                     <p style={{ color: "green" }}>Access token refreshed</p>
                 )}
             </div>
-            {login.isError && (
+            {/* {login.isError && (
                 <p style={{ color: "red", marginTop: 10 }}>{(login.error as Error).message}</p>
             )}
 
             {login.isSuccess && (
                 <p style={{ color: "green", marginTop: 10 }}>Login successful</p>
-            )}
+            )} */}
 
             <div>
                 <button onClick={handlePing}>Test</button>

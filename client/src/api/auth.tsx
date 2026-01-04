@@ -1,7 +1,7 @@
 // TODO: store in api folder.
 // Sample login function.
 export async function loginRequest({ username, password }: { username: string, password: string }) {
-    const res = await fetch("http://localhost:8088/loginjwt", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/loginjwt`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -20,7 +20,7 @@ export async function loginRequest({ username, password }: { username: string, p
 }
 
 export async function refreshRequest() {
-    const res = await fetch("http://localhost:8088/v1/auth/refresh", {
+    const res = await fetch(`${import.meta.env.VITE_API_URL} / v1 / auth / refresh`, {
         method: "POST",
         credentials: "include", // REQUIRED: sends refresh_token cookie
     });
@@ -33,10 +33,17 @@ export async function refreshRequest() {
 
     return data;
 }
-// api folder
-export async function getMe() {
-    const res = await fetch("http://localhost:8088/v1/auth/me", {
+
+// api folder.
+// Add requirement to have tokenId.
+export async function getMe({ tokenId }: { tokenId: string }) {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/users/me`, {
+        method: "POST",
         credentials: "include", // sends cookies
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tokenId })
     });
 
     if (res.status === 401) {

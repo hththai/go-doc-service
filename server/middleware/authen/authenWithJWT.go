@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 var secretKey = []byte(utils.GetConfigJWT())
@@ -20,10 +21,15 @@ func SayHello() error {
 }
 
 // Short token Access Token
-func CreateAccessToken(username string) (string, error) {
+// TODO: working on token id.
+func CreateAccessToken(username string) (string, string, error) {
+	// Create an access token id.
+	tokenId := uuid.NewString()
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
 			"username": username,
+			"tokenId":  tokenId,
 			"exp":      time.Now().Add(time.Minute * 60).Unix(),
 			"iat":      time.Now().Unix(),
 			"type":     "access",
@@ -32,10 +38,10 @@ func CreateAccessToken(username string) (string, error) {
 	tokenString, err := token.SignedString(secretKey)
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return tokenString, nil
+	return tokenString, tokenId, nil
 }
 
 func VerifyToken(tokenString string) (*jwt.MapClaims, error) {

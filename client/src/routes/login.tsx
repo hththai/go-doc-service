@@ -36,7 +36,7 @@ function LoginComponent() {
 
             if (!fieldValue) return
             const username = fieldValue.toString()
-            await auth.login(username)
+            // await auth.login(username)
 
             await router.invalidate()
 
