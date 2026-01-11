@@ -1,8 +1,8 @@
 import * as React from 'react'
+import { sleep } from './utils'
 import { useCurrentUser } from './hooks/useCurrentUser'
 import { useQueryClient } from '@tanstack/react-query';
 import { useLogin } from './hooks/useLogin';
-// import { sleep } from './utils';
 
 const key = 'tokenId'
 
@@ -61,11 +61,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             method: "POST",
             credentials: "include",
         });
-
-        queryClient.setQueryData(["me", tokenId], null);
-        queryClient.invalidateQueries({ queryKey: ["me", tokenId] })
+        queryClient.setQueryData(["me"], null);
         setStoredTokenId(null)
-        setTokenId(null)
+        await queryClient.invalidateQueries({ queryKey: ["me"] })
     }
 
     const value: AuthContext = {

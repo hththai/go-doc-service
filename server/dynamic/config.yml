@@ -3,8 +3,9 @@ http:
     apigolang:
       rule: "Host(`api.golang.localdomain`) || Host(`api.golang.hthai.cloud`)"
       entryPoints:
-        - web
+        - websecure
       service: apigolang
+      tls: {}
 
   services:
     apigolang:

@@ -1,15 +1,27 @@
-FROM node:18-alpine
+FROM node:22-alpine AS build 
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+RUN npm install -g npm@latest
+
+COPY package.json package-lock.json* ./
+
+RUN npm ci
 
 COPY . .
 
-# Build Start app
 RUN npm run build
+
+FROM node:22-slim AS runner 
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=build /app/.output ./.output 
+
+COPY --from=build /app/package.json ./package.json
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["node",".output/server/index.mjs"]

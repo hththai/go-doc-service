@@ -4,9 +4,10 @@ import * as React from 'react'
 import { useAuth } from '../auth'
 import { z } from 'zod'
 import { useState } from "react";
-import { useRefresh } from "../hooks/useRefresh";
+//import { useRefresh } from "../hooks/useRefresh";
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useQueryClient } from '@tanstack/react-query';
+import LoginForm from '@/components/Login/Login'
 
 const fallback = '/welcome' as const
 
@@ -30,7 +31,7 @@ function SigninComponent() {
 
     console.log("\nValue return current user::: ", user)
     // const login = useLogin();
-    const refresh = useRefresh();
+    // const refresh = useRefresh();
     const navigate = Route.useNavigate();
     const search = Route.useSearch();
 
@@ -57,11 +58,6 @@ function SigninComponent() {
 
             await queryClient.invalidateQueries({ queryKey: ["me", auth.tokenId] })
 
-            // await sleep(1)
-
-            // if (!isLoading) {
-            //     await navigate({ to: search.redirect || fallback })
-            // }
             await navigate({ to: search.redirect || fallback })
 
         } catch (err) {
@@ -73,68 +69,27 @@ function SigninComponent() {
     }
 
 
-    async function handleRefresh() {
-        // refresh.mutate();
-        // const result = await queryClient.fetchQuery({ queryKey: ["login", username] })
-        const result2 = await queryClient.fetchQuery({ queryKey: ["me"] })
-        console.log(`result of testing::: ${result2}`)
+    // async function handleRefresh() {
+    //     // refresh.mutate();
+    //     // const result = await queryClient.fetchQuery({ queryKey: ["login", username] })
+    //     const result2 = await queryClient.fetchQuery({ queryKey: ["me"] })
+    //     console.log(`result of testing::: ${result2}`)
 
-    }
+    // }
 
-    function handlePing() {
-        // refetch();
-    }
+    // function handlePing() {
+    //     // refetch();
+    // }
 
     return (
-        <div style={{ width: 300, margin: "40px auto", padding: 20, border: "1px solid #ccc" }}>
-            <h2>Login</h2>
-
-            <form onSubmit={handleSubmit}>
-                <input
-                    type="text"
-                    placeholder="Username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    style={{ width: "100%", marginBottom: 10 }}
-                />
-
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    style={{ width: "100%", marginBottom: 10 }}
-                />
-
-                <button type="submit" disabled={false} style={{ width: "100%" }}>
-                    Sign In
-                </button>
-            </form>
-
-            <div style={{ marginTop: 20 }}>
-                <button onClick={handleRefresh} disabled={refresh.isPending}>
-                    {refresh.isPending ? "Refreshing..." : "Refresh"}
-                </button>
-
-                {refresh.isError && (
-                    <p style={{ color: "red" }}>{(refresh.error as Error).message}</p>
-                )}
-
-                {refresh.isSuccess && (
-                    <p style={{ color: "green" }}>Access token refreshed</p>
-                )}
-            </div>
-            {/* {login.isError && (
-                <p style={{ color: "red", marginTop: 10 }}>{(login.error as Error).message}</p>
-            )}
-
-            {login.isSuccess && (
-                <p style={{ color: "green", marginTop: 10 }}>Login successful</p>
-            )} */}
-
-            <div>
-                <button onClick={handlePing}>Test</button>
-            </div>
+        <div>
+            <LoginForm
+                username={username}
+                password={password}
+                setUsername={setUsername}
+                setPassword={setPassword}
+                handleSubmit={handleSubmit} />
         </div>
+
     );
 }

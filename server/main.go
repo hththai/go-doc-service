@@ -97,7 +97,7 @@ func main() {
 
 	// CORS config.
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowOrigins:     []string{"https://client.golang.localdomain"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -184,6 +184,7 @@ func main() {
 	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
 	authGroup := r.Group("/v1/auth", authen.JWTAuthByCookies())
 
+	// Login and return jwt with userId
 	r.POST("/loginjwt", func(c *gin.Context) {
 		token, err := v1.LoginJwt(c, acctSvc, db)
 
@@ -227,7 +228,7 @@ func main() {
 			return
 		}
 
-		log.Debugf("%s password updated success", c.ClientIP())
+		log.Debugf("%s access updated success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 

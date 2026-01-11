@@ -144,3 +144,21 @@ Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 < .input/Hayden Thai_Resume-2.pdf
 
 --WebBoundary--
+
+###
+POST https://api.golang.localdomain/register
+Content-Type: application/json
+
+{
+    "username": "hthai",
+    "password": "hello"    
+}
+
+###
+POST https://api.golang.localdomain/loginjwt
+Content-Type: application/json
+
+{
+   "username": "hthai",
+    "password": "hello"      
+}

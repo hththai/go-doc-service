@@ -218,9 +218,20 @@ func Logout(c *gin.Context, service *auth.AuthService) error {
 	return nil
 }
 
+// Clean access_token and refresh_token
 func handleLogout(c *gin.Context) error {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     "refresh_token",
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
@@ -312,9 +323,11 @@ func handleAccessToken(username string, tokenReturn *obj.AuthToken, c *gin.Conte
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   604800,
+		Secure:   false, //false if localhost
+		// SameSite: http.SameSiteStrictMode,
+		// SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   600, // 10 min
 	})
 	return tokenReturn, nil
 }
@@ -351,6 +364,8 @@ func handleRefreshToken(username string, c *gin.Context) error {
 		HttpOnly: true,
 		Secure:   false, // for testing purpose without https
 		SameSite: http.SameSiteLaxMode,
+		// SameSite: http.SameSiteNoneMode,
+		MaxAge: 604800, // 1 week
 	})
 
 	return nil
