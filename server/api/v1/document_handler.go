@@ -219,6 +219,10 @@ func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error)
 
 // Scan virus and return.
 func fileScan(tmpPath string) error {
+
+	// debug
+	fmt.Println("tmp path::", tmpPath)
+
 	cmd, err := exec.Command("/usr/local/maldetect/maldet", "-a", tmpPath).CombinedOutput()
 
 	if err != nil {

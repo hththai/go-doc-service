@@ -4,11 +4,21 @@ import { useState, useRef } from "react";
 export default function UploadFile() {
     const [title, setTitle] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [success, setSuccess] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        await uploadFile(title, file)
+        const ok = await uploadFile(title, file)
+
+        // If upload sucecss, clear the form.
+        if (ok) {
+            setSuccess(true)
+            handleClear();
+
+            // Auto-hide after 3 seconds.
+            setTimeout(() => setSuccess(false), 2000)
+        }
     }
 
     // handle cancel.
@@ -24,6 +34,11 @@ export default function UploadFile() {
 
     return <>
         <div>
+            {success && (
+                <div className="mb-4 my-1 rounded-md bg-green-100 px-4 py-2 text-green-800 border border-green-300">
+                    Uploaded successfully
+                </div>
+            )}
             <form onSubmit={handleSubmit}>
                 <div className="space-y-12">
                     <div className="border-b border-gray-900/10 pb-12">
