@@ -42,13 +42,17 @@ function AuthLayout() {
 
     return (
         <div className="p-2 h-full">
-            <h1>Authenticated Route</h1>
-            <p>This route's content is only visible to authenticated users.</p>
-            <ul className="py-2 flex gap-2">
+
+            <ul className="py-2 flex gap-2 justify-end">
                 <li>
                     <button
                         type="button"
-                        className="hover:underline"
+                        className="flex w-full justify-center rounded-md bg-slate-900 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs 
+                                hover:bg-slate-700 
+                                focus-visible:outline-2 
+                                focus-visible:outline-offset-2 
+                                focus-visible:outline-indigo-600
+                                "
                         onClick={handleLogout}
                     >
                         Logout

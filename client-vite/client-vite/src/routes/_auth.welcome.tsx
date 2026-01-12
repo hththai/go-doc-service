@@ -10,8 +10,10 @@ function RouteComponent() {
     // const auth = useAuth();
     return (<>
         {/* <div>Hello {auth.tokenId}</div> */}
-        <div className="flex justify-center">
-            <UploadFile />
+        <div className="flex justify-center px-4">
+            <div className='w-full max-w-md sm:max-w-2xl'>
+                <UploadFile />
+            </div>
         </div>
     </>
     )

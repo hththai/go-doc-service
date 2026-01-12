@@ -115,7 +115,7 @@ POST http://localhost:8088/v1/auth/users/me
 Content-Type: application/json
 
 {
-    "tokenId": "3cf1a029-5525-4610-8a93-0e01d1323bfe"
+    "tokenId": "ebae29e8-e089-401e-a365-ca52e6309120"
 }
 
 ###
