@@ -1,7 +1,7 @@
 # go-doc-service
 # Example of using options with input field
 
-{/* Example */}
+``` Code ```
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useMemo, useRef, useEffect } from 'react'
 
@@ -108,4 +108,4 @@ const [languages, setLanguages] = useState(["Javascript","Python","TypeScript"])
     </div>
   )
 }
-
+```
