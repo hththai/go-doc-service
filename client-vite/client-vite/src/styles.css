@@ -15,7 +15,7 @@ code {
 }
 
 /* Animation keyframes for the moving line - add to your global styles or Tailwind config */
-@keyframes wave-glow {
+/* @keyframes wave-glow {
   0% {
     stroke-dashoffset: 1200;
   }
@@ -28,4 +28,21 @@ code {
 .animate-wave-glow {
   animation: wave-glow 3s ease-in-out infinite;
   filter: drop-shadow(0 0 6px rgba(30, 41, 59, 0.5));
+} */
+
+/* Simplified wave path animation with small cart */
+@keyframes cart-ride {
+  0% {
+    offset-distance: 0%;
+  }
+
+  100% {
+    offset-distance: 100%;
+  }
+}
+
+.animate-cart {
+  offset-path: path("M-50,60 Q150,20 300,60 T600,60 T900,60 T1250,60");
+  offset-rotate: auto;
+  animation: cart-ride 4s ease-in-out infinite;
 }

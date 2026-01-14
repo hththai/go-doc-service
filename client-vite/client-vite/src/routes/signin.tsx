@@ -86,17 +86,21 @@ function SigninComponent() {
             <div className="relative w-full h-full flex items-center justify-center">
                 {/* Animated wave */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <svg className="w-full h-32 animate-wave-move" viewBox="0 0 1200 100" preserveAspectRatio="none">
-                        <path d="M0,50 Q150,0 300,50 T600,50 T900,50 T1200,50" fill="none" stroke="#e2e8f0" strokeWidth="2" />
+                    <svg className="w-full h-32" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                        {/* Simple wave track */}
                         <path
-                            className="animate-wave-glow"
-                            d="M0,50 Q150,0 300,50 T600,50 T900,50 T1200,50"
+                            id="wave-track"
+                            d="M-50,60 Q150,20 300,60 T600,60 T900,60 T1250,60"
                             fill="none"
-                            stroke="#1e293b"
+                            stroke="#cbd5e1"
                             strokeWidth="3"
-                            strokeDasharray="100 1100"
-                            strokeLinecap="round"
                         />
+                        {/* Small roller coaster cart */}
+                        <g className="animate-cart">
+                            <rect x="-12" y="-10" width="24" height="12" rx="3" fill="#1e293b" />
+                            <circle cx="-6" cy="4" r="3" fill="#475569" />
+                            <circle cx="6" cy="4" r="3" fill="#475569" />
+                        </g>
                     </svg>
                 </div>
                 <div className='backdrop-blur-md bg-white/30 p-6 rounded-xl w-full max-w-md sm:max-w-lg md:max-w-xl'>
