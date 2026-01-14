@@ -181,7 +181,6 @@ func randomString(n int) string {
 }
 
 // createAndSaveTempFolder.
-// TODO: Sanitize name here.
 func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error) {
 	// Sanitize filename.
 	safeName, err := utils.SanitizeFileName(fileName)
