@@ -98,7 +98,6 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 
 // handle save file and metadata when form submit attached file upload.
 // Update file path
-// TODO: Fix the return error to errorf instead of gin status.
 func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *document.Document, service *document.DocumentService, tx *sql.Tx) error {
 
 	//return errors.New("failed save file and metadata")
@@ -182,7 +181,13 @@ func randomString(n int) string {
 }
 
 // createAndSaveTempFolder.
+// TODO: Sanitize name here.
 func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error) {
+	// Sanitize filename.
+	safeName, err := utils.SanitizeFileName(fileName)
+	if err != nil {
+		return "", err
+	}
 
 	// Open the uploaded file
 	src, err := fileHeader.Open()
@@ -199,7 +204,8 @@ func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error)
 	}
 
 	// Build the full path for the file.
-	destPath := filepath.Join(randomDir, fileName)
+	// destPath := filepath.Join(randomDir, fileName)
+	destPath := filepath.Join(randomDir, safeName)
 
 	// Create the file.
 	dst, err := os.Create(destPath)
@@ -221,7 +227,7 @@ func saveTemp(fileHeader *multipart.FileHeader, fileName string) (string, error)
 func fileScan(tmpPath string) error {
 
 	// debug
-	fmt.Println("tmp path::", tmpPath)
+	// fmt.Println("tmp path::", tmpPath)
 
 	cmd, err := exec.Command("/usr/local/maldetect/maldet", "-a", tmpPath).CombinedOutput()
 
