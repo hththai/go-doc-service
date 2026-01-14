@@ -2,7 +2,7 @@
 import UploadFile from '@/components/UploadFile/UploadFile';
 import { createFileRoute } from '@tanstack/react-router'
 
-export const Route = createFileRoute('/_auth/welcome')({
+export const Route = createFileRoute('/_auth/upload')({
     component: RouteComponent,
 })
 

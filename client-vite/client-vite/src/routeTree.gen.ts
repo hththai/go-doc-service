@@ -12,7 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthWelcomeRouteImport } from './routes/_auth.welcome'
+import { Route as AuthUploadRouteImport } from './routes/_auth.upload'
 
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
@@ -28,35 +28,35 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthWelcomeRoute = AuthWelcomeRouteImport.update({
-  id: '/welcome',
-  path: '/welcome',
+const AuthUploadRoute = AuthUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
   getParentRoute: () => AuthRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
-  '/welcome': typeof AuthWelcomeRoute
+  '/upload': typeof AuthUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
-  '/welcome': typeof AuthWelcomeRoute
+  '/upload': typeof AuthUploadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/signin': typeof SigninRoute
-  '/_auth/welcome': typeof AuthWelcomeRoute
+  '/_auth/upload': typeof AuthUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/signin' | '/welcome'
+  fullPaths: '/' | '/signin' | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/signin' | '/welcome'
-  id: '__root__' | '/' | '/_auth' | '/signin' | '/_auth/welcome'
+  to: '/' | '/signin' | '/upload'
+  id: '__root__' | '/' | '/_auth' | '/signin' | '/_auth/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -88,22 +88,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_auth/welcome': {
-      id: '/_auth/welcome'
-      path: '/welcome'
-      fullPath: '/welcome'
-      preLoaderRoute: typeof AuthWelcomeRouteImport
+    '/_auth/upload': {
+      id: '/_auth/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof AuthUploadRouteImport
       parentRoute: typeof AuthRoute
     }
   }
 }
 
 interface AuthRouteChildren {
-  AuthWelcomeRoute: typeof AuthWelcomeRoute
+  AuthUploadRoute: typeof AuthUploadRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
-  AuthWelcomeRoute: AuthWelcomeRoute,
+  AuthUploadRoute: AuthUploadRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)

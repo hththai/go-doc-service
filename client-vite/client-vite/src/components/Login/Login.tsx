@@ -15,9 +15,9 @@ export default function LoginForm({ username, password, setUsername, setPassword
                     <img
                         alt="Your Company"
                         src="latte_icon.webp"
-                        className="mx-auto h-40 w-auto"
+                        className="mx-auto h-30 sm:h-40 w-auto "
                     />
-                    <h2 className="mt-10 text-center text-2xl/9 font-bold tracking-tight">
+                    <h2 className="mt-10 text-center text-2xl/9 font-bold tracking-tight hidden sm:block">
                         Sign in
                     </h2>
                 </div>

@@ -1019,3 +1019,6 @@ time="2026-01-12T23:19:17+11:00" level=info msg="******APPLICATION STARTED******
 time="2026-01-12T23:20:28+11:00" level=debug msg="::1 register success"
 time="2026-01-12T23:20:46+11:00" level=debug msg="::1 Upload Success"
 time="2026-01-12T23:21:18+11:00" level=debug msg="::1 Upload Success"
+time="2026-01-14T21:50:14+11:00" level=info msg="******APPLICATION STARTED*******"
+time="2026-01-14T22:12:44+11:00" level=debug msg="::1 register success"
+time="2026-01-14T22:13:39+11:00" level=debug msg="::1 register success"
