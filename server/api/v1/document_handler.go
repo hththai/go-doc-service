@@ -19,16 +19,19 @@ import (
 
 var INDEX_FOLDER = 100
 
+// TODO: Retrieve login user ID
 func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.DB) error {
 
 	derscription := c.PostForm("description")
 	formTitle := c.PostForm("name")
 
+	// TODO: assigned login user ID.
 	doc := document.Document{
 		GUID:        uuid.New().String(),
 		Title:       formTitle,
 		Description: derscription,
 		Status:      -1,
+		UserId:      524284, // Example of tim5 user
 	}
 
 	// Begin transaction

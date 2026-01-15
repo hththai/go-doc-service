@@ -323,7 +323,7 @@ func handleAccessToken(username string, tokenReturn *obj.AuthToken, c *gin.Conte
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true, //false if localhost
+		Secure:   false, //false if localhost
 		// SameSite: http.SameSiteStrictMode,
 		// SameSite: http.SameSiteLaxMode,
 		SameSite: http.SameSiteLaxMode,
@@ -362,7 +362,7 @@ func handleRefreshToken(username string, c *gin.Context) error {
 		Value:    refreshToken,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true, // for testing purpose without https
+		Secure:   false, // for testing purpose without https
 		SameSite: http.SameSiteLaxMode,
 		// SameSite: http.SameSiteNoneMode,
 		MaxAge: 604800, // 1 week

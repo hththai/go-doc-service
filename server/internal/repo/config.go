@@ -38,7 +38,7 @@ func CreateAccountTable(db *sql.DB) error {
 		user_name varchar(100),
 		password varchar(255),
 		created_at timestamp default current_timestamp,
-		modified_at timestamp default current_timestamp on update current_timestamp)
+		modified_at timestamp default current_timestamp on update current_timestamp)ENGINE=InnoDB
 	`)
 
 	return err
@@ -50,6 +50,7 @@ func CreateDocumentTable(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS obj_doc (
 		guid char(36),
 		id INT AUTO_INCREMENT PRIMARY KEY,
+		user_id INT, 
 		obj_id BIGINT,
 		status int not null,
 		name_or_title varchar(100) NOT NULL,
@@ -61,8 +62,12 @@ func CreateDocumentTable(db *sql.DB) error {
 		buy_at timestamp,
 		sold_at timestamp,
 		file_size real,
-		extension varchar(10)
-		)
+		extension varchar(10),
+
+		CONSTRAINT fk_objdoc_user 
+			FOREIGN KEY (user_id)
+			REFERENCES user(id)
+		)ENGINE=InnoDB;
 	`)
 
 	return err
@@ -74,7 +79,7 @@ func CreateFilePathTable(db *sql.DB) error {
 		id INT AUTO_INCREMENT PRIMARY KEY,
 		doc_id INT,
 		file_path varchar(4000)
-		)
+		)ENGINE=InnoDB;
 		`)
 
 	return err
@@ -82,7 +87,7 @@ func CreateFilePathTable(db *sql.DB) error {
 
 // Create Record Object ID counter.
 func CreateObjIdTable(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_id_counter (obj_id bigint, name varchar(100) primary key, created_at timestamp default current_timestamp on update current_timestamp)`)
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_id_counter (obj_id bigint, name varchar(100) primary key, created_at timestamp default current_timestamp on update current_timestamp)ENGINE=InnoDB;`)
 
 	if err != nil {
 		return fmt.Errorf("failed to create obj_id_counter: %w", err)

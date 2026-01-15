@@ -22,6 +22,7 @@ var StatusLabels = map[Status]string{
 type Document struct {
 	GUID        string    `json:"guid"`
 	Id          string    `json:"id"`
+	UserId      int       `json:"userId"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Extension   string    `json:"extension"`

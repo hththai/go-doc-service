@@ -65,9 +65,9 @@ func (r *documentRepositoryImpl) SaveMetadataWithObjId(tx *sql.Tx, objId *int64,
 
 	// result, err := r.db.Exec(
 	result, err := tx.Exec(
-		`INSERT INTO obj_doc (guid, obj_id, name_or_title, description, file_size, extension, status)
-		VALUES (?,?,?,?,?,?,?)`,
-		document.GUID, objId, document.Title, document.Description, document.FileSize, document.Extension, document.Status,
+		`INSERT INTO obj_doc (guid, user_id,obj_id, name_or_title, description, file_size, extension, status)
+		VALUES (?,?,?,?,?,?,?,?)`,
+		document.GUID, document.UserId, objId, document.Title, document.Description, document.FileSize, document.Extension, document.Status,
 	)
 
 	if err != nil {
