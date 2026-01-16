@@ -22,8 +22,16 @@ var INDEX_FOLDER = 100
 // TODO: Retrieve login user ID
 func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.DB) error {
 
-	derscription := c.PostForm("description")
 	formTitle := c.PostForm("name")
+	derscription := c.PostForm("description")
+
+	// get user ID from context (set by middleware).
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		return fmt.Errorf("user not authenticated")
+	}
+
+	userId := userIdValue.(int)
 
 	// TODO: assigned login user ID.
 	doc := document.Document{
@@ -31,7 +39,7 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 		Title:       formTitle,
 		Description: derscription,
 		Status:      -1,
-		UserId:      524284, // Example of tim5 user
+		UserId:      userId, // Example of tim5 user
 	}
 
 	// Begin transaction

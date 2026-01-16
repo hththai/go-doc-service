@@ -160,7 +160,20 @@ func JWTAuthByCookies() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("username", (*claims)["username"])
+		// Handle userId to int.
+		raw := (*claims)["userId"]
+		userIdFloat, ok := raw.(float64)
+
+		if !ok {
+			c.JSON(401, gin.H{"error": "invalid userId"})
+			c.Abort()
+			return
+		}
+
+		userId := int(userIdFloat)
+
+		// c.Set("userId", (*claims)["userId"])
+		c.Set("userId", userId)
 		c.Next()
 	}
 }

@@ -260,13 +260,13 @@ func IsValidToken(c *gin.Context, service *auth.AuthService) (string, error) {
 
 	// Claim token.
 
-	// username, ok := (*claims)["username"].(string)
-	username, ok := (*claims)["tokenId"].(string)
+	// tokenId, ok := (*claims)["tokenId"].(string)
+	tokenId, ok := (*claims)["tokenId"].(string)
 	if !ok {
-		return "", fmt.Errorf("username not found in token")
+		return "", fmt.Errorf("tokenId not found in token")
 	}
 
-	return username, nil
+	return tokenId, nil
 }
 
 // TODO: Fix the refresh token.
