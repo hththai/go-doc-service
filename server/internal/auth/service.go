@@ -69,7 +69,7 @@ func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputP
 
 	// 1. Get current pwd.
 	var crtPwd string
-	crtPwd, err := s.authRepo.GetUsrPassword(db, username)
+	_, crtPwd, err := s.authRepo.GetUsrPassword(db, username)
 
 	if err != nil {
 		return fmt.Errorf("invalid account")
@@ -89,18 +89,42 @@ func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputP
 }
 
 // Service Login.
+// func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, error) {
+// 	// step 1: fetch user.
+// 	// account, err := s.authRepo.ValidateUser(db, username)
+// 	var account Account
+
+// 	// Fetch only password.
+// 	pwd, err := s.authRepo.GetUsrPassword(db, username)
+
+// 	if err != nil {
+// 		return nil, fmt.Errorf("cannot retrieve account")
+// 	}
+
+// 	account.Password = pwd
+
+// 	// Compare password.
+// 	if err := s.CheckPassword(&account, password); err != nil {
+// 		return nil, fmt.Errorf("incorrect password")
+// 	}
+
+// 	return &account, err
+// }
+
+// Working
 func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, error) {
 	// step 1: fetch user.
 	// account, err := s.authRepo.ValidateUser(db, username)
 	var account Account
 
 	// Fetch only password.
-	pwd, err := s.authRepo.GetUsrPassword(db, username)
+	id, pwd, err := s.authRepo.GetUsrPassword(db, username)
 
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve account")
 	}
 
+	account.UserId = id
 	account.Password = pwd
 
 	// Compare password.

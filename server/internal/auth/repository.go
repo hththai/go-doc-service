@@ -9,7 +9,8 @@ type AuthRepository interface {
 	Register(tx *sql.Tx, account Account) (*Account, error)
 	ValidateUser(db *sql.DB, username string) (*Account, error)
 	UpdatePassword(tx *sql.Tx, account Account) (*Account, error)
-	GetUsrPassword(db *sql.DB, username string) (string, error)
+	// GetUsrPassword(db *sql.DB, username string) (string, error)
+	GetUsrPassword(db *sql.DB, username string) (int, string, error)
 }
 
 type AuthRepositoryImpl struct {
@@ -64,20 +65,38 @@ func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account
 
 // Get Hashpassword from user_name, and return only password.
 // TODO: check and avoid the need of return account with user_name
-func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (string, error) {
-	row := db.QueryRow(`SELECT password FROM user WHERE user_name=?`, username)
+// func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (string, error) {
+// 	row := db.QueryRow(`SELECT password FROM user WHERE user_name=?`, username)
 
+// 	var pwd string
+
+// 	if err := row.Scan(&pwd); err != nil {
+// 		if err == sql.ErrNoRows {
+// 			return "", fmt.Errorf("no user found")
+// 		}
+
+// 		return "", err
+// 	}
+
+// 	return pwd, nil
+// }
+
+// Working: return value of Id and password.
+func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (int, string, error) {
+	row := db.QueryRow(`SELECT id, password FROM user WHERE user_name=?`, username)
+
+	var id int
 	var pwd string
 
-	if err := row.Scan(&pwd); err != nil {
+	if err := row.Scan(&id, &pwd); err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("no user found")
+			return -1, "", fmt.Errorf("no user found")
 		}
 
-		return "", err
+		return -1, "", err
 	}
 
-	return pwd, nil
+	return id, pwd, nil
 }
 
 // Change Password. Find the user and update password.

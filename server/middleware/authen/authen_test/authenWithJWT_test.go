@@ -17,7 +17,7 @@ func TestSayHello(t *testing.T) {
 }
 
 func TestCreateAccessToken(t *testing.T) {
-	token, tokenId, err := authen.CreateAccessToken("hthai")
+	token, tokenId, err := authen.CreateAccessToken(524284)
 
 	if err != nil {
 		t.Errorf("error")
@@ -28,7 +28,7 @@ func TestCreateAccessToken(t *testing.T) {
 }
 
 func TestVerifyToken(t *testing.T) {
-	token, _, err := authen.CreateAccessToken("hthai")
+	token, _, err := authen.CreateAccessToken(524284)
 	if err != nil {
 		t.Fatalf("error of creating token")
 	}
@@ -44,7 +44,7 @@ func TestVerifyToken(t *testing.T) {
 }
 
 func TestCreateRefreshToken(t *testing.T) {
-	token, err := authen.CreateRefreshToken("hthai")
+	token, err := authen.CreateRefreshToken(524284)
 	if err != nil {
 		t.Fatalf("error of creating refresh token %v", err)
 	}

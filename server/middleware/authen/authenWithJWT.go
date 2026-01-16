@@ -22,17 +22,40 @@ func SayHello() error {
 
 // Short token Access Token
 // TODO: working on token id.
-func CreateAccessToken(username string) (string, string, error) {
+// func CreateAccessToken(username string) (string, string, error) {
+// 	// Create an access token id.
+// 	tokenId := uuid.NewString()
+
+// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
+// 		jwt.MapClaims{
+// 			"username": username,
+// 			"tokenId":  tokenId,
+// 			"exp":      time.Now().Add(time.Minute * 60).Unix(),
+// 			"iat":      time.Now().Unix(),
+// 			"type":     "access",
+// 		})
+
+// 	tokenString, err := token.SignedString(secretKey)
+
+// 	if err != nil {
+// 		return "", "", err
+// 	}
+
+// 	return tokenString, tokenId, nil
+// }
+
+func CreateAccessToken(userId int) (string, string, error) {
 	// Create an access token id.
 	tokenId := uuid.NewString()
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			"username": username,
-			"tokenId":  tokenId,
-			"exp":      time.Now().Add(time.Minute * 60).Unix(),
-			"iat":      time.Now().Unix(),
-			"type":     "access",
+			// "username": username,
+			"userId":  userId,
+			"tokenId": tokenId,
+			"exp":     time.Now().Add(time.Minute * 60).Unix(),
+			"iat":     time.Now().Unix(),
+			"type":    "access",
 		})
 
 	tokenString, err := token.SignedString(secretKey)
@@ -62,12 +85,12 @@ func VerifyToken(tokenString string) (*jwt.MapClaims, error) {
 }
 
 // Create refresh token.
-func CreateRefreshToken(username string) (string, error) {
+func CreateRefreshToken(userId int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
 		jwt.MapClaims{
-			"username": username,
-			"exp":      time.Now().Add(7 * 24 * time.Hour).Unix(),
-			"type":     "refresh",
+			"userId": userId,
+			"exp":    time.Now().Add(7 * 24 * time.Hour).Unix(),
+			"type":   "refresh",
 		})
 
 	singedToken, err := token.SignedString(secretKey)

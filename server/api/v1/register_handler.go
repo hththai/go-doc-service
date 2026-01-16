@@ -189,11 +189,14 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (obj.AuthTo
 		return tokenReturn, err
 	}
 
+	// Update userId to return token value.
+	tokenReturn.UserId = account.UserId
+
 	// Assign account username.
 	account.Username = req.Username
 
 	// issue accessToken.
-	_, err = handleAccessToken(account.Username, &tokenReturn, c)
+	_, err = handleAccessToken(account.UserId, &tokenReturn, c)
 	if err != nil {
 		return tokenReturn, err
 	}
@@ -201,7 +204,7 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (obj.AuthTo
 	// Assign token value.
 
 	// Handle refresh token
-	_ = handleRefreshToken(account.Username, c)
+	_ = handleRefreshToken(account.UserId, c)
 
 	// c.SetCookie("jwt", token, 3600, "/", "localhost", true, true)
 
@@ -266,6 +269,7 @@ func IsValidToken(c *gin.Context, service *auth.AuthService) (string, error) {
 	return username, nil
 }
 
+// TODO: Fix the refresh token.
 func Refresh(c *gin.Context) error {
 	// fmt.Println("Cookies:::", c.Request.Cookies())
 	refreshToken, err := c.Cookie("refresh_token")
@@ -278,12 +282,12 @@ func Refresh(c *gin.Context) error {
 		return fmt.Errorf("invalid refresh token")
 	}
 
-	username := (*claims)["username"].(string)
+	userId := (*claims)["userId"].(int)
 
 	var newTokenReturn obj.AuthToken
 
 	// Issue new token.
-	_, err = handleAccessToken(username, &newTokenReturn, c)
+	_, err = handleAccessToken(userId, &newTokenReturn, c)
 
 	return nil
 }
@@ -309,8 +313,8 @@ func Refresh(c *gin.Context) error {
 // 	return nil
 // }
 
-func handleAccessToken(username string, tokenReturn *obj.AuthToken, c *gin.Context) (*obj.AuthToken, error) {
-	token, tokenId, err := authen.CreateAccessToken(username)
+func handleAccessToken(userId int, tokenReturn *obj.AuthToken, c *gin.Context) (*obj.AuthToken, error) {
+	token, tokenId, err := authen.CreateAccessToken(userId)
 	if err != nil {
 		return nil, err
 	}
@@ -351,8 +355,8 @@ func handleAccessToken(username string, tokenReturn *obj.AuthToken, c *gin.Conte
 // }
 
 // Set refreshtoken and secure for cookies access.
-func handleRefreshToken(username string, c *gin.Context) error {
-	refreshToken, err := authen.CreateRefreshToken(username)
+func handleRefreshToken(userId int, c *gin.Context) error {
+	refreshToken, err := authen.CreateRefreshToken(userId)
 
 	if err != nil {
 		return fmt.Errorf("login failed with token")
