@@ -40,7 +40,7 @@ func TestVerifyToken(t *testing.T) {
 		t.Errorf("Failed to have token")
 	}
 
-	t.Logf("value username is %v", (*claims)["tokenId"])
+	t.Logf("value tokenId is %v", (*claims)["tokenId"])
 }
 
 func TestCreateRefreshToken(t *testing.T) {

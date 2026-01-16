@@ -97,7 +97,7 @@ func main() {
 
 	// CORS config.
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://client.golang.localdomain"},
+		AllowOrigins:     []string{"https://client.golang.localdomain", "https://*.hthai.cloud"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
