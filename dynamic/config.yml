@@ -1,0 +1,23 @@
+http:
+  routers:
+    apigolang:
+      rule: "Host(`box.hthai.cloud`) && PathPrefix(`/go`)"
+      entryPoints:
+        - web
+        - websecure
+      service: apigolang
+      middlewares:
+        - api-strip
+      tls: {}
+
+  middlewares:
+  api-strip:
+    stripPrefix:
+      prefixes:
+        - "/go"
+
+  services:
+    apigolang:
+      loadBalancer:
+        servers:
+          - url: "http://golang_api:8088"
