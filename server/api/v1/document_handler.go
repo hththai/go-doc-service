@@ -19,7 +19,6 @@ import (
 
 var INDEX_FOLDER = 100
 
-// TODO: Retrieve login user ID
 func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.DB) error {
 
 	formTitle := c.PostForm("name")
@@ -33,7 +32,6 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 
 	userId := userIdValue.(int)
 
-	// TODO: assigned login user ID.
 	doc := document.Document{
 		GUID:        uuid.New().String(),
 		Title:       formTitle,
@@ -133,8 +131,6 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 		}
 	}
 
-	// TODO: should resolve after saved into database, and retrieve return new objID.
-
 	// 3. Save file to file storage.
 	// Save to filedata.
 	getId, err := strconv.Atoi(doc.Id)
@@ -154,7 +150,7 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 	doc.FilePath = uploadPath
 
 	// 6. Save file path database.
-	// TODO: Should start rollback and commit at this fdnction.
+
 	err = service.SaveFilePath(tx, doc)
 
 	if err != nil {
@@ -165,8 +161,8 @@ func saveFileAndMetadata(file *multipart.FileHeader, c *gin.Context, doc *docume
 }
 
 // store into file storage with index folder.
-func buildUploadPath(getId int, temId string, file *multipart.FileHeader, index_folder int) string {
-	indexIdPath := getId / index_folder
+func buildUploadPath(getId int, temId string, file *multipart.FileHeader, indexFolder int) string {
+	indexIdPath := getId / indexFolder
 
 	uploadPath := "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 	return uploadPath

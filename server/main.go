@@ -2,6 +2,7 @@ package main
 
 import (
 	v1 "2_Go/api/v1"
+	"2_Go/api/v1/authoRoute"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
@@ -66,32 +67,16 @@ func main() {
 	// doc := internal.CreateNewDoc("Hello")
 	// **************EXAMPLE LOG**************
 
-	log.SetOutput(&lumberjack.Logger{
-		Filename:   "./app/log/myapp.log",
-		MaxSize:    10,
-		MaxBackups: 5,
-		MaxAge:     7,
-		Compress:   true,
-	})
+	// Add Log Services.
+	AddLogService()
 
-	log.SetLevel(logrus.DebugLevel)
-
-	log.Info("******APPLICATION STARTED*******")
+	// Start gin http
 	r := gin.Default()
 
 	//TODO: make a function, or interface.
 	// Redis middleware
 	if utils.IsProduction() {
-		rdb := redis.NewClient(&redis.Options{Addr: "redis-service:6379"})
-		err = rdb.Ping(context.Background()).Err()
-		if err != nil {
-			log.Fatalf("Redis not reachable: %v", err)
-		}
-
-		fmt.Println("Redis connection successfully!")
-
-		limiter := rateLimit.NewRedisRateLimiter(rdb, 10, time.Minute)
-		r.Use(rateLimit.RateLimitMiddleware(limiter))
+		AddRedisService(err, r)
 		//*******
 	}
 
@@ -149,7 +134,7 @@ func main() {
 			return
 		}
 
-		log.Debugf("%s register success", c.ClientIP())
+		log.Debugf("%s Register success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
@@ -157,12 +142,12 @@ func main() {
 		err = v1.Login(c, acctSvc, db)
 
 		if err != nil {
-			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
+			log.Errorf("%s Error Login: %s", c.ClientIP(), err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		log.Debugf("%s register success", c.ClientIP())
+		log.Debugf("%s Login success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
@@ -171,18 +156,14 @@ func main() {
 		err = v1.ChangePassword(c, acctSvc, db)
 
 		if err != nil {
-			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
+			log.Errorf("%s Error Change Password: %s", c.ClientIP(), err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		log.Debugf("%s register success", c.ClientIP())
+		log.Debugf("%s Password Update Success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
-
-	// Protected
-	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
-	authGroup := r.Group("/v1/auth", authen.JWTAuthByCookies())
 
 	// Login and return jwt with userId
 	r.POST("/loginjwt", func(c *gin.Context) {
@@ -196,26 +177,6 @@ func main() {
 
 		log.Debugf("%s register success", c.ClientIP())
 		c.JSON(http.StatusOK, gin.H{"token": token})
-	})
-
-	// reset password endpoint.
-	authGroup.POST("/users/:username/changepassword", func(c *gin.Context) {
-
-		shouldReturn := IsValidUser(c)
-		if shouldReturn {
-			return
-		}
-
-		err = v1.ChangePassword(c, acctSvc, db)
-
-		if err != nil {
-			log.Errorf("%s Error Change: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		log.Debugf("%s password updated success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
 	// Refresh token endpoint.
@@ -232,83 +193,11 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
-	// Testing authorize.
-	authGroup.GET("/test", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "success"})
-	})
+	// Protected
+	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
 
-	// validate access token.
-	authGroup.POST("/users/me", func(c *gin.Context) {
-		// TODO: should check IsValidUser
-		// shouldReturn := IsValidUser(c)
-		// if shouldReturn {
-		// 	return
-		// }
-		var req struct {
-			TokenId string `json:"tokenId"`
-		}
-
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": err})
-			return
-		}
-
-		jwtUsername, err := v1.IsValidToken(c, acctSvc)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": err})
-			return
-		}
-		// check if the token match the current user session in local host.
-		if req.TokenId != jwtUsername {
-			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"sessionId": jwtUsername})
-	})
-
-	// logout
-	authGroup.POST("/logout", func(c *gin.Context) {
-		err = v1.Logout(c, acctSvc)
-
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"message": "logout"})
-	})
-
-	// Upload file.
-	authGroup.POST("/upload", func(c *gin.Context) {
-		tokenId := c.PostForm("tokenId")
-
-		if tokenId == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "missing tokenId"})
-			return
-		}
-		jwtUsername, err := v1.IsValidToken(c, acctSvc)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": err})
-			return
-		}
-		// check if the token match the current user session in local host.
-		if tokenId != jwtUsername {
-			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
-			return
-		}
-		err = v1.UploadDocument(c, docService, db)
-
-		if err != nil {
-			log.Errorf("%s Error Upload: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		log.Debugf("%s Upload Success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
-
-	})
+	authHandler := authoRoute.NewHandler(*acctSvc, *docService, db)
+	authoRoute.RegisterRoutes(r, authHandler)
 
 	// Test
 	authGrouptest.GET("/test", func(c *gin.Context) {
@@ -318,17 +207,48 @@ func main() {
 	r.Run(":8088")
 }
 
-// validate if the user is matched the token.
-func IsValidUser(c *gin.Context) bool {
-	jwtUser := c.GetString("username") // from Token
-	reqUser := c.Param("username")     // from request
+// Add Log Services.
+// TODO: Consider using Dependencies Injection.
+func AddLogService() {
+	log.SetOutput(&lumberjack.Logger{
+		Filename:   "./app/log/myapp.log",
+		MaxSize:    10,
+		MaxBackups: 5,
+		MaxAge:     7,
+		Compress:   true,
+	})
 
-	if jwtUser != reqUser {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return true
-	}
-	return false
+	log.SetLevel(logrus.DebugLevel)
+
+	log.Info("******APPLICATION STARTED*******")
 }
+
+// Register Redis Services.
+// TODO: Consider using Dependencies Injection.
+func AddRedisService(err error, r *gin.Engine) {
+	rdb := redis.NewClient(&redis.Options{Addr: "redis-service:6379"})
+	err = rdb.Ping(context.Background()).Err()
+	if err != nil {
+		log.Fatalf("Redis not reachable: %v", err)
+	}
+
+	fmt.Println("Redis connection successfully!")
+
+	limiter := rateLimit.NewRedisRateLimiter(rdb, 10, time.Minute)
+	r.Use(rateLimit.RateLimitMiddleware(limiter))
+}
+
+// validate if the user is matched the token.
+// func IsValidUser(c *gin.Context) bool {
+// 	jwtUser := c.GetString("username") // from Token
+// 	reqUser := c.Param("username")     // from request
+
+// 	if jwtUser != reqUser {
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+// 		return true
+// 	}
+// 	return false
+// }
 
 // func IsValidSession(c *gin.Context) bool {
 // 	jwtUser := c.GetString("tokenId")

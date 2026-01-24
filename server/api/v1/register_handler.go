@@ -247,12 +247,12 @@ func handleLogout(c *gin.Context) error {
 
 // Validate access token.
 func IsValidToken(c *gin.Context, service *auth.AuthService) (string, error) {
-	access_token, err := c.Cookie("access_token")
+	accessToken, err := c.Cookie("access_token")
 	if err != nil {
 		return "", fmt.Errorf("missing access token")
 	}
 
-	claims, err := authen.VerifyToken(access_token)
+	claims, err := authen.VerifyToken(accessToken)
 
 	if err != nil {
 		return "", fmt.Errorf("invalid token")

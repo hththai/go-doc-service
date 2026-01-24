@@ -75,11 +75,11 @@ func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputP
 		return fmt.Errorf("invalid account")
 	}
 
-	var _tempAcct Account
-	_tempAcct.Password = crtPwd
+	var tempAcct Account
+	tempAcct.Password = crtPwd
 
 	// 2. Compare to input.
-	err = s.CheckPassword(&_tempAcct, inputPwd)
+	err = s.CheckPassword(&tempAcct, inputPwd)
 
 	if err != nil {
 		return fmt.Errorf("incorrect password")
