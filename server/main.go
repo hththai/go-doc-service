@@ -2,7 +2,7 @@ package main
 
 import (
 	v1 "2_Go/api/v1"
-	"2_Go/api/v1/authoRoute"
+	"2_Go/api/v1/routers"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
@@ -97,6 +97,9 @@ func main() {
 
 	docRepo := document.NewDocumentRepository(db)
 	docService := document.NewDocumentService(docRepo)
+	// Register service.
+	acctRepo := auth.NewAuthRepoImpl(db)
+	acctSvc := auth.NewAuthService(acctRepo)
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -105,25 +108,6 @@ func main() {
 	})
 
 	r.GET("/preview", previewPDF)
-
-	r.POST("/upload", func(c *gin.Context) {
-
-		err = v1.UploadDocument(c, docService, db)
-
-		if err != nil {
-			log.Errorf("%s Error Upload: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		log.Debugf("%s Upload Success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
-
-	})
-
-	// Register service.
-	acctRepo := auth.NewAuthRepoImpl(db)
-	acctSvc := auth.NewAuthService(acctRepo)
 
 	r.POST("/register", func(c *gin.Context) {
 		err = v1.Register(c, acctSvc, db)
@@ -138,35 +122,35 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Success"})
 	})
 
-	r.POST("/login", func(c *gin.Context) {
-		err = v1.Login(c, acctSvc, db)
+	// r.POST("/login", func(c *gin.Context) {
+	// 	err = v1.Login(c, acctSvc, db)
 
-		if err != nil {
-			log.Errorf("%s Error Login: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	// 	if err != nil {
+	// 		log.Errorf("%s Error Login: %s", c.ClientIP(), err)
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
 
-		log.Debugf("%s Login success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	})
+	// 	log.Debugf("%s Login success", c.ClientIP())
+	// 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	// })
 
-	r.POST("/users/:username/changepassword", func(c *gin.Context) {
+	// r.POST("/users/:username/changepassword", func(c *gin.Context) {
 
-		err = v1.ChangePassword(c, acctSvc, db)
+	// 	err = v1.ChangePassword(c, acctSvc, db)
 
-		if err != nil {
-			log.Errorf("%s Error Change Password: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	// 	if err != nil {
+	// 		log.Errorf("%s Error Change Password: %s", c.ClientIP(), err)
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
 
-		log.Debugf("%s Password Update Success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	})
+	// 	log.Debugf("%s Password Update Success", c.ClientIP())
+	// 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	// })
 
 	// Login and return jwt with userId
-	r.POST("/loginjwt", func(c *gin.Context) {
+	r.POST("/login", func(c *gin.Context) {
 		token, err := v1.LoginJwt(c, acctSvc, db)
 
 		if err != nil {
@@ -180,24 +164,34 @@ func main() {
 	})
 
 	// Refresh token endpoint.
-	r.POST("/v1/auth/refresh", func(c *gin.Context) {
-		err = v1.Refresh(c)
+	// TODO: handle refresh.
+	// r.POST("/v1/auth/refresh", func(c *gin.Context) {
+	// 	err = v1.Refresh(c)
 
-		if err != nil {
-			log.Errorf("%s Error Change: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
+	// 	if err != nil {
+	// 		log.Errorf("%s Error Change: %s", c.ClientIP(), err)
+	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// 		return
+	// 	}
 
-		log.Debugf("%s access updated success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	})
+	// 	log.Debugf("%s access updated success", c.ClientIP())
+	// 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+	// })
 
 	// Protected
 	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
 
-	authHandler := authoRoute.NewHandler(*acctSvc, *docService, db)
-	authoRoute.RegisterRoutes(r, authHandler)
+	// authHandler := authoRoute.NewHandler(*acctSvc, *docService, db)
+	// authoRoute.RegisterRoutes(r, authHandler)
+
+	deps := &v1.Dependencies{
+		AuthSvc: *acctSvc,
+		DocSvc:  *docService,
+		DB:      db,
+		Logger:  log,
+	}
+
+	routers.RegisterV1Routes(r, deps, log)
 
 	// Test
 	authGrouptest.GET("/test", func(c *gin.Context) {
@@ -237,21 +231,3 @@ func AddRedisService(err error, r *gin.Engine) {
 	limiter := rateLimit.NewRedisRateLimiter(rdb, 10, time.Minute)
 	r.Use(rateLimit.RateLimitMiddleware(limiter))
 }
-
-// validate if the user is matched the token.
-// func IsValidUser(c *gin.Context) bool {
-// 	jwtUser := c.GetString("username") // from Token
-// 	reqUser := c.Param("username")     // from request
-
-// 	if jwtUser != reqUser {
-// 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-// 		return true
-// 	}
-// 	return false
-// }
-
-// func IsValidSession(c *gin.Context) bool {
-// 	jwtUser := c.GetString("tokenId")
-
-// 	return false
-// }

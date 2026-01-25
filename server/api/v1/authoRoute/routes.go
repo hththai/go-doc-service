@@ -16,6 +16,7 @@ type Handler struct {
 	AccountSvc auth.AuthService
 	DocSvc     document.DocumentService
 	DB         *sql.DB // replace with your DB type
+
 }
 
 func NewHandler(acct auth.AuthService, doc document.DocumentService, db *sql.DB) *Handler {
@@ -129,12 +130,29 @@ func (h *Handler) handleUpload(c *gin.Context) {
 
 }
 
+// POST /refresh.
+// TODO: resolve log.
+func (h *Handler) handleRefresh(c *gin.Context) {
+	// r.POST("/v1/auth/refresh", func(c *gin.Context) {
+	err := v1.Refresh(c)
+
+	if err != nil {
+		// log.Errorf("%s Error Change: %s", c.ClientIP(), err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// log.Debugf("%s access updated success", c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
 // authGroup := r.Group("/v1/auth", authen.JWTAuthByCookies())
 func RegisterRoutes(r *gin.Engine, h *Handler) {
 	authGroup := r.Group("/v1/auth", authen.JWTAuthByCookies())
 
 	authGroup.GET("/test", h.getPing)
 	authGroup.GET("/users/me", h.getMe)
+	authGroup.POST("/refresh", h.handleRefresh)
 	authGroup.POST("/logout", h.handleLogout)
 	authGroup.POST("/upload", h.handleUpload)
 	authGroup.POST("users/:username/changePassword", h.handleChangePassword)
