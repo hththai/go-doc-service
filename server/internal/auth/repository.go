@@ -9,8 +9,10 @@ type AuthRepository interface {
 	Register(tx *sql.Tx, account Account) (*Account, error)
 	ValidateUser(db *sql.DB, username string) (*Account, error)
 	UpdatePassword(tx *sql.Tx, account Account) (*Account, error)
+	UpdatePasswordById(tx *sql.Tx, account Account) (*Account, error)
 	// GetUsrPassword(db *sql.DB, username string) (string, error)
 	GetUsrPassword(db *sql.DB, username string) (int, string, error)
+	GetUsrPasswordById(db *sql.DB, userId int) (string, error)
 }
 
 type AuthRepositoryImpl struct {
@@ -99,6 +101,23 @@ func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (int, s
 	return id, pwd, nil
 }
 
+// Replacing GetUsrPassword
+func (r *AuthRepositoryImpl) GetUsrPasswordById(db *sql.DB, userId int) (string, error) {
+	row := db.QueryRow(`SELECT password FROM user WHERE id=?`, userId)
+
+	var pwd string
+
+	if err := row.Scan(&pwd); err != nil {
+		if err == sql.ErrNoRows {
+			return "", fmt.Errorf("no user found")
+		}
+
+		return "", err
+	}
+
+	return pwd, nil
+}
+
 // Change Password. Find the user and update password.
 // Update based on username
 func (r *AuthRepositoryImpl) UpdatePassword(tx *sql.Tx, account Account) (*Account, error) {
@@ -106,6 +125,20 @@ func (r *AuthRepositoryImpl) UpdatePassword(tx *sql.Tx, account Account) (*Accou
 		UPDATE user SET password=? WHERE user_name=?
 	`,
 		account.Password, account.Username)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+// Update password by userId
+func (r *AuthRepositoryImpl) UpdatePasswordById(tx *sql.Tx, account Account) (*Account, error) {
+	_, err := tx.Exec(`
+		UPDATE user SET password=? WHERE id=?
+	`,
+		account.Password, account.UserId)
 
 	if err != nil {
 		return nil, err

@@ -8,21 +8,33 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct {
+type AuthService interface {
+	Register(tx *sql.Tx, account Account) (*Account, error)
+	ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error)
+	ValidateAccountService(db *sql.DB, username string, inputPwd string) error
+	ValidateAccountByIdService(db *sql.DB, userId int, inputPwd string) error
+	Login(db *sql.DB, username, password string) (*Account, error)
+	CheckPassword(account *Account, inputPassword string) error
+	handlePasswordAcctCreation(account *Account) (*Account, error)
+	handlePasswordUpdate(account *Account) (*Account, error)
+	hashPassword(password string) (string, error)
+}
+
+type authService struct {
 	authRepo AuthRepository
 }
 
-func NewAuthService(authRepo AuthRepository) *AuthService {
-	return &AuthService{authRepo: authRepo}
+func NewAuthService(authRepo AuthRepository) AuthService {
+	return &authService{authRepo: authRepo}
 }
 
 // Register account.
-func (s *AuthService) Register(tx *sql.Tx, account Account) (*Account, error) {
+func (s *authService) Register(tx *sql.Tx, account Account) (*Account, error) {
 	if err := account.Validate(); err != nil {
 		return nil, err
 	}
 
-	_, err := s.handlePassword(&account)
+	_, err := s.handlePasswordAcctCreation(&account)
 	if err != nil {
 		account.ErrorResult = obj.ResultError(err)
 		return nil, account.ErrorResult.Error
@@ -31,7 +43,7 @@ func (s *AuthService) Register(tx *sql.Tx, account Account) (*Account, error) {
 }
 
 // Change Password.
-func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error) {
+func (s *authService) ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error) {
 	// if err := account.Validate(); err != nil {
 	// 	return nil, fmt.Errorf("invalid account")
 	// }
@@ -40,22 +52,18 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 	updatedAccount := account
 	updatedAccount.Password = newPassword
 
-	// Validate new Password.
-	// if err := updatedAccount.Validate(); err != nil {
-	// 	return nil, fmt.Errorf("invalid password criteria")
-	// }
-
 	// Validate new password
 	if err := updatedAccount.ValidatePassword(); err != nil {
 		return nil, fmt.Errorf("invalid password criteria")
 	}
 
-	if _, err := s.handlePassword(&updatedAccount); err != nil {
-		return nil, fmt.Errorf("unsuccess change password")
+	if _, err := s.handlePasswordUpdate(&updatedAccount); err != nil {
+		return nil, fmt.Errorf("unsuccess change password with Error %s", err)
 	}
 
 	// Add to repo.
-	_, err := s.authRepo.UpdatePassword(tx, updatedAccount)
+	// _, err := s.authRepo.UpdatePassword(tx, updatedAccount)
+	_, err := s.authRepo.UpdatePasswordById(tx, updatedAccount)
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +72,37 @@ func (s *AuthService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 
 }
 
+// TODO: deleting replace by ValidateAccountByIdService
 // Validate current username and password.
-func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputPwd string) error {
+func (s *authService) ValidateAccountService(db *sql.DB, username string, inputPwd string) error {
 
 	// 1. Get current pwd.
 	var crtPwd string
 	_, crtPwd, err := s.authRepo.GetUsrPassword(db, username)
+
+	if err != nil {
+		return fmt.Errorf("invalid account")
+	}
+
+	var tempAcct Account
+	tempAcct.Password = crtPwd
+
+	// 2. Compare to input.
+	err = s.CheckPassword(&tempAcct, inputPwd)
+
+	if err != nil {
+		return fmt.Errorf("incorrect password")
+	}
+	return nil
+
+}
+
+// Validate current user and password.
+func (s *authService) ValidateAccountByIdService(db *sql.DB, userId int, inputPwd string) error {
+
+	// 1. Get current pwd.
+	var crtPwd string
+	crtPwd, err := s.authRepo.GetUsrPasswordById(db, userId)
 
 	if err != nil {
 		return fmt.Errorf("invalid account")
@@ -112,7 +145,7 @@ func (s *AuthService) ValidateAccountService(db *sql.DB, username string, inputP
 // }
 
 // Working
-func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, error) {
+func (s *authService) Login(db *sql.DB, username, password string) (*Account, error) {
 	// step 1: fetch user.
 	// account, err := s.authRepo.ValidateUser(db, username)
 	var account Account
@@ -136,7 +169,7 @@ func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, er
 }
 
 // Comparing password.
-func (s *AuthService) CheckPassword(account *Account, inputPassword string) error {
+func (s *authService) CheckPassword(account *Account, inputPassword string) error {
 	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(inputPassword))
 
 	if err != nil {
@@ -148,7 +181,8 @@ func (s *AuthService) CheckPassword(account *Account, inputPassword string) erro
 }
 
 // Ecrypt password
-func (s *AuthService) handlePassword(account *Account) (*Account, error) {
+// Handle password when creating an account. Checking all require fields such as username, password.
+func (s *authService) handlePasswordAcctCreation(account *Account) (*Account, error) {
 	if err := account.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid account")
 	}
@@ -163,7 +197,19 @@ func (s *AuthService) handlePassword(account *Account) (*Account, error) {
 	return account, nil
 }
 
-func (s *AuthService) hashPassword(password string) (string, error) {
+// Check only password field needed.
+func (s *authService) handlePasswordUpdate(account *Account) (*Account, error) {
+	hashedPassword, err := s.hashPassword(account.Password)
+	if err != nil {
+		return nil, fmt.Errorf("cannot process password")
+	}
+
+	account.Password = hashedPassword
+
+	return account, nil
+}
+
+func (s *authService) hashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 
 	if err != nil {

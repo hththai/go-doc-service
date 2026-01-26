@@ -14,7 +14,7 @@ import (
 )
 
 // Handle register request with username and password.
-func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+func Register(c *gin.Context, service auth.AuthService, db *sql.DB) error {
 
 	var account auth.Account
 
@@ -60,8 +60,9 @@ func Register(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	return nil
 }
 
+// TODO: deleting
 // Change password.
-func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+func ChangePassword(c *gin.Context, service auth.AuthService, db *sql.DB) error {
 
 	var req struct {
 		// Username    string `json:"username"`
@@ -117,8 +118,73 @@ func ChangePassword(c *gin.Context, service *auth.AuthService, db *sql.DB) error
 	return nil
 }
 
+func ChangePasswordById(c *gin.Context, service auth.AuthService, db *sql.DB) error {
+
+	var req struct {
+		// Username    string `json:"username"`
+		Password    string `json:"password"`
+		NewPassword string `json:"newpassword"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return err
+	}
+
+	// Prevent wrong account
+	reqUser, exists := c.Get("userId")
+
+	if !exists {
+		return fmt.Errorf("Invalid user id")
+	}
+
+	// bind to account.
+	var account auth.Account
+	// account.Username = req.Username
+	account.UserId = reqUser.(int)
+	account.Password = req.Password
+
+	// Validate current user by password.
+	// if err := service.ValidateAccountService(db, account.Username, account.Password); err != nil {
+	// 	return fmt.Errorf("incorrect login")
+	// }
+
+	if err := service.ValidateAccountByIdService(db, account.UserId, account.Password); err != nil {
+		// return fmt.Errorf("incorrect login")
+		return err
+	}
+
+	// Begin transaction.
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Always ensure roll back if something goes wrong.
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Call update pasword service.
+	_, err = service.ChangePasswordService(tx, account, req.NewPassword)
+	// Check if register fail
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+
+	return nil
+}
+
 // Login
-func Login(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
+func Login(c *gin.Context, service auth.AuthService, db *sql.DB) error {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -137,41 +203,8 @@ func Login(c *gin.Context, service *auth.AuthService, db *sql.DB) error {
 	return nil
 }
 
-//// Login with jwt
-// func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (string, error) {
-// 	var req struct {
-// 		Username string `json:"username"`
-// 		Password string `json:"password"`
-// 	}
-
-// 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-// 		return "", err
-// 	}
-
-// 	account, err := service.Login(db, req.Username, req.Password)
-
-// 	if err != nil {
-// 		return "", err
-// 	}
-
-// 	// Assign account username.
-// 	account.Username = req.Username
-
-// 	// issue accessToken.
-// 	accessToken, err := handleAccessToken(account.Username, c)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	// Handle refresh token
-// 	_ = handleRefreshToken(account.Username, c)
-
-// 	// c.SetCookie("jwt", token, 3600, "/", "localhost", true, true)
-
-// 	return accessToken, nil
-// }
-
 // Test return with token object
-func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (obj.AuthToken, error) {
+func LoginJwt(c *gin.Context, service auth.AuthService, db *sql.DB) (obj.AuthToken, error) {
 	var tokenReturn obj.AuthToken
 
 	var req struct {
@@ -212,7 +245,7 @@ func LoginJwt(c *gin.Context, service *auth.AuthService, db *sql.DB) (obj.AuthTo
 }
 
 // Logout with jwt
-func Logout(c *gin.Context, service *auth.AuthService) error {
+func Logout(c *gin.Context, service auth.AuthService) error {
 	err := handleLogout(c)
 	if err != nil {
 		return fmt.Errorf("Error of log out")
@@ -246,7 +279,7 @@ func handleLogout(c *gin.Context) error {
 }
 
 // Validate access token.
-func IsValidToken(c *gin.Context, service *auth.AuthService) (string, error) {
+func IsValidToken(c *gin.Context, service auth.AuthService) (string, error) {
 	accessToken, err := c.Cookie("access_token")
 	if err != nil {
 		return "", fmt.Errorf("missing access token")

@@ -181,11 +181,8 @@ func main() {
 	// Protected
 	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
 
-	// authHandler := authoRoute.NewHandler(*acctSvc, *docService, db)
-	// authoRoute.RegisterRoutes(r, authHandler)
-
 	deps := &v1.Dependencies{
-		AuthSvc: *acctSvc,
+		AuthSvc: acctSvc,
 		DocSvc:  *docService,
 		DB:      db,
 		Logger:  log,

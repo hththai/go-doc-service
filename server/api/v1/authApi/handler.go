@@ -14,10 +14,11 @@ import (
 type AuthHandler struct {
 	AccountSvc auth.AuthService
 	DB         *sql.DB // replace with your DB type
-	Logger     *logrus.Logger
+	// Logger     *logrus.Logger
+	Logger logrus.FieldLogger
 }
 
-func NewHandler(acct auth.AuthService, db *sql.DB, logger *logrus.Logger) *AuthHandler {
+func NewHandler(acct auth.AuthService, db *sql.DB, logger logrus.FieldLogger) *AuthHandler {
 	return &AuthHandler{
 		AccountSvc: acct,
 		DB:         db,
@@ -33,15 +34,17 @@ func (h *AuthHandler) GetPing(c *gin.Context) {
 // reset password endpoint.
 // authGroup.POST("/users/:username/changepassword", func(c *gin.Context) {
 
-// POST users/:username/changePassword.
+// POST users/changepassword.
+// TODO: Checking if new password is the same with old password issue.
 func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
 
-	shouldReturn := utils.IsValidUser(c)
+	shouldReturn := utils.IsValidUsername(c)
 	if shouldReturn {
 		return
 	}
 
-	err := v1.ChangePassword(c, &h.AccountSvc, h.DB)
+	// err := v1.ChangePassword(c, h.AccountSvc, h.DB)
+	err := v1.ChangePasswordById(c, h.AccountSvc, h.DB)
 
 	if err != nil {
 		h.Logger.Errorf("%s Error Change: %s", c.ClientIP(), err)
@@ -55,6 +58,7 @@ func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
 
 // validate access token.
 // POST /users/me.
+// TODO: resolve the return whoami issue with username and userId.
 func (h *AuthHandler) GetMe(c *gin.Context) {
 
 	var req struct {
@@ -66,7 +70,7 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	jwtUsername, err := v1.IsValidToken(c, &h.AccountSvc)
+	jwtUsername, err := v1.IsValidToken(c, h.AccountSvc)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err})
@@ -85,7 +89,7 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 func (h *AuthHandler) HandleLogout(c *gin.Context) {
 
 	// authGroup.POST("/logout", func(c *gin.Context) {
-	err := v1.Logout(c, &h.AccountSvc)
+	err := v1.Logout(c, h.AccountSvc)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err})

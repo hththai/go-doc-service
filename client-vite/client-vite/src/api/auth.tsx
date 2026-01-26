@@ -1,7 +1,7 @@
 // TODO: store in api folder.
 // Sample login function.
 export async function loginRequest({ username, password }: { username: string, password: string }) {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/loginjwt`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
         method: "POST",
         credentials: "include",
         headers: {

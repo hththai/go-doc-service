@@ -81,7 +81,18 @@ func SanitizeFileName(name string) (string, error) {
 }
 
 // Check validate user.
-func IsValidUser(c *gin.Context) bool {
+// func IsValidUser(c *gin.Context) bool {
+// 	jwtUser := c.GetString("username") // from Token
+// 	reqUser := c.Param("username")       // from request
+
+// 	if jwtUser != reqUser {
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+// 		return true
+// 	}
+// 	return false
+// }
+
+func IsValidUsername(c *gin.Context) bool {
 	jwtUser := c.GetString("username") // from Token
 	reqUser := c.Param("username")     // from request
 

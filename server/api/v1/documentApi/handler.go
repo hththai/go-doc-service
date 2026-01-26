@@ -15,10 +15,10 @@ type DocumentHandler struct {
 	AccountSvc auth.AuthService
 	DocSvc     document.DocumentService
 	DB         *sql.DB // replace with your DB type
-	Logger     *logrus.Logger
+	Logger     logrus.FieldLogger
 }
 
-func NewHandler(acct auth.AuthService, doc document.DocumentService, db *sql.DB, logger *logrus.Logger) *DocumentHandler {
+func NewHandler(acct auth.AuthService, doc document.DocumentService, db *sql.DB, logger logrus.FieldLogger) *DocumentHandler {
 	return &DocumentHandler{
 		AccountSvc: acct,
 		DocSvc:     doc,
@@ -36,7 +36,7 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "missing tokenId"})
 		return
 	}
-	jwtUsername, err := v1.IsValidToken(c, &h.AccountSvc)
+	jwtUsername, err := v1.IsValidToken(c, h.AccountSvc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": err})
 		return

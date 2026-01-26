@@ -171,7 +171,7 @@ POST {{host}}/register
 Content-Type: application/json
 
 {
-    "username": "hthai",
+    "username": "hthai2",
     "password": "hello"    
 }
 
@@ -180,8 +180,8 @@ POST {{host}}/login
 Content-Type: application/json
 
 {
-    "username": "hthai",
-    "password": "hello"    
+    "username": "hthai2",
+    "password": "hello123"    
 }
 ###
 GET {{host}}/v1/auth/users/me
@@ -199,11 +199,23 @@ GET {{host}}/v1/auth/test
 POST {{host}}/v1/auth/logout
 
 ### Issue with id and username
-POST {{host}}/v1/auth/users/hthai/changePassword
+POST {{host}}/v1/auth/users/hthai2/changepassword
 Content-Type: application/json
 
 {
-    "username": "hthai",
+    "username": "hthai2",
     "password": "hello",
     "newpassword": "hello1"    
+}
+
+###
+POST {{host}}/v1/auth/refresh
+
+###
+POST {{host}}/v1/auth/user/changepassword
+Content-Type: application/json
+
+{    
+    "password": "hello123",
+    "newpassword": "hello"    
 }

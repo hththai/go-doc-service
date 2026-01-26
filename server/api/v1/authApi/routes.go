@@ -10,6 +10,6 @@ func Register(rg *gin.RouterGroup, h *AuthHandler) {
 	g.GET("/test", h.GetPing)
 	g.GET("/users/me", h.GetMe)
 	g.POST("/refresh", h.HandleRefresh)
-	g.POST("/users/:username/changepassword", h.HandleChangePassword)
+	g.POST("/user/changepassword", h.HandleChangePassword)
 	g.POST("/logout", h.HandleLogout)
 }
