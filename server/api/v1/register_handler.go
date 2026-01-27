@@ -315,7 +315,13 @@ func Refresh(c *gin.Context) error {
 		return fmt.Errorf("invalid refresh token")
 	}
 
-	userId := (*claims)["userId"].(int)
+	raw := (*claims)["userId"]
+	userIdFloat, ok := raw.(float64)
+	if !ok {
+		return fmt.Errorf("invalid userID type")
+	}
+
+	userId := int(userIdFloat)
 
 	var newTokenReturn obj.AuthToken
 

@@ -72,9 +72,9 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	c.Params = []gin.Param{{Key: "username", Value: "johndoe"}}
 
 	// Create a dummy JSON body (if your v1.ChangePassword binds a body)
-	reqBody := map[string]string{"new_password": "securepassword123"}
+	reqBody := map[string]string{"newpassword": "securepassword123"}
 	bodyBytes, _ := json.Marshal(reqBody)
-	c.Request, _ = http.NewRequest("POST", "/users/johndoe/changepassword", bytes.NewReader(bodyBytes))
+	c.Request, _ = http.NewRequest("POST", "/user/changepassword", bytes.NewReader(bodyBytes))
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	// 4. Execute
