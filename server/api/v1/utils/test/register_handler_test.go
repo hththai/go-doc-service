@@ -62,6 +62,7 @@ func (m *MockAuthRepository) GetUsrPasswordById(db *sql.DB, userId int) (string,
 	return args.String(0), args.Error(1)
 }
 
+// Test Register
 func TestRegister(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -273,6 +274,227 @@ func TestRegister(t *testing.T) {
 			}
 
 			// Verify all repository mock expectations were met
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+// Test Change PasswordByID
+func TestChangePasswordById(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Bcrypt hash of "oldpassword123"
+	validOldPasswordHash := "$2a$10$tNMPSwPNfwwKmL0i7J00beidHBjxX9gmyESatFe5GBlxETjwRhMNm"
+
+	tests := []struct {
+		name          string
+		body          string
+		userId        interface{} // The userId to set in context
+		setUserId     bool        // Whether to set userId in context
+		mockRepo      func(repo *MockAuthRepository)
+		mockDB        func() (*sql.DB, sqlmock.Sqlmock)
+		expectErr     bool
+		errorContains string
+	}{
+		{
+			name:      "success - valid password change",
+			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+				repo.On("UpdatePasswordById", mock.Anything, mock.MatchedBy(func(acc auth.Account) bool {
+					return acc.UserId == 1 && len(acc.Password) > 0
+				})).Return(&auth.Account{UserId: 1}, nil)
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				mock.ExpectBegin()
+				mock.ExpectCommit()
+				return db, mock
+			},
+			expectErr: false,
+		},
+		{
+			name:      "error - invalid JSON",
+			body:      `{"password":"test"`,
+			userId:    1,
+			setUserId: true,
+			mockRepo:  func(repo *MockAuthRepository) {},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				return db, mock
+			},
+			expectErr: true,
+		},
+		{
+			name:      "error - missing userId in context",
+			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			setUserId: false,
+			mockRepo:  func(repo *MockAuthRepository) {},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "Invalid user id",
+		},
+		{
+			name:      "error - current password validation fails",
+			body:      `{"password":"wrongpassword","newpassword":"newpassword123"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "incorrect password",
+		},
+		{
+			name:      "error - user not found",
+			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:    999,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 999).
+					Return("", errors.New("no user found"))
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "invalid account",
+		},
+		{
+			name:      "error - transaction begin fails",
+			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				mock.ExpectBegin().WillReturnError(errors.New("failed to start transaction"))
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "failed to start transaction",
+		},
+		{
+			name:      "error - new password too short",
+			body:      `{"password":"oldpassword123","newpassword":"1234"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				mock.ExpectBegin()
+				mock.ExpectRollback()
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "invalid password",
+		},
+		{
+			name:      "error - change password service fails",
+			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+				repo.On("UpdatePasswordById", mock.Anything, mock.Anything).
+					Return(nil, errors.New("database error"))
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				mock.ExpectBegin()
+				mock.ExpectRollback()
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "database error",
+		},
+		{
+			name:      "error - transaction commit fails",
+			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+				repo.On("UpdatePasswordById", mock.Anything, mock.Anything).
+					Return(&auth.Account{UserId: 1}, nil)
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				mock.ExpectBegin()
+				mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
+				return db, mock
+			},
+			expectErr:     true,
+			errorContains: "commit failed",
+		},
+		{
+			name:      "success - minimum valid new password length",
+			body:      `{"password":"oldpassword123","newpassword":"12345"}`,
+			userId:    1,
+			setUserId: true,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+				repo.On("UpdatePasswordById", mock.Anything, mock.Anything).
+					Return(&auth.Account{UserId: 1}, nil)
+			},
+			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
+				db, mock, _ := sqlmock.New()
+				mock.ExpectBegin()
+				mock.ExpectCommit()
+				return db, mock
+			},
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := &MockAuthRepository{}
+			tt.mockRepo(mockRepo)
+
+			authService := auth.NewAuthService(mockRepo)
+
+			db, sqlMock := tt.mockDB()
+			defer db.Close()
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/change-password", strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			if tt.setUserId {
+				c.Set("userId", tt.userId)
+			}
+
+			err := utils.ChangePasswordById(c, authService, db)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if err := sqlMock.ExpectationsWereMet(); err != nil {
+				t.Errorf("unfulfilled sqlmock expectations: %s", err)
+			}
+
 			mockRepo.AssertExpectations(t)
 		})
 	}
