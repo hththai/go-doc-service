@@ -3,14 +3,19 @@ package test
 import (
 	"2_Go/api/v1/utils"
 	"2_Go/internal/auth"
+	"2_Go/middleware/authen"
+	serverutils "2_Go/utils"
 	"database/sql"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -655,6 +660,173 @@ func TestLoginJwt(t *testing.T) {
 
 			// Verify all repository mock expectations were met
 			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+// Test Refresh
+func TestRefresh(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Create valid refresh tokens for testing
+	validRefreshToken, _ := authen.CreateRefreshToken(1)
+	validRefreshToken2, _ := authen.CreateRefreshToken(2)
+
+	tests := []struct {
+		name          string
+		setupCookie   func(c *gin.Context)
+		expectErr     bool
+		errorContains string
+		validateToken bool
+	}{
+		{
+			name: "success - valid refresh token",
+			setupCookie: func(c *gin.Context) {
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: validRefreshToken,
+				})
+			},
+			expectErr:     false,
+			validateToken: true,
+		},
+		{
+			name: "error - missing refresh token",
+			setupCookie: func(c *gin.Context) {
+				// Don't set any cookie
+			},
+			expectErr:     true,
+			errorContains: "missing refresh token",
+		},
+		{
+			name: "error - invalid refresh token",
+			setupCookie: func(c *gin.Context) {
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: "invalid.token.here",
+				})
+			},
+			expectErr:     true,
+			errorContains: "invalid refresh token",
+		},
+		{
+			name: "error - expired refresh token",
+			setupCookie: func(c *gin.Context) {
+				// Create an expired token manually
+				expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256,
+					jwt.MapClaims{
+						"userId": 1,
+						"exp":    time.Now().Add(-1 * time.Hour).Unix(), // Expired 1 hour ago
+						"type":   "refresh",
+					})
+				expiredTokenString, _ := expiredToken.SignedString([]byte(serverutils.GetConfigJWT()))
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: expiredTokenString,
+				})
+			},
+			expectErr:     true,
+			errorContains: "invalid refresh token",
+		},
+		{
+			name: "error - malformed refresh token",
+			setupCookie: func(c *gin.Context) {
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: "malformed-token-without-proper-structure",
+				})
+			},
+			expectErr:     true,
+			errorContains: "invalid refresh token",
+		},
+		{
+			name: "success - valid refresh token for different user",
+			setupCookie: func(c *gin.Context) {
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: validRefreshToken2,
+				})
+			},
+			expectErr:     false,
+			validateToken: true,
+		},
+		{
+			name: "error - refresh token with invalid userId type",
+			setupCookie: func(c *gin.Context) {
+				// Create a token with userId as string instead of int
+				invalidToken := jwt.NewWithClaims(jwt.SigningMethodHS256,
+					jwt.MapClaims{
+						"userId": "invalid-string-id",
+						"exp":    time.Now().Add(7 * 24 * time.Hour).Unix(),
+						"type":   "refresh",
+					})
+				invalidTokenString, _ := invalidToken.SignedString([]byte(serverutils.GetConfigJWT()))
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: invalidTokenString,
+				})
+			},
+			expectErr:     true,
+			errorContains: "invalid userID type",
+		},
+		{
+			name: "error - refresh token without userId claim",
+			setupCookie: func(c *gin.Context) {
+				// Create a token without userId claim
+				tokenWithoutUserId := jwt.NewWithClaims(jwt.SigningMethodHS256,
+					jwt.MapClaims{
+						"exp":  time.Now().Add(7 * 24 * time.Hour).Unix(),
+						"type": "refresh",
+					})
+				tokenString, _ := tokenWithoutUserId.SignedString([]byte(serverutils.GetConfigJWT()))
+				c.Request.AddCookie(&http.Cookie{
+					Name:  "refresh_token",
+					Value: tokenString,
+				})
+			},
+			expectErr:     true,
+			errorContains: "invalid userID type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create Gin context with test request
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/refresh", nil)
+
+			// Setup cookie for this test case
+			tt.setupCookie(c)
+
+			// Execute the function
+			err := utils.Refresh(c)
+
+			// Assertions
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+
+				// Validate that new access token was set for success cases
+				if tt.validateToken {
+					cookies := w.Result().Cookies()
+					var accessTokenFound bool
+					for _, cookie := range cookies {
+						if cookie.Name == "access_token" {
+							accessTokenFound = true
+							assert.NotEmpty(t, cookie.Value)
+							assert.Equal(t, "/", cookie.Path)
+							assert.True(t, cookie.HttpOnly)
+							assert.Equal(t, 600, cookie.MaxAge) // 10 minutes
+						}
+					}
+					assert.True(t, accessTokenFound, "access_token cookie should be set after successful refresh")
+				}
+			}
 		})
 	}
 }

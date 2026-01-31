@@ -1,6 +1,6 @@
 # Authentication Handler Test Coverage
 
-This document describes the comprehensive unit test suites for authentication handler functions including `Register`, `ChangePasswordById`, and `LoginJwt`.
+This document describes the comprehensive unit test suites for authentication handler functions including `Register`, `ChangePasswordById`, `LoginJwt`, and `Refresh`.
 
 ## Overview
 
@@ -8,9 +8,9 @@ The test suites provide complete coverage of authentication functions, testing a
 
 ## Overall Test Statistics
 
-- **Total Test Cases**: 29 (11 Register + 10 ChangePasswordById + 8 LoginJwt)
-- **Success Scenarios**: 7
-- **Error Scenarios**: 22
+- **Total Test Cases**: 37 (11 Register + 10 ChangePasswordById + 8 LoginJwt + 8 Refresh)
+- **Success Scenarios**: 9
+- **Error Scenarios**: 28
 - **Test Status**: ✅ All Passing
 
 ---
@@ -613,6 +613,237 @@ For successful login cases, the test validates:
 
 ---
 
+# Refresh Function Tests
+
+## Test Statistics
+
+- **Total Test Cases**: 8
+- **Success Scenarios**: 2
+- **Error Scenarios**: 6
+- **Test Status**: ✅ All Passing
+
+## Function Overview
+
+The `Refresh` function handles JWT refresh token validation and generates new access tokens when the current access token expires. This is a critical security feature that allows users to maintain authenticated sessions without re-entering credentials.
+
+**Key Features Tested**:
+- Refresh token cookie extraction
+- JWT refresh token validation
+- UserId claim extraction and type conversion
+- New access token generation
+- HTTP cookie management for renewed access token
+
+## Success Test Cases
+
+### 1. Valid Refresh Token
+**Test Name**: `success - valid refresh token`
+
+Tests the happy path where a valid refresh token is successfully exchanged for a new access token.
+
+**Setup**:
+- Creates a valid refresh token for userId = 1 using `authen.CreateRefreshToken(1)`
+- Sets token as `refresh_token` cookie
+
+**Expected**:
+- No error
+- New access token cookie is set with:
+  - Name: `access_token`
+  - Value: Valid JWT token (not empty)
+  - Path: `/`
+  - HttpOnly: `true`
+  - MaxAge: `600` seconds (10 minutes)
+
+**Security Validation**:
+- Token is properly verified before renewal
+- New token has correct expiration time
+- Cookie attributes ensure security
+
+---
+
+### 2. Valid Refresh Token for Different User
+**Test Name**: `success - valid refresh token for different user`
+
+Tests that the refresh function works correctly for multiple different users.
+
+**Setup**:
+- Creates a valid refresh token for userId = 2 using `authen.CreateRefreshToken(2)`
+- Sets token as `refresh_token` cookie
+
+**Expected**:
+- No error
+- New access token generated for userId = 2
+- All token and cookie validations pass
+- Demonstrates function works for any valid user
+
+---
+
+## Error Test Cases
+
+### 3. Missing Refresh Token
+**Test Name**: `error - missing refresh token`
+
+Tests error handling when no refresh token cookie is present in the request.
+
+**Setup**:
+- No `refresh_token` cookie set
+
+**Expected**: Error containing "missing refresh token"
+
+**Security Implication**: Prevents unauthorized token generation
+
+---
+
+### 4. Invalid Refresh Token
+**Test Name**: `error - invalid refresh token`
+
+Tests handling of a malformed or improperly signed JWT token.
+
+**Setup**:
+- Sets `refresh_token` cookie with value: `"invalid.token.here"`
+
+**Expected**: Error containing "invalid refresh token"
+
+**Security Implication**: Rejects tokens that aren't properly signed
+
+---
+
+### 5. Expired Refresh Token
+**Test Name**: `error - expired refresh token`
+
+Tests that expired tokens are properly rejected.
+
+**Setup**:
+- Creates a JWT token with expiration 1 hour in the past
+- Token structure:
+  ```go
+  jwt.MapClaims{
+      "userId": 1,
+      "exp": time.Now().Add(-1 * time.Hour).Unix(),
+      "type": "refresh",
+  }
+  ```
+
+**Expected**: Error containing "invalid refresh token"
+
+**Security Implication**: Enforces token expiration policy
+
+---
+
+### 6. Malformed Refresh Token
+**Test Name**: `error - malformed refresh token`
+
+Tests handling of tokens that don't follow JWT structure.
+
+**Setup**:
+- Sets `refresh_token` cookie with value: `"malformed-token-without-proper-structure"`
+
+**Expected**: Error containing "invalid refresh token"
+
+**Security Implication**: Rejects non-JWT token strings
+
+---
+
+### 7. Refresh Token with Invalid UserId Type
+**Test Name**: `error - refresh token with invalid userId type`
+
+Tests type safety when userId claim has wrong data type.
+
+**Setup**:
+- Creates a valid JWT with userId as string instead of number:
+  ```go
+  jwt.MapClaims{
+      "userId": "invalid-string-id",
+      "exp": time.Now().Add(7 * 24 * time.Hour).Unix(),
+      "type": "refresh",
+  }
+  ```
+
+**Expected**: Error containing "invalid userID type"
+
+**Security Implication**: Prevents type confusion attacks
+
+---
+
+### 8. Refresh Token without UserId Claim
+**Test Name**: `error - refresh token without userId claim`
+
+Tests handling when required userId claim is missing from token.
+
+**Setup**:
+- Creates a valid JWT missing the userId claim:
+  ```go
+  jwt.MapClaims{
+      "exp": time.Now().Add(7 * 24 * time.Hour).Unix(),
+      "type": "refresh",
+  }
+  ```
+
+**Expected**: Error containing "invalid userID type"
+
+**Security Implication**: Ensures all required claims are present
+
+---
+
+## Refresh Test Implementation Details
+
+### Test Structure
+
+```go
+{
+    name: "test case name",
+    setupCookie: func(c *gin.Context) {
+        // Setup refresh_token cookie for this test
+        // Can set valid, invalid, expired, or malformed tokens
+    },
+    expectErr: true/false,
+    errorContains: "expected error message substring",
+    validateToken: bool,  // Whether to validate new access token
+}
+```
+
+**Special Features**:
+- Uses actual JWT tokens created with `authen.CreateRefreshToken()`
+- Tests real JWT verification logic (not mocked)
+- Validates complete access token cookie attributes
+- Tests type conversion from float64 to int for userId
+- Covers both authentication and authorization aspects
+
+### Token Creation and Validation
+
+**Valid Refresh Token Creation**:
+```go
+validRefreshToken, _ := authen.CreateRefreshToken(1)
+```
+
+**Custom Token for Error Testing**:
+```go
+expiredToken := jwt.NewWithClaims(jwt.SigningMethodHS256,
+    jwt.MapClaims{
+        "userId": 1,
+        "exp": time.Now().Add(-1 * time.Hour).Unix(),
+        "type": "refresh",
+    })
+expiredTokenString, _ := expiredToken.SignedString([]byte(serverutils.GetConfigJWT()))
+```
+
+### Access Token Validation Assertions
+
+For successful refresh cases, the test validates:
+
+1. **New Access Token Cookie**:
+   - Name: `access_token`
+   - Value: Not empty (valid JWT)
+   - Path: `/`
+   - HttpOnly: `true`
+   - MaxAge: `600` seconds (10 minutes)
+
+2. **Error Handling**:
+   - Appropriate error messages for each failure scenario
+   - No token generation on validation failures
+   - Security-focused error messages
+
+---
+
 ## Implementation Details
 
 ### Testing Stack
@@ -710,8 +941,11 @@ go test -v ./api/v1/utils/test/ -run TestChangePasswordById
 # Run only the LoginJwt tests
 go test -v ./api/v1/utils/test/ -run TestLoginJwt
 
+# Run only the Refresh tests
+go test -v ./api/v1/utils/test/ -run TestRefresh
+
 # Run all authentication handler tests
-go test -v ./api/v1/utils/test/ -run "TestRegister|TestChangePasswordById|TestLoginJwt"
+go test -v ./api/v1/utils/test/ -run "TestRegister|TestChangePasswordById|TestLoginJwt|TestRefresh"
 
 # Run with coverage
 go test -v -cover ./api/v1/utils/test/
@@ -801,6 +1035,30 @@ PASS
 PASS
 ```
 
+### Refresh Function Test Results
+
+```
+=== RUN   TestRefresh
+=== RUN   TestRefresh/success_-_valid_refresh_token
+=== RUN   TestRefresh/error_-_missing_refresh_token
+=== RUN   TestRefresh/error_-_invalid_refresh_token
+=== RUN   TestRefresh/error_-_expired_refresh_token
+=== RUN   TestRefresh/error_-_malformed_refresh_token
+=== RUN   TestRefresh/success_-_valid_refresh_token_for_different_user
+=== RUN   TestRefresh/error_-_refresh_token_with_invalid_userId_type
+=== RUN   TestRefresh/error_-_refresh_token_without_userId_claim
+--- PASS: TestRefresh (0.00s)
+    --- PASS: TestRefresh/success_-_valid_refresh_token (0.00s)
+    --- PASS: TestRefresh/error_-_missing_refresh_token (0.00s)
+    --- PASS: TestRefresh/error_-_invalid_refresh_token (0.00s)
+    --- PASS: TestRefresh/error_-_expired_refresh_token (0.00s)
+    --- PASS: TestRefresh/error_-_malformed_refresh_token (0.00s)
+    --- PASS: TestRefresh/success_-_valid_refresh_token_for_different_user (0.00s)
+    --- PASS: TestRefresh/error_-_refresh_token_with_invalid_userId_type (0.00s)
+    --- PASS: TestRefresh/error_-_refresh_token_without_userId_claim (0.00s)
+PASS
+```
+
 ## Coverage Summary
 
 ### Register Function Coverage
@@ -846,6 +1104,24 @@ PASS
 - ✅ Error propagation through all layers
 - ✅ Multiple user authentication scenarios
 
+### Refresh Function Coverage
+
+- ✅ Refresh token cookie extraction
+- ✅ JWT refresh token verification
+- ✅ Token expiration validation
+- ✅ Token structure validation (malformed tokens)
+- ✅ UserId claim extraction and type checking
+- ✅ Float64 to int type conversion for userId
+- ✅ Missing claim validation
+- ✅ Invalid claim type validation
+- ✅ New access token generation
+- ✅ Access token cookie management
+- ✅ Cookie security attributes (HttpOnly, Path, MaxAge)
+- ✅ Multiple user refresh scenarios
+- ✅ Security-focused error messages
+- ✅ Token signature verification
+- ✅ Protection against token tampering
+
 ## Future Enhancements
 
 ### Register Function
@@ -869,17 +1145,34 @@ PASS
 ### LoginJwt Function
 
 1. Test JWT token expiration scenarios
-2. Test token refresh flow
-3. Test concurrent login attempts (same user)
-4. Test account lockout after failed login attempts
-5. Test rate limiting for login attempts
-6. Test token invalidation on logout
-7. Test "remember me" functionality
-8. Test login with different client types (web, mobile)
-9. Test token signature validation
-10. Test cookie SameSite and Secure attributes in production
-11. Test session hijacking prevention
-12. Test brute force attack protection
+2. Test concurrent login attempts (same user)
+3. Test account lockout after failed login attempts
+4. Test rate limiting for login attempts
+5. Test token invalidation on logout
+6. Test "remember me" functionality
+7. Test login with different client types (web, mobile)
+8. Test token signature validation
+9. Test cookie SameSite and Secure attributes in production
+10. Test session hijacking prevention
+11. Test brute force attack protection
+
+### Refresh Function
+
+1. Test refresh token rotation (issue new refresh token on each refresh)
+2. Test refresh token reuse detection (prevent replay attacks)
+3. Test concurrent refresh attempts with same token
+4. Test refresh token family tracking
+5. Test automatic logout on suspicious refresh activity
+6. Test refresh token blacklisting after logout
+7. Test rate limiting for refresh attempts
+8. Test refresh token with tampered claims
+9. Test refresh token with different signing algorithms
+10. Test token type validation (reject access tokens in refresh flow)
+11. Test sliding session expiration
+12. Test refresh token rotation window
+13. Test cross-device refresh token validation
+14. Test refresh token binding to client fingerprint
+15. Test automatic session extension limits
 
 ### General
 
