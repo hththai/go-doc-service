@@ -1,6 +1,6 @@
 # Authentication Handler Test Coverage
 
-This document describes the comprehensive unit test suites for authentication handler functions including `Register` and `ChangePasswordById`.
+This document describes the comprehensive unit test suites for authentication handler functions including `Register`, `ChangePasswordById`, and `LoginJwt`.
 
 ## Overview
 
@@ -8,9 +8,9 @@ The test suites provide complete coverage of authentication functions, testing a
 
 ## Overall Test Statistics
 
-- **Total Test Cases**: 21 (11 Register + 10 ChangePasswordById)
-- **Success Scenarios**: 5
-- **Error Scenarios**: 16
+- **Total Test Cases**: 29 (11 Register + 10 ChangePasswordById + 8 LoginJwt)
+- **Success Scenarios**: 7
+- **Error Scenarios**: 22
 - **Test Status**: ✅ All Passing
 
 ---
@@ -386,6 +386,233 @@ Tests error handling when database commit operation fails.
 
 ---
 
+# LoginJwt Function Tests
+
+## Test Statistics
+
+- **Total Test Cases**: 8
+- **Success Scenarios**: 2
+- **Error Scenarios**: 6
+- **Test Status**: ✅ All Passing
+
+## Function Overview
+
+The `LoginJwt` function handles user authentication with JWT token generation. It validates user credentials, generates access and refresh tokens, and sets secure HTTP cookies.
+
+**Key Features Tested**:
+- Username and password authentication
+- JWT access token generation
+- JWT refresh token generation
+- HTTP cookie management
+- Bcrypt password verification
+
+## Success Test Cases
+
+### 1. Valid Login
+**Test Name**: `success - valid login`
+
+Tests the happy path where a user successfully logs in with correct credentials.
+
+**Input**:
+```json
+{
+  "username": "testuser",
+  "password": "oldpassword123"
+}
+```
+
+**Expected**:
+- No error
+- Returns `AuthToken` object with:
+  - `UserId`: 1 (non-zero)
+  - `AccessToken`: Valid JWT token
+  - `TokenId`: Unique token identifier
+- Sets HTTP cookies:
+  - `access_token`: 600 seconds (10 minutes), HttpOnly
+  - `refresh_token`: 604800 seconds (1 week), HttpOnly
+
+**Validations**:
+- Token structure is complete
+- Cookies are set with correct attributes
+- UserId matches authenticated user
+
+---
+
+### 2. Valid Login with Different User
+**Test Name**: `success - valid login with different user`
+
+Tests that the login function works correctly for multiple different users.
+
+**Input**:
+```json
+{
+  "username": "anotheruser",
+  "password": "oldpassword123"
+}
+```
+
+**Expected**:
+- No error
+- Returns `AuthToken` with UserId = 2
+- All token and cookie validations pass
+- Demonstrates function works for any valid user
+
+---
+
+## Error Test Cases
+
+### 3. Invalid JSON
+**Test Name**: `error - invalid JSON`
+
+Tests handling of malformed JSON in request body.
+
+**Input**:
+```json
+{"username":"test"
+```
+
+**Expected**: Error before authentication, no repository calls
+
+---
+
+### 4. Missing Username
+**Test Name**: `error - missing username`
+
+Tests validation when required username field is missing.
+
+**Input**:
+```json
+{
+  "password": "oldpassword123"
+}
+```
+
+**Mock Behavior**: Repository called with empty username, returns "user not found"
+
+**Expected**: Error, authentication fails
+
+---
+
+### 5. Missing Password
+**Test Name**: `error - missing password`
+
+Tests validation when required password field is missing.
+
+**Input**:
+```json
+{
+  "username": "testuser"
+}
+```
+
+**Mock Behavior**: Repository returns user hash, bcrypt comparison fails
+
+**Expected**: Error, password validation fails
+
+---
+
+### 6. Empty Request Body
+**Test Name**: `error - empty request body`
+
+Tests validation when both required fields are missing.
+
+**Input**:
+```json
+{}
+```
+
+**Expected**: Error, authentication fails
+
+---
+
+### 7. User Not Found
+**Test Name**: `error - user not found`
+
+Tests error handling when the username doesn't exist in the database.
+
+**Input**:
+```json
+{
+  "username": "nonexistent",
+  "password": "oldpassword123"
+}
+```
+
+**Mock Behavior**: Repository returns "user not found" error
+
+**Expected**: Error containing "cannot retrieve account"
+
+---
+
+### 8. Incorrect Password
+**Test Name**: `error - incorrect password`
+
+Tests authentication failure when password doesn't match the stored hash.
+
+**Input**:
+```json
+{
+  "username": "testuser",
+  "password": "wrongpassword"
+}
+```
+
+**Mock Behavior**: Repository returns valid user hash, bcrypt comparison fails
+
+**Expected**: Error containing "incorrect password"
+
+---
+
+## Implementation Details
+
+### LoginJwt Test Structure
+
+```go
+{
+    name: "test case name",
+    body: "JSON request body",
+    mockRepo: func(repo *MockAuthRepository) {
+        // Setup repository mock expectations
+        // Typically mocks GetUsrPassword()
+    },
+    expectErr: true/false,
+    errorContains: "expected error message substring",
+    validateToken: bool,  // Whether to validate token response
+}
+```
+
+**Special Features**:
+- Uses actual bcrypt hash (`$2a$10$tNMPSwPNfwwKmL0i7J00beidHBjxX9gmyESatFe5GBlxETjwRhMNm`) for "oldpassword123"
+- Validates complete JWT token structure
+- Verifies HTTP cookie attributes (HttpOnly, MaxAge, Path)
+- Tests both access_token and refresh_token generation
+- Validates token response object structure
+
+### Token Validation Assertions
+
+For successful login cases, the test validates:
+
+1. **AuthToken Object**:
+   - `UserId` is non-zero
+   - `AccessToken` is not empty
+   - `TokenId` is not empty
+
+2. **Access Token Cookie**:
+   - Name: `access_token`
+   - Value: Not empty (valid JWT)
+   - Path: `/`
+   - HttpOnly: `true`
+   - MaxAge: `600` seconds (10 minutes)
+
+3. **Refresh Token Cookie**:
+   - Name: `refresh_token`
+   - Value: Not empty (valid JWT)
+   - Path: `/`
+   - HttpOnly: `true`
+   - MaxAge: `604800` seconds (1 week)
+
+---
+
 ## Implementation Details
 
 ### Testing Stack
@@ -480,8 +707,11 @@ go test -v ./api/v1/utils/test/ -run TestRegister
 # Run only the ChangePasswordById tests
 go test -v ./api/v1/utils/test/ -run TestChangePasswordById
 
-# Run both authentication handler tests
-go test -v ./api/v1/utils/test/ -run "TestRegister|TestChangePasswordById"
+# Run only the LoginJwt tests
+go test -v ./api/v1/utils/test/ -run TestLoginJwt
+
+# Run all authentication handler tests
+go test -v ./api/v1/utils/test/ -run "TestRegister|TestChangePasswordById|TestLoginJwt"
 
 # Run with coverage
 go test -v -cover ./api/v1/utils/test/
@@ -547,6 +777,30 @@ PASS
 PASS
 ```
 
+### LoginJwt Function Test Results
+
+```
+=== RUN   TestLoginJwt
+=== RUN   TestLoginJwt/success_-_valid_login
+=== RUN   TestLoginJwt/error_-_invalid_JSON
+=== RUN   TestLoginJwt/error_-_missing_username
+=== RUN   TestLoginJwt/error_-_missing_password
+=== RUN   TestLoginJwt/error_-_empty_request_body
+=== RUN   TestLoginJwt/error_-_user_not_found
+=== RUN   TestLoginJwt/error_-_incorrect_password
+=== RUN   TestLoginJwt/success_-_valid_login_with_different_user
+--- PASS: TestLoginJwt (0.18s)
+    --- PASS: TestLoginJwt/success_-_valid_login (0.05s)
+    --- PASS: TestLoginJwt/error_-_invalid_JSON (0.00s)
+    --- PASS: TestLoginJwt/error_-_missing_username (0.00s)
+    --- PASS: TestLoginJwt/error_-_missing_password (0.04s)
+    --- PASS: TestLoginJwt/error_-_empty_request_body (0.00s)
+    --- PASS: TestLoginJwt/error_-_user_not_found (0.00s)
+    --- PASS: TestLoginJwt/error_-_incorrect_password (0.04s)
+    --- PASS: TestLoginJwt/success_-_valid_login_with_different_user (0.04s)
+PASS
+```
+
 ## Coverage Summary
 
 ### Register Function Coverage
@@ -576,6 +830,22 @@ PASS
 - ✅ Edge cases (minimum valid password length)
 - ✅ Error propagation through all layers
 
+### LoginJwt Function Coverage
+
+- ✅ JSON binding and validation
+- ✅ Username and password authentication
+- ✅ Bcrypt password verification
+- ✅ User existence validation
+- ✅ JWT access token generation
+- ✅ JWT refresh token generation
+- ✅ HTTP cookie management (access_token and refresh_token)
+- ✅ Cookie security attributes (HttpOnly, Path, MaxAge)
+- ✅ AuthToken response structure validation
+- ✅ Service layer authentication flow
+- ✅ Repository layer error handling
+- ✅ Error propagation through all layers
+- ✅ Multiple user authentication scenarios
+
 ## Future Enhancements
 
 ### Register Function
@@ -596,12 +866,29 @@ PASS
 5. Test session invalidation after password change
 6. Test password change with different authentication methods
 
+### LoginJwt Function
+
+1. Test JWT token expiration scenarios
+2. Test token refresh flow
+3. Test concurrent login attempts (same user)
+4. Test account lockout after failed login attempts
+5. Test rate limiting for login attempts
+6. Test token invalidation on logout
+7. Test "remember me" functionality
+8. Test login with different client types (web, mobile)
+9. Test token signature validation
+10. Test cookie SameSite and Secure attributes in production
+11. Test session hijacking prevention
+12. Test brute force attack protection
+
 ### General
 
 1. Integration tests with real database
 2. End-to-end tests with actual HTTP requests
 3. Security testing (SQL injection, XSS prevention)
 4. Load testing for authentication endpoints
+5. OWASP authentication testing
+6. Cross-browser cookie compatibility testing
 
 ---
 

@@ -499,3 +499,162 @@ func TestChangePasswordById(t *testing.T) {
 		})
 	}
 }
+
+// Test Login Function.
+func TestLoginJwt(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Bcrypt hash of "oldpassword123" (reusing from TestChangePasswordById)
+	validPasswordHash := "$2a$10$tNMPSwPNfwwKmL0i7J00beidHBjxX9gmyESatFe5GBlxETjwRhMNm"
+
+	tests := []struct {
+		name          string
+		body          string
+		mockRepo      func(repo *MockAuthRepository)
+		expectErr     bool
+		errorContains string
+		validateToken bool
+	}{
+		{
+			name: "success - valid login",
+			body: `{"username":"testuser","password":"oldpassword123"}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "testuser").
+					Return(1, validPasswordHash, nil)
+			},
+			expectErr:     false,
+			validateToken: true,
+		},
+		{
+			name: "error - invalid JSON",
+			body: `{"username":"test"`,
+			mockRepo: func(repo *MockAuthRepository) {
+				// No mock needed as it should fail before repository call
+			},
+			expectErr: true,
+		},
+		{
+			name: "error - missing username",
+			body: `{"password":"oldpassword123"}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "").
+					Return(0, "", errors.New("user not found"))
+			},
+			expectErr: true,
+		},
+		{
+			name: "error - missing password",
+			body: `{"username":"testuser"}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "testuser").
+					Return(1, validPasswordHash, nil)
+			},
+			expectErr: true,
+		},
+		{
+			name: "error - empty request body",
+			body: `{}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "").
+					Return(0, "", errors.New("user not found"))
+			},
+			expectErr: true,
+		},
+		{
+			name: "error - user not found",
+			body: `{"username":"nonexistent","password":"oldpassword123"}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "nonexistent").
+					Return(0, "", errors.New("user not found"))
+			},
+			expectErr:     true,
+			errorContains: "cannot retrieve account",
+		},
+		{
+			name: "error - incorrect password",
+			body: `{"username":"testuser","password":"wrongpassword"}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "testuser").
+					Return(1, validPasswordHash, nil)
+			},
+			expectErr:     true,
+			errorContains: "incorrect password",
+		},
+		{
+			name: "success - valid login with different user",
+			body: `{"username":"anotheruser","password":"oldpassword123"}`,
+			mockRepo: func(repo *MockAuthRepository) {
+				repo.On("GetUsrPassword", mock.Anything, "anotheruser").
+					Return(2, validPasswordHash, nil)
+			},
+			expectErr:     false,
+			validateToken: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup mock repository
+			mockRepo := &MockAuthRepository{}
+			tt.mockRepo(mockRepo)
+
+			// Create auth service with mocked repository
+			authService := auth.NewAuthService(mockRepo)
+
+			// Setup mock DB
+			db, _, _ := sqlmock.New()
+			defer db.Close()
+
+			// Create Gin context with test request
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/login", strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			// Execute the function
+			tokenReturn, err := utils.LoginJwt(c, authService, db)
+
+			// Assertions
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+
+				// Validate token response for success cases
+				if tt.validateToken {
+					assert.NotZero(t, tokenReturn.UserId, "UserId should not be zero")
+					assert.NotEmpty(t, tokenReturn.AccessToken, "AccessToken should not be empty")
+					assert.NotEmpty(t, tokenReturn.TokenId, "TokenId should not be empty")
+
+					// Verify cookies were set
+					cookies := w.Result().Cookies()
+					var accessTokenFound, refreshTokenFound bool
+					for _, cookie := range cookies {
+						if cookie.Name == "access_token" {
+							accessTokenFound = true
+							assert.NotEmpty(t, cookie.Value)
+							assert.Equal(t, "/", cookie.Path)
+							assert.True(t, cookie.HttpOnly)
+							assert.Equal(t, 600, cookie.MaxAge)
+						}
+						if cookie.Name == "refresh_token" {
+							refreshTokenFound = true
+							assert.NotEmpty(t, cookie.Value)
+							assert.Equal(t, "/", cookie.Path)
+							assert.True(t, cookie.HttpOnly)
+							assert.Equal(t, 604800, cookie.MaxAge)
+						}
+					}
+					assert.True(t, accessTokenFound, "access_token cookie should be set")
+					assert.True(t, refreshTokenFound, "refresh_token cookie should be set")
+				}
+			}
+
+			// Verify all repository mock expectations were met
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}

@@ -183,27 +183,28 @@ func ChangePasswordById(c *gin.Context, service auth.AuthService, db *sql.DB) er
 	return nil
 }
 
-// Login
-func Login(c *gin.Context, service auth.AuthService, db *sql.DB) error {
-	var req struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
+// // Login
+// func Login(c *gin.Context, service auth.AuthService, db *sql.DB) error {
+// 	var req struct {
+// 		Username string `json:"username"`
+// 		Password string `json:"password"`
+// 	}
 
-	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		return err
-	}
+// 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+// 		return err
+// 	}
 
-	_, err := service.Login(db, req.Username, req.Password)
+// 	_, err := service.Login(db, req.Username, req.Password)
 
-	if err != nil {
-		return err
-	}
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // Test return with token object
+// Using
 func LoginJwt(c *gin.Context, service auth.AuthService, db *sql.DB) (obj.AuthToken, error) {
 	var tokenReturn obj.AuthToken
 
