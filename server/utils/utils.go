@@ -34,25 +34,6 @@ func GetConfigJWT() string {
 	return os.Getenv("JWT_SECRET")
 }
 
-// Custom Util function to create a folder and name if it is not exist.
-func createFolderAndFile(folderName string, fileWithExt string) (*os.File, error) {
-
-	err := os.MkdirAll("./"+folderName, os.ModePerm)
-	if err != nil {
-
-		return nil, errors.New("failed to create dictionary")
-	}
-
-	// Open and Create the log file.
-	logFile, err := os.OpenFile("./"+folderName+"/"+fileWithExt, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-	if err != nil {
-
-		return nil, errors.New("failed to create file")
-	}
-
-	return logFile, nil
-}
-
 func SanitizeFileName(name string) (string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -79,18 +60,6 @@ func SanitizeFileName(name string) (string, error) {
 
 	return base + ext, nil
 }
-
-// Check validate user.
-// func IsValidUser(c *gin.Context) bool {
-// 	jwtUser := c.GetString("username") // from Token
-// 	reqUser := c.Param("username")       // from request
-
-// 	if jwtUser != reqUser {
-// 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-// 		return true
-// 	}
-// 	return false
-// }
 
 func IsValidUsername(c *gin.Context) bool {
 	jwtUser := c.GetString("username") // from Token

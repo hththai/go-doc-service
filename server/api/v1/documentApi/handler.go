@@ -1,7 +1,7 @@
 package documentApi
 
 import (
-	v1 "2_Go/api/v1"
+	v1 "2_Go/api/v1/utils"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	"database/sql"

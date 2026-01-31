@@ -1,4 +1,4 @@
-package v1
+package utils
 
 import (
 	"2_Go/internal/auth"
@@ -62,61 +62,61 @@ func Register(c *gin.Context, service auth.AuthService, db *sql.DB) error {
 
 // TODO: deleting
 // Change password.
-func ChangePassword(c *gin.Context, service auth.AuthService, db *sql.DB) error {
+// func ChangePassword(c *gin.Context, service auth.AuthService, db *sql.DB) error {
 
-	var req struct {
-		// Username    string `json:"username"`
-		Password    string `json:"password"`
-		NewPassword string `json:"newpassword"`
-	}
+// 	var req struct {
+// 		// Username    string `json:"username"`
+// 		Password    string `json:"password"`
+// 		NewPassword string `json:"newpassword"`
+// 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
-	}
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		return err
+// 	}
 
-	// Prevent wrong username.
-	reqUser := c.Param("username")
+// 	// Prevent wrong username.
+// 	reqUser := c.Param("username")
 
-	// bind to account.
-	var account auth.Account
-	// account.Username = req.Username
-	account.Username = reqUser
-	account.Password = req.Password
+// 	// bind to account.
+// 	var account auth.Account
+// 	// account.Username = req.Username
+// 	account.Username = reqUser
+// 	account.Password = req.Password
 
-	// Validate current user by password.
-	if err := service.ValidateAccountService(db, account.Username, account.Password); err != nil {
-		return fmt.Errorf("incorrect login")
-	}
+// 	// Validate current user by password.
+// 	if err := service.ValidateAccountService(db, account.Username, account.Password); err != nil {
+// 		return fmt.Errorf("incorrect login")
+// 	}
 
-	// Begin transaction.
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
+// 	// Begin transaction.
+// 	tx, err := db.Begin()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to start transaction: %w", err)
+// 	}
 
-	// Always ensure roll back if something goes wrong.
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
+// 	// Always ensure roll back if something goes wrong.
+// 	defer func() {
+// 		if p := recover(); p != nil {
+// 			tx.Rollback()
+// 			panic(p)
+// 		} else if err != nil {
+// 			tx.Rollback()
+// 		}
+// 	}()
 
-	// Call update pasword service.
-	_, err = service.ChangePasswordService(tx, account, req.NewPassword)
-	// Check if register fail
-	if err != nil {
-		return err
-	}
+// 	// Call update pasword service.
+// 	_, err = service.ChangePasswordService(tx, account, req.NewPassword)
+// 	// Check if register fail
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit failed: %w", err)
-	}
+// 	if err = tx.Commit(); err != nil {
+// 		return fmt.Errorf("commit failed: %w", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func ChangePasswordById(c *gin.Context, service auth.AuthService, db *sql.DB) error {
 

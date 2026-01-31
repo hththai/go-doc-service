@@ -3,6 +3,7 @@ package main
 import (
 	v1 "2_Go/api/v1"
 	"2_Go/api/v1/routers"
+	apiUtils "2_Go/api/v1/utils"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
@@ -110,7 +111,7 @@ func main() {
 	r.GET("/preview", previewPDF)
 
 	r.POST("/register", func(c *gin.Context) {
-		err = v1.Register(c, acctSvc, db)
+		err = apiUtils.Register(c, acctSvc, db)
 
 		if err != nil {
 			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
@@ -151,7 +152,7 @@ func main() {
 
 	// Login and return jwt with userId
 	r.POST("/login", func(c *gin.Context) {
-		token, err := v1.LoginJwt(c, acctSvc, db)
+		token, err := apiUtils.LoginJwt(c, acctSvc, db)
 
 		if err != nil {
 			log.Errorf("%s Error Register: %s", c.ClientIP(), err)

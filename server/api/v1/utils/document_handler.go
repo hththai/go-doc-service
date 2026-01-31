@@ -1,4 +1,4 @@
-package v1
+package utils
 
 import (
 	"2_Go/internal/document"
