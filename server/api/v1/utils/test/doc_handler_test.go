@@ -37,14 +37,64 @@ func (m *MockDocumentRepository) SaveMetadataWithObjId(tx *sql.Tx, objId *int64,
 	return args.Get(0).(int64), args.Error(1)
 }
 
-func (m *MockDocumentRepository) SaveMetadata(tx *sql.Tx, doc *document.Document) (int64, error) {
+func (m *MockDocumentRepository) SaveMetadata(tx *sql.Tx, doc *document.Document) (id int64, err error) {
 	args := m.Called(tx, doc)
-	return args.Get(0).(int64), args.Error(1)
+	id = args.Get(0).(int64)
+	err = args.Error(1)
+	return
 }
 
 func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Document) error {
 	args := m.Called(tx, doc)
 	return args.Error(0)
+}
+
+// Helper function to create multipart request
+func createMultipartRequest(formData map[string]string, includeFile bool, fileName, fileContent string) (*bytes.Buffer, string) {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	for key, val := range formData {
+		_ = writer.WriteField(key, val)
+	}
+
+	if includeFile {
+		part, _ := writer.CreateFormFile("file", fileName)
+		_, _ = part.Write([]byte(fileContent))
+	}
+
+	_ = writer.Close()
+	return body, writer.FormDataContentType()
+}
+
+// Helper function to setup test context
+func setupTestContext(body *bytes.Buffer, contentType string, setUserId bool, userId int) (*gin.Context, *httptest.ResponseRecorder) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+
+	c.Request, _ = http.NewRequest("POST", "/upload", body)
+	c.Request.Header.Set("Content-Type", contentType)
+
+	if setUserId {
+		c.Set("userId", userId)
+	}
+
+	return c, w
+}
+
+// Helper function to verify test results
+func verifyTestResult(t *testing.T, err error, expectErr bool, errorContains string, mockRepo *MockDocumentRepository, mockDB sqlmock.Sqlmock) {
+	if expectErr {
+		assert.Error(t, err)
+		if errorContains != "" {
+			assert.Contains(t, err.Error(), errorContains)
+		}
+	} else {
+		assert.NoError(t, err)
+	}
+
+	mockRepo.AssertExpectations(t)
+	assert.NoError(t, mockDB.ExpectationsWereMet())
 }
 
 func TestUploadDocument(t *testing.T) {
@@ -217,35 +267,11 @@ func TestUploadDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup
-			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
+			// Create multipart request
+			body, contentType := createMultipartRequest(tt.formData, tt.includeFile, tt.fileName, tt.fileContent)
 
-			// Create multipart form
-			body := &bytes.Buffer{}
-			writer := multipart.NewWriter(body)
-
-			// Add form fields
-			for key, val := range tt.formData {
-				_ = writer.WriteField(key, val)
-			}
-
-			// Add file if needed
-			if tt.includeFile {
-				part, _ := writer.CreateFormFile("file", tt.fileName)
-				_, _ = part.Write([]byte(tt.fileContent))
-			}
-
-			_ = writer.Close()
-
-			// Create request
-			c.Request, _ = http.NewRequest("POST", "/upload", body)
-			c.Request.Header.Set("Content-Type", writer.FormDataContentType())
-
-			// Set user ID in context if needed
-			if tt.setUserId {
-				c.Set("userId", tt.userId)
-			}
+			// Setup test context
+			c, _ := setupTestContext(body, contentType, tt.setUserId, tt.userId)
 
 			// Setup mocks
 			mockRepo := new(MockDocumentRepository)
@@ -259,19 +285,8 @@ func TestUploadDocument(t *testing.T) {
 			// Execute
 			err := utils.UploadDocument(c, service, db)
 
-			// Assertions
-			if tt.expectErr {
-				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-
-			// Verify mock expectations
-			mockRepo.AssertExpectations(t)
-			assert.NoError(t, mockDB.ExpectationsWereMet())
+			// Verify results
+			verifyTestResult(t, err, tt.expectErr, tt.errorContains, mockRepo, mockDB)
 		})
 	}
 }
