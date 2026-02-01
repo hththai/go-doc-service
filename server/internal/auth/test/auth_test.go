@@ -171,92 +171,38 @@ func TestHandleHashPassword(t *testing.T) {
 
 			result, err := svc.Register(nil, tc.account)
 
-			if err != nil && tc.expected {
-				t.Errorf("UNEXPECTED error: %v with the expected %v with error: %v", tc.name, tc.expected, err)
-			}
-
-			if err == nil && !tc.expected {
-				t.Fatalf("EXPECTED error, got nil %v %v and %v with error %v", tc.name, tc.expected, !tc.expected, err)
-			}
-
-			// Checking if password different hash password.
-			if err == nil && result != nil {
-				if result.Password == tc.account.Password {
-					t.Fatalf("expected hashed password, got plain text")
-				}
-			}
+			assertRegisterError(t, err, tc.expected, tc.name)
+			verifyPasswordHashed(t, result, err, tc.account.Password)
 		})
 	}
 }
 
-// Note: deleting used for user_name
-// Test change password
-// func TestChangePassword(t *testing.T) {
-// 	accounts := []struct {
-// 		name        string
-// 		account     auth.Account
-// 		newPassword string
-// 		mockRepo    func() *MockAuthoRepo
-// 		expected    bool
-// 	}{
-// 		{
-// 			name:        "Good Reset Password",
-// 			account:     auth.Account{Username: "username", UserId: 1, Password: "This_isSimplePassword"},
-// 			newPassword: "thisd",
-// 			mockRepo: func() *MockAuthoRepo {
-// 				return &MockAuthoRepo{UpdatePasswordFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
-// 					return nil, nil
-// 				}}
-// 			},
-// 			expected: true,
-// 		},
-// 		{
-// 			name:        "Invalid New Password",
-// 			account:     auth.Account{Username: "username", UserId: 1, Password: "This_isSimplePassword"},
-// 			newPassword: "th",
-// 			mockRepo: func() *MockAuthoRepo {
-// 				return &MockAuthoRepo{UpdatePasswordFn: func(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
-// 					return nil, nil
-// 				}}
-// 			},
-// 			expected: false,
-// 		},
-// 		{
-// 			name:        "Invalid current account",
-// 			account:     auth.Account{Username: "username"},
-// 			newPassword: "th",
-// 			mockRepo: func() *MockAuthoRepo {
-// 				return &MockAuthoRepo{}
-// 			},
-// 			expected: false,
-// 		},
-// 	}
+func assertRegisterError(t *testing.T, err error, expected bool, testName string) {
+	t.Helper()
+	if err != nil {
+		if expected {
+			t.Errorf("UNEXPECTED error: %v with the expected %v with error: %v", testName, expected, err)
+		}
+		return
+	}
 
-// 	for _, tc := range accounts {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			repo := tc.mockRepo()
-// 			svc := auth.NewAuthService(repo)
+	if !expected {
+		t.Fatalf("EXPECTED error, got nil %v %v and %v with error %v", testName, expected, !expected, err)
+	}
+}
 
-// 			result, err := svc.ChangePasswordService(nil, tc.account, tc.newPassword)
-
-// 			if err != nil && tc.expected {
-// 				t.Fatalf("unexpected error %v with case %v", err, tc.name)
-// 			}
-
-// 			if err == nil && !tc.expected {
-// 				t.Fatalf("expected error %v with case %v", err, tc.name)
-// 			}
-
-// 			if err == nil && result != nil {
-// 				if result.Password == tc.newPassword {
-// 					t.Fatalf("Unexpected error with hash new password")
-// 				}
-// 			}
-
-// 		})
-// 	}
-
-// }
+func verifyPasswordHashed(t *testing.T, result *auth.Account, err error, originalPassword string) {
+	t.Helper()
+	if err != nil {
+		return
+	}
+	if result == nil {
+		return
+	}
+	if result.Password == originalPassword {
+		t.Fatalf("expected hashed password, got plain text")
+	}
+}
 
 // Test change password by Id
 func TestChangePasswordById(t *testing.T) {
@@ -307,23 +253,38 @@ func TestChangePasswordById(t *testing.T) {
 
 			result, err := svc.ChangePasswordService(nil, tc.account, tc.newPassword)
 
-			if err != nil && tc.expected {
-				t.Fatalf("unexpected error %v with case %v", err, tc.name)
-			}
-
-			if err == nil && !tc.expected {
-				t.Fatalf("expected error %v with case %v", err, tc.name)
-			}
-
-			if err == nil && result != nil {
-				if result.Password == tc.newPassword {
-					t.Fatalf("Unexpected error with hash new password")
-				}
-			}
-
+			assertExpectedError(t, err, tc.expected, tc.name)
+			verifyNewPasswordHashed(t, result, err, tc.newPassword)
 		})
 	}
 
+}
+
+func assertExpectedError(t *testing.T, err error, expected bool, testName string) {
+	t.Helper()
+	if err != nil {
+		if expected {
+			t.Fatalf("unexpected error %v with case %v", err, testName)
+		}
+		return
+	}
+
+	if !expected {
+		t.Fatalf("expected error %v with case %v", err, testName)
+	}
+}
+
+func verifyNewPasswordHashed(t *testing.T, result *auth.Account, err error, newPassword string) {
+	t.Helper()
+	if err != nil {
+		return
+	}
+	if result == nil {
+		return
+	}
+	if result.Password == newPassword {
+		t.Fatalf("Unexpected error with hash new password")
+	}
 }
 
 // Test comparing password
@@ -365,21 +326,13 @@ func TestCheckPassword(t *testing.T) {
 			svc := auth.NewAuthService(repo)
 
 			registeredAccount, err := svc.Register(nil, tc.account)
-
 			if err != nil {
 				t.Fatalf("error of set up account %v", err)
 			}
 
 			err = svc.CheckPassword(registeredAccount, tc.newPassword)
 
-			if err != nil && tc.expected {
-				t.Fatalf("unexpected error %v with case %v", err, tc.name)
-			}
-
-			if err == nil && !tc.expected {
-				t.Fatalf("expected error %v with case %v", err, tc.name)
-			}
-
+			assertExpectedError(t, err, tc.expected, tc.name)
 		})
 	}
 
