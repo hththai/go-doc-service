@@ -127,41 +127,6 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	assert.NoError(t, mockDB.ExpectationsWereMet())
 }
 
-// func TestGetMeHandler(t *testing.T) {
-// 	// 1. Setup
-// 	gin.SetMode(gin.TestMode)
-// 	logger, _ := test.NewNullLogger()
-// 	mockSvc := new(MockAuthService)
-
-// 	h := &authApi.AuthHandler{
-// 		AccountSvc: mockSvc,
-// 		Logger:     logger,
-// 	}
-
-// 	// 2. Define expectation for IsValidToken
-// 	expectedUser := "test-user-001"
-// 	mockSvc.On("IsValidToken", mock.Anything).Return(expectedUser, nil)
-
-// 	// 3. Create the request with the JSON body
-// 	w := httptest.NewRecorder()
-// 	c, _ := gin.CreateTestContext(w)
-
-// 	// The handler expects this JSON struct
-// 	reqBody := map[string]string{"tokenId": expectedUser}
-// 	bodyBytes, _ := json.Marshal(reqBody)
-
-// 	c.Request, _ = http.NewRequest("GET", "/users/me", bytes.NewReader(bodyBytes))
-// 	c.Request.Header.Set("Content-Type", "application/json")
-
-// 	// 4. Run the handler
-// 	h.GetMe(c)
-
-// 	// 5. Assertions
-// 	assert.Equal(t, http.StatusOK, w.Code)
-// 	assert.Contains(t, w.Body.String(), expectedUser)
-// 	mockSvc.AssertExpectations(t)
-// }
-
 func TestHandleRefresh(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
