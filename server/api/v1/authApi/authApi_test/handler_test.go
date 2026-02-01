@@ -10,7 +10,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -21,9 +23,23 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) ChangePassword(c *gin.Context, db *sql.DB) error {
-	args := m.Called(c, db)
+func (m *MockAuthService) ValidateAccountByIdService(db *sql.DB, userId int, password string) error {
+	args := m.Called(db, userId, password)
 	return args.Error(0)
+}
+
+func (m *MockAuthService) ChangePasswordService(tx *sql.Tx, account auth.Account, newPassword string) (*auth.Account, error) {
+	args := m.Called(tx, account, newPassword)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*auth.Account), args.Error(1)
+}
+
+// Mock the validation method
+func (m *MockAuthService) IsValidToken(c *gin.Context) (string, error) {
+	args := m.Called(c)
+	return args.String(0), args.Error(1)
 }
 
 // Test GetPing
@@ -53,16 +69,27 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	// 1. Setup
 	gin.SetMode(gin.TestMode)
 	logger, hook := test.NewNullLogger()
+	logger.Level = logrus.DebugLevel // Enable debug level logging
 	mockSvc := new(MockAuthService)
+
+	// Create a sqlmock database
+	db, mockDB, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
 
 	h := &authApi.AuthHandler{
 		AccountSvc: mockSvc,
 		Logger:     logger,
-		DB:         nil, // Use mock DB if your service requires it
+		DB:         db,
 	}
 
-	// 2. Define Mock Expectation
-	mockSvc.On("ChangePassword", mock.Anything, mock.Anything).Return(nil)
+	// 2. Define Mock Expectations
+	mockSvc.On("ValidateAccountByIdService", db, 123, "oldpassword123").Return(nil)
+	mockSvc.On("ChangePasswordService", mock.Anything, mock.AnythingOfType("auth.Account"), "securepassword123").Return(&auth.Account{}, nil)
+
+	// Set up database transaction expectations
+	mockDB.ExpectBegin()
+	mockDB.ExpectCommit()
 
 	// 3. Create Request and Inject URL Params
 	w := httptest.NewRecorder()
@@ -71,8 +98,15 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	// Set the URL parameter ":username" manually for the test
 	c.Params = []gin.Param{{Key: "username", Value: "johndoe"}}
 
-	// Create a dummy JSON body (if your v1.ChangePassword binds a body)
-	reqBody := map[string]string{"newpassword": "securepassword123"}
+	// Set context values required by the handler
+	c.Set("username", "johndoe") // Required by utils.IsValidUsername
+	c.Set("userId", 123)         // Required by ChangePasswordById
+
+	// Create a JSON body with password and newpassword
+	reqBody := map[string]string{
+		"password":    "oldpassword123",
+		"newpassword": "securepassword123",
+	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	c.Request, _ = http.NewRequest("POST", "/user/changepassword", bytes.NewReader(bodyBytes))
 	c.Request.Header.Set("Content-Type", "application/json")
@@ -89,12 +123,7 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	assert.Contains(t, hook.LastEntry().Message, "password updated success")
 
 	mockSvc.AssertExpectations(t)
-}
-
-// Mock the validation method
-func (m *MockAuthService) IsValidToken(c *gin.Context) (string, error) {
-	args := m.Called(c)
-	return args.String(0), args.Error(1)
+	assert.NoError(t, mockDB.ExpectationsWereMet())
 }
 
 // func TestGetMeHandler(t *testing.T) {
