@@ -3,6 +3,7 @@ package authApi_test
 import (
 	"2_Go/api/v1/authApi"
 	"2_Go/internal/auth"
+	"2_Go/middleware/authen"
 	"bytes"
 	"database/sql"
 	"encoding/json"
@@ -161,14 +162,26 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 // 	mockSvc.AssertExpectations(t)
 // }
 
-func TestHandleRefreshSuccess(t *testing.T) {
+func TestHandleRefresh(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
+	// Create a valid refresh token for testing
+	testUserId := 123
+	refreshToken, err := authen.CreateRefreshToken(testUserId)
+	assert.NoError(t, err)
+
 	req, _ := http.NewRequest(http.MethodPost, "/v1/auth/refresh", nil)
 	req.RemoteAddr = "127.0.0.1:8088"
+
+	// Set the refresh_token cookie in the request
+	req.AddCookie(&http.Cookie{
+		Name:  "refresh_token",
+		Value: refreshToken,
+	})
+
 	c.Request = req
 
 	logger, _ := test.NewNullLogger()
@@ -184,7 +197,19 @@ func TestHandleRefreshSuccess(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var body map[string]string
-	err := json.Unmarshal(w.Body.Bytes(), &body)
+	err = json.Unmarshal(w.Body.Bytes(), &body)
 	assert.NoError(t, err)
 	assert.Equal(t, "Success", body["message"])
+
+	// Verify that a new access_token cookie was set
+	cookies := w.Result().Cookies()
+	var accessTokenFound bool
+	for _, cookie := range cookies {
+		if cookie.Name == "access_token" {
+			accessTokenFound = true
+			assert.NotEmpty(t, cookie.Value)
+			break
+		}
+	}
+	assert.True(t, accessTokenFound, "access_token cookie should be set")
 }

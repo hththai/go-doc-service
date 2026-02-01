@@ -14,6 +14,7 @@ This document describes the test suite for the AuthAPI handlers located in `hand
 - **Gin Framework**: `github.com/gin-gonic/gin`
 - **Database Mocking**: `github.com/DATA-DOG/go-sqlmock`
 - **Logger Testing**: `github.com/sirupsen/logrus/hooks/test`
+- **JWT Authentication**: `2_Go/middleware/authen` (for creating/verifying test tokens)
 
 ### Mock Implementations
 
@@ -138,20 +139,60 @@ mockDB.ExpectCommit()
 
 ---
 
-### 3. TestHandleRefreshSuccess
+### 3. TestHandleRefresh
 
-**Purpose**: Verifies that the token refresh endpoint returns a success response.
+**Purpose**: Verifies that the token refresh endpoint successfully generates a new access token from a valid refresh token.
 
 **Test Flow:**
-1. Create test context with POST request to `/v1/auth/refresh`
-2. Set remote address for client IP tracking
-3. Create handler with null logger and mock service
-4. Call `HandleRefresh`
-5. Assert:
+
+#### Setup Phase
+1. Enable Gin test mode
+2. Create test context with httptest recorder
+3. Create a valid refresh token using `authen.CreateRefreshToken(testUserId)`
+4. Create handler with null logger and mock service
+
+#### Request Setup
+1. Create POST request to `/v1/auth/refresh`
+2. Set remote address for client IP tracking: `127.0.0.1:8088`
+3. **Add refresh_token cookie** to the request:
+   ```go
+   req.AddCookie(&http.Cookie{
+       Name:  "refresh_token",
+       Value: refreshToken,
+   })
+   ```
+
+#### Execution & Assertions
+1. Call `h.HandleRefresh(c)`
+2. Assert:
    - Status code is 200 OK
    - Response body contains `{"message":"Success"}`
+   - A new `access_token` cookie is set in the response
+   - The `access_token` cookie value is not empty
 
-**Current Status**: ⚠️ This test is currently failing and needs fixes similar to TestHandleChangePasswordSuccess (proper cookie setup, mock expectations, etc.)
+**Handler Flow:**
+1. `v1.Refresh(c)`:
+   - Retrieves `refresh_token` from cookies
+   - Verifies the refresh token using JWT verification
+   - Extracts `userId` from the token claims
+   - Generates a new access token via `handleAccessToken`
+   - Sets the new access token as a cookie
+2. Logs success message with client IP
+3. Returns 200 OK with `{"message":"Success"}`
+
+**Key Points:**
+- Requires a valid refresh token cookie in the request
+- The refresh token must be a valid JWT containing a `userId` claim
+- No database or service mocking required (token operations are self-contained)
+- Verifies both the response status and that a new access token is issued
+
+**Common Issues & Solutions:**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Status 400 "missing refresh token" | No refresh_token cookie | Add cookie using `req.AddCookie()` |
+| Status 400 "invalid refresh token" | Invalid JWT token | Use `authen.CreateRefreshToken()` to create valid token |
+| Test passes but access_token not verified | Missing cookie assertion | Add verification that `access_token` cookie is set |
 
 ---
 
@@ -176,6 +217,35 @@ reqBody := map[string]string{"key": "value"}
 bodyBytes, _ := json.Marshal(reqBody)
 c.Request, _ = http.NewRequest("POST", "/endpoint", bytes.NewReader(bodyBytes))
 c.Request.Header.Set("Content-Type", "application/json")
+```
+
+### Setting Up Cookies in Requests
+
+```go
+// Create a valid JWT token (for refresh token)
+testUserId := 123
+refreshToken, err := authen.CreateRefreshToken(testUserId)
+assert.NoError(t, err)
+
+// Add cookie to request
+req, _ := http.NewRequest("POST", "/endpoint", nil)
+req.AddCookie(&http.Cookie{
+    Name:  "refresh_token",
+    Value: refreshToken,
+})
+c.Request = req
+
+// Verify cookies in response
+cookies := w.Result().Cookies()
+var accessTokenFound bool
+for _, cookie := range cookies {
+    if cookie.Name == "access_token" {
+        accessTokenFound = true
+        assert.NotEmpty(t, cookie.Value)
+        break
+    }
+}
+assert.True(t, accessTokenFound, "access_token cookie should be set")
 ```
 
 ### Setting Up Logger with Hook
@@ -269,24 +339,36 @@ api/v1/authApi/authApi_test/
    - Missing required fields
    - Database transaction failures
    - Validation errors
+   - Invalid or expired refresh tokens
+   - Missing cookies
 
-2. **Fix TestHandleRefreshSuccess**:
-   - Add proper cookie setup
-   - Mock JWT token verification
-   - Add service mocks for refresh logic
-
-3. **Add TestGetMeHandler** (currently commented out):
+2. **Add TestGetMeHandler** (currently commented out):
    - Uncomment and fix the test
    - Add proper token validation mocks
+   - Add cookie setup for access token
 
-4. **Add integration tests**:
+3. **Add integration tests**:
    - Test with real database (using testcontainers)
-   - Test full authentication flow
+   - Test full authentication flow (login → access token → refresh → logout)
+   - Test token expiration scenarios
+
+4. **Enhance existing tests**:
+   - Test concurrent password changes
+   - Test edge cases (empty passwords, SQL injection attempts)
+   - Test rate limiting scenarios
 
 ## Changelog
 
-### 2026-02-01
-- Fixed `TestHandleChangePasswordSuccess`
+### 2026-02-01 (Latest)
+- **Fixed `TestHandleRefresh`**
+  - Added `authen` package import for token creation
+  - Created valid refresh token using `authen.CreateRefreshToken(testUserId)`
+  - Added refresh_token cookie to test request
+  - Added verification for access_token cookie in response
+  - Test now properly simulates the complete refresh token flow
+  - Updated documentation with detailed test flow and common issues
+
+- **Fixed `TestHandleChangePasswordSuccess`**
   - Added correct service method mocks (`ValidateAccountByIdService`, `ChangePasswordService`)
   - Added context value setup (`username`, `userId`)
   - Implemented sqlmock for database transaction testing
