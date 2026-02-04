@@ -2,8 +2,8 @@ package main
 
 import (
 	v1 "2_Go/api/v1"
+	"2_Go/api/v1/authApi"
 	"2_Go/api/v1/routers"
-	apiUtils "2_Go/api/v1/utils"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	config "2_Go/internal/repo"
@@ -110,59 +110,10 @@ func main() {
 
 	r.GET("/preview", previewPDF)
 
-	r.POST("/register", func(c *gin.Context) {
-		err = apiUtils.Register(c, acctSvc, db)
-
-		if err != nil {
-			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		log.Debugf("%s Register success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	})
-
-	// r.POST("/login", func(c *gin.Context) {
-	// 	err = v1.Login(c, acctSvc, db)
-
-	// 	if err != nil {
-	// 		log.Errorf("%s Error Login: %s", c.ClientIP(), err)
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	log.Debugf("%s Login success", c.ClientIP())
-	// 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	// })
-
-	// r.POST("/users/:username/changepassword", func(c *gin.Context) {
-
-	// 	err = v1.ChangePassword(c, acctSvc, db)
-
-	// 	if err != nil {
-	// 		log.Errorf("%s Error Change Password: %s", c.ClientIP(), err)
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	log.Debugf("%s Password Update Success", c.ClientIP())
-	// 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	// })
-
-	// Login and return jwt with userId
-	r.POST("/login", func(c *gin.Context) {
-		token, err := apiUtils.LoginJwt(c, acctSvc, db)
-
-		if err != nil {
-			log.Errorf("%s Error Register: %s", c.ClientIP(), err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		log.Debugf("%s register success", c.ClientIP())
-		c.JSON(http.StatusOK, gin.H{"token": token})
-	})
+	// Public auth handler for register and login
+	publicAuthHandler := authApi.NewHandler(acctSvc, db, log)
+	r.POST("/register", publicAuthHandler.HandleRegister)
+	r.POST("/login", publicAuthHandler.HandleLogin)
 
 	// Refresh token endpoint.
 	// TODO: handle refresh.

@@ -1,671 +1,611 @@
 package test
 
 import (
-	"2_Go/api/v1/utils"
+	"2_Go/api/v1/authApi"
 	"2_Go/internal/auth"
 	"2_Go/middleware/authen"
 	serverutils "2_Go/utils"
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
-// MockAuthRepository mocks the auth repository
-type MockAuthRepository struct {
+// MockAuthService mocks the auth.AuthService interface
+// Embedding auth.AuthService allows the mock to satisfy the interface
+// including unexported methods
+type MockAuthService struct {
+	auth.AuthService
 	mock.Mock
 }
 
-func (m *MockAuthRepository) Register(tx *sql.Tx, account auth.Account) (*auth.Account, error) {
-	args := m.Called(tx, account)
+func (m *MockAuthService) Login(db *sql.DB, username, password string) (*auth.Account, error) {
+	args := m.Called(db, username, password)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*auth.Account), args.Error(1)
 }
 
-func (m *MockAuthRepository) ValidateUser(db *sql.DB, username string) (*auth.Account, error) {
-	args := m.Called(db, username)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*auth.Account), args.Error(1)
+func (m *MockAuthService) CreateTokensForUser(userId int) (accessToken, tokenId, refreshToken string, err error) {
+	args := m.Called(userId)
+	return args.String(0), args.String(1), args.String(2), args.Error(3)
 }
 
-func (m *MockAuthRepository) UpdatePassword(tx *sql.Tx, account auth.Account) (*auth.Account, error) {
-	args := m.Called(tx, account)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*auth.Account), args.Error(1)
+func (m *MockAuthService) RefreshAccessToken(refreshToken string) (newAccessToken, newTokenId string, userId int, err error) {
+	args := m.Called(refreshToken)
+	return args.String(0), args.String(1), args.Int(2), args.Error(3)
 }
 
-func (m *MockAuthRepository) UpdatePasswordById(tx *sql.Tx, account auth.Account) (*auth.Account, error) {
-	args := m.Called(tx, account)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*auth.Account), args.Error(1)
+func (m *MockAuthService) RegisterWithTransaction(db *sql.DB, account auth.Account) error {
+	args := m.Called(db, account)
+	return args.Error(0)
 }
 
-func (m *MockAuthRepository) GetUsrPassword(db *sql.DB, username string) (int, string, error) {
-	args := m.Called(db, username)
-	return args.Int(0), args.String(1), args.Error(2)
+func (m *MockAuthService) ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error {
+	args := m.Called(db, userId, currentPassword, newPassword)
+	return args.Error(0)
 }
 
-func (m *MockAuthRepository) GetUsrPasswordById(db *sql.DB, userId int) (string, error) {
-	args := m.Called(db, userId)
-	return args.String(0), args.Error(1)
-}
-
-// Test Register
-func TestRegister(t *testing.T) {
+// TestHandleRegister tests the HandleRegister handler method
+func TestHandleRegister(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name          string
-		body          string
-		mockRepo      func(repo *MockAuthRepository)
-		mockDB        func() (*sql.DB, sqlmock.Sqlmock)
-		expectErr     bool
-		errorContains string
+		name           string
+		body           string
+		mockSetup      func(svc *MockAuthService, db *sql.DB)
+		expectedStatus int
+		expectError    bool
+		errorContains  string
 	}{
 		{
 			name: "success - valid registration",
 			body: `{"username":"testuser","password":"password123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("Register", mock.Anything, mock.MatchedBy(func(acc auth.Account) bool {
-					return acc.Username == "testuser" && len(acc.Password) > 0
-				})).Return(&auth.Account{Username: "testuser"}, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("RegisterWithTransaction", db, mock.MatchedBy(func(acc auth.Account) bool {
+					return acc.Username == "testuser" && acc.Password == "password123"
+				})).Return(nil)
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
-			},
-			expectErr: false,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
 		},
 		{
 			name: "error - invalid JSON",
 			body: `{"username":"test"`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as it should fail before repository call
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				// No mock needed as it should fail before service call
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr: true,
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
 		},
 		{
 			name: "error - missing username",
 			body: `{"password":"password123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as validation should fail
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				// No mock needed - Gin binding validation fails before service call
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "Username",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "Username",
 		},
 		{
 			name: "error - password too short",
 			body: `{"username":"testuser","password":"1234"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as validation should fail
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				// No mock needed - Gin binding validation fails before service call
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "Password",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "Password",
 		},
 		{
 			name: "error - missing password",
 			body: `{"username":"testuser"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as validation should fail
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				// No mock needed - Gin binding validation fails before service call
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "Password",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "Password",
 		},
 		{
 			name: "error - empty request body",
 			body: `{}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as validation should fail
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				// No mock needed - Gin binding validation fails before service call
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "Username",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "Username",
 		},
 		{
 			name: "error - transaction begin fails",
 			body: `{"username":"testuser","password":"password123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as transaction should fail before repository call
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("RegisterWithTransaction", db, mock.Anything).
+					Return(errors.New("failed to start transaction"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin().WillReturnError(errors.New("failed to start transaction"))
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "failed to start transaction",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "failed to start transaction",
 		},
 		{
-			name: "error - repository register fails (username exists)",
+			name: "error - username exists",
 			body: `{"username":"existinguser","password":"password123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("Register", mock.Anything, mock.Anything).
-					Return(nil, errors.New("username exists"))
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("RegisterWithTransaction", db, mock.Anything).
+					Return(errors.New("username exists"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectRollback()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "username exists",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "username exists",
 		},
 		{
 			name: "error - transaction commit fails",
 			body: `{"username":"testuser","password":"password123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("Register", mock.Anything, mock.Anything).
-					Return(&auth.Account{Username: "testuser"}, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("RegisterWithTransaction", db, mock.Anything).
+					Return(errors.New("commit failed"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "commit failed",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "commit failed",
 		},
 		{
 			name: "success - valid registration with email",
 			body: `{"username":"testuser","email":"test@example.com","password":"password123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("Register", mock.Anything, mock.MatchedBy(func(acc auth.Account) bool {
-					return acc.Username == "testuser" &&
-						acc.Email == "test@example.com" &&
-						len(acc.Password) > 0
-				})).Return(&auth.Account{Username: "testuser", Email: "test@example.com"}, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("RegisterWithTransaction", db, mock.MatchedBy(func(acc auth.Account) bool {
+					return acc.Username == "testuser" && acc.Email == "test@example.com"
+				})).Return(nil)
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
-			},
-			expectErr: false,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
 		},
 		{
 			name: "success - minimum valid password length",
 			body: `{"username":"testuser","password":"12345"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("Register", mock.Anything, mock.MatchedBy(func(acc auth.Account) bool {
-					return acc.Username == "testuser"
-				})).Return(&auth.Account{Username: "testuser"}, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("RegisterWithTransaction", db, mock.Anything).Return(nil)
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
-			},
-			expectErr: false,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup mock repository
-			mockRepo := &MockAuthRepository{}
-			tt.mockRepo(mockRepo)
-
-			// Create auth service with mocked repository
-			authService := auth.NewAuthService(mockRepo)
+			// Setup mock service
+			mockSvc := new(MockAuthService)
 
 			// Setup mock DB
-			db, sqlMock := tt.mockDB()
+			db, _, err := sqlmock.New()
+			assert.NoError(t, err)
 			defer db.Close()
+
+			// Setup mock expectations
+			tt.mockSetup(mockSvc, db)
+
+			// Create logger
+			logger, _ := test.NewNullLogger()
+
+			// Create handler
+			handler := &authApi.AuthHandler{
+				AccountSvc: mockSvc,
+				DB:         db,
+				Logger:     logger,
+			}
 
 			// Create Gin context with test request
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
-			c.Request = httptest.NewRequest("POST", "/register", strings.NewReader(tt.body))
+			c.Request = httptest.NewRequest("POST", "/register", bytes.NewBufferString(tt.body))
 			c.Request.Header.Set("Content-Type", "application/json")
 
-			// Execute the function
-			err := utils.Register(c, authService, db)
+			// Execute the handler
+			handler.HandleRegister(c)
 
 			// Assertions
-			if tt.expectErr {
-				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-			} else {
-				assert.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectError && tt.errorContains != "" {
+				assert.Contains(t, w.Body.String(), tt.errorContains)
 			}
 
-			// Verify all SQL mock expectations were met
-			if err := sqlMock.ExpectationsWereMet(); err != nil {
-				t.Errorf("unfulfilled sqlmock expectations: %s", err)
-			}
-
-			// Verify all repository mock expectations were met
-			mockRepo.AssertExpectations(t)
+			// Verify all mock expectations were met
+			mockSvc.AssertExpectations(t)
 		})
 	}
 }
 
-// Test Change PasswordByID
-func TestChangePasswordById(t *testing.T) {
+// TestHandleChangePassword tests the HandleChangePassword handler method
+func TestHandleChangePassword(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// Bcrypt hash of "oldpassword123"
-	validOldPasswordHash := "$2a$10$tNMPSwPNfwwKmL0i7J00beidHBjxX9gmyESatFe5GBlxETjwRhMNm"
-
 	tests := []struct {
-		name          string
-		body          string
-		userId        interface{} // The userId to set in context
-		setUserId     bool        // Whether to set userId in context
-		mockRepo      func(repo *MockAuthRepository)
-		mockDB        func() (*sql.DB, sqlmock.Sqlmock)
-		expectErr     bool
-		errorContains string
+		name           string
+		body           string
+		userId         interface{}
+		setUserId      bool
+		setUsername    bool
+		mockSetup      func(svc *MockAuthService, db *sql.DB)
+		expectedStatus int
+		expectError    bool
+		errorContains  string
 	}{
 		{
-			name:      "success - valid password change",
-			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
-				repo.On("UpdatePasswordById", mock.Anything, mock.MatchedBy(func(acc auth.Account) bool {
-					return acc.UserId == 1 && len(acc.Password) > 0
-				})).Return(&auth.Account{UserId: 1}, nil)
+			name:        "success - valid password change",
+			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "oldpassword123", "newpassword123").Return(nil)
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
-			},
-			expectErr: false,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
 		},
 		{
-			name:      "error - invalid JSON",
-			body:      `{"password":"test"`,
-			userId:    1,
-			setUserId: true,
-			mockRepo:  func(repo *MockAuthRepository) {},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr: true,
+			name:        "error - invalid JSON",
+			body:        `{"password":"test"`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup:   func(svc *MockAuthService, db *sql.DB) {},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
 		},
 		{
-			name:      "error - missing userId in context",
-			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
-			setUserId: false,
-			mockRepo:  func(repo *MockAuthRepository) {},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "Invalid user id",
+			name:        "error - missing userId in context",
+			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			setUserId:   false,
+			setUsername: true,
+			mockSetup:   func(svc *MockAuthService, db *sql.DB) {},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "Invalid user id",
 		},
 		{
-			name:      "error - current password validation fails",
-			body:      `{"password":"wrongpassword","newpassword":"newpassword123"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+			name:        "error - current password validation fails",
+			body:        `{"password":"wrongpassword","newpassword":"newpassword123"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "wrongpassword", "newpassword123").
+					Return(errors.New("incorrect password"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "incorrect password",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "incorrect password",
 		},
 		{
-			name:      "error - user not found",
-			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
-			userId:    999,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 999).
-					Return("", errors.New("no user found"))
+			name:        "error - user not found",
+			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:      999,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 999, "oldpassword123", "newpassword123").
+					Return(errors.New("invalid account"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "invalid account",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid account",
 		},
 		{
-			name:      "error - transaction begin fails",
-			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+			name:        "error - transaction begin fails",
+			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "oldpassword123", "newpassword123").
+					Return(errors.New("failed to start transaction"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin().WillReturnError(errors.New("failed to start transaction"))
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "failed to start transaction",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "failed to start transaction",
 		},
 		{
-			name:      "error - new password too short",
-			body:      `{"password":"oldpassword123","newpassword":"1234"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
+			name:        "error - new password too short",
+			body:        `{"password":"oldpassword123","newpassword":"1234"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "oldpassword123", "1234").
+					Return(errors.New("invalid password criteria"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectRollback()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "invalid password",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid password",
 		},
 		{
-			name:      "error - change password service fails",
-			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
-				repo.On("UpdatePasswordById", mock.Anything, mock.Anything).
-					Return(nil, errors.New("database error"))
+			name:        "error - change password service fails",
+			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "oldpassword123", "newpassword123").
+					Return(errors.New("database error"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectRollback()
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "database error",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "database error",
 		},
 		{
-			name:      "error - transaction commit fails",
-			body:      `{"password":"oldpassword123","newpassword":"newpassword123"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
-				repo.On("UpdatePasswordById", mock.Anything, mock.Anything).
-					Return(&auth.Account{UserId: 1}, nil)
+			name:        "error - transaction commit fails",
+			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "oldpassword123", "newpassword123").
+					Return(errors.New("commit failed"))
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
-				return db, mock
-			},
-			expectErr:     true,
-			errorContains: "commit failed",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "commit failed",
 		},
 		{
-			name:      "success - minimum valid new password length",
-			body:      `{"password":"oldpassword123","newpassword":"12345"}`,
-			userId:    1,
-			setUserId: true,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPasswordById", mock.Anything, 1).Return(validOldPasswordHash, nil)
-				repo.On("UpdatePasswordById", mock.Anything, mock.Anything).
-					Return(&auth.Account{UserId: 1}, nil)
+			name:        "success - minimum valid new password length",
+			body:        `{"password":"oldpassword123","newpassword":"12345"}`,
+			userId:      1,
+			setUserId:   true,
+			setUsername: true,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("ChangePasswordWithTransaction", db, 1, "oldpassword123", "12345").Return(nil)
 			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
-			},
-			expectErr: false,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAuthRepository{}
-			tt.mockRepo(mockRepo)
+			mockSvc := new(MockAuthService)
 
-			authService := auth.NewAuthService(mockRepo)
-
-			db, sqlMock := tt.mockDB()
+			db, _, err := sqlmock.New()
+			assert.NoError(t, err)
 			defer db.Close()
+
+			tt.mockSetup(mockSvc, db)
+
+			logger, _ := test.NewNullLogger()
+
+			handler := &authApi.AuthHandler{
+				AccountSvc: mockSvc,
+				DB:         db,
+				Logger:     logger,
+			}
 
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
-			c.Request = httptest.NewRequest("POST", "/change-password", strings.NewReader(tt.body))
+			c.Request = httptest.NewRequest("POST", "/user/changepassword", bytes.NewBufferString(tt.body))
 			c.Request.Header.Set("Content-Type", "application/json")
+
+			// Set URL params for username validation
+			c.Params = []gin.Param{{Key: "username", Value: "testuser"}}
+
+			if tt.setUsername {
+				c.Set("username", "testuser")
+			}
 
 			if tt.setUserId {
 				c.Set("userId", tt.userId)
 			}
 
-			err := utils.ChangePasswordById(c, authService, db)
+			handler.HandleChangePassword(c)
 
-			if tt.expectErr {
-				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-			} else {
-				assert.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectError && tt.errorContains != "" {
+				assert.Contains(t, w.Body.String(), tt.errorContains)
 			}
 
-			if err := sqlMock.ExpectationsWereMet(); err != nil {
-				t.Errorf("unfulfilled sqlmock expectations: %s", err)
-			}
-
-			mockRepo.AssertExpectations(t)
+			mockSvc.AssertExpectations(t)
 		})
 	}
 }
 
-// Test Login Function.
-func TestLoginJwt(t *testing.T) {
+// TestHandleLogin tests the HandleLogin handler method
+func TestHandleLogin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	// Bcrypt hash of "oldpassword123" (reusing from TestChangePasswordById)
-	validPasswordHash := "$2a$10$tNMPSwPNfwwKmL0i7J00beidHBjxX9gmyESatFe5GBlxETjwRhMNm"
-
 	tests := []struct {
-		name          string
-		body          string
-		mockRepo      func(repo *MockAuthRepository)
-		expectErr     bool
-		errorContains string
-		validateToken bool
+		name           string
+		body           string
+		mockSetup      func(svc *MockAuthService, db *sql.DB)
+		expectedStatus int
+		expectError    bool
+		errorContains  string
+		validateToken  bool
 	}{
 		{
 			name: "success - valid login",
 			body: `{"username":"testuser","password":"oldpassword123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "testuser").
-					Return(1, validPasswordHash, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "testuser", "oldpassword123").
+					Return(&auth.Account{UserId: 1, Username: "testuser"}, nil)
+				svc.On("CreateTokensForUser", 1).
+					Return("access_token_value", "token_id_value", "refresh_token_value", nil)
 			},
-			expectErr:     false,
-			validateToken: true,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
+			validateToken:  true,
 		},
 		{
 			name: "error - invalid JSON",
 			body: `{"username":"test"`,
-			mockRepo: func(repo *MockAuthRepository) {
-				// No mock needed as it should fail before repository call
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				// No mock needed as it should fail before service call
 			},
-			expectErr: true,
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
 		},
 		{
 			name: "error - missing username",
 			body: `{"password":"oldpassword123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "").
-					Return(0, "", errors.New("user not found"))
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "", "oldpassword123").
+					Return(nil, errors.New("cannot retrieve account"))
 			},
-			expectErr: true,
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
 		},
 		{
 			name: "error - missing password",
 			body: `{"username":"testuser"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "testuser").
-					Return(1, validPasswordHash, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "testuser", "").
+					Return(nil, errors.New("incorrect password"))
 			},
-			expectErr: true,
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
 		},
 		{
 			name: "error - empty request body",
 			body: `{}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "").
-					Return(0, "", errors.New("user not found"))
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "", "").
+					Return(nil, errors.New("cannot retrieve account"))
 			},
-			expectErr: true,
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
 		},
 		{
 			name: "error - user not found",
 			body: `{"username":"nonexistent","password":"oldpassword123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "nonexistent").
-					Return(0, "", errors.New("user not found"))
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "nonexistent", "oldpassword123").
+					Return(nil, errors.New("cannot retrieve account"))
 			},
-			expectErr:     true,
-			errorContains: "cannot retrieve account",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "cannot retrieve account",
 		},
 		{
 			name: "error - incorrect password",
 			body: `{"username":"testuser","password":"wrongpassword"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "testuser").
-					Return(1, validPasswordHash, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "testuser", "wrongpassword").
+					Return(nil, errors.New("incorrect password"))
 			},
-			expectErr:     true,
-			errorContains: "incorrect password",
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "incorrect password",
+		},
+		{
+			name: "error - token creation fails",
+			body: `{"username":"testuser","password":"oldpassword123"}`,
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "testuser", "oldpassword123").
+					Return(&auth.Account{UserId: 1, Username: "testuser"}, nil)
+				svc.On("CreateTokensForUser", 1).
+					Return("", "", "", errors.New("failed to create session"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectError:    true,
+			errorContains:  "failed to create session",
 		},
 		{
 			name: "success - valid login with different user",
 			body: `{"username":"anotheruser","password":"oldpassword123"}`,
-			mockRepo: func(repo *MockAuthRepository) {
-				repo.On("GetUsrPassword", mock.Anything, "anotheruser").
-					Return(2, validPasswordHash, nil)
+			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+				svc.On("Login", db, "anotheruser", "oldpassword123").
+					Return(&auth.Account{UserId: 2, Username: "anotheruser"}, nil)
+				svc.On("CreateTokensForUser", 2).
+					Return("access_token_value_2", "token_id_value_2", "refresh_token_value_2", nil)
 			},
-			expectErr:     false,
-			validateToken: true,
+			expectedStatus: http.StatusOK,
+			expectError:    false,
+			validateToken:  true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Setup mock repository
-			mockRepo := &MockAuthRepository{}
-			tt.mockRepo(mockRepo)
+			mockSvc := new(MockAuthService)
 
-			// Create auth service with mocked repository
-			authService := auth.NewAuthService(mockRepo)
-
-			// Setup mock DB
-			db, _, _ := sqlmock.New()
+			db, _, err := sqlmock.New()
+			assert.NoError(t, err)
 			defer db.Close()
 
-			// Create Gin context with test request
-			w := httptest.NewRecorder()
-			c, _ := gin.CreateTestContext(w)
-			c.Request = httptest.NewRequest("POST", "/login", strings.NewReader(tt.body))
-			c.Request.Header.Set("Content-Type", "application/json")
+			tt.mockSetup(mockSvc, db)
 
-			// Execute the function
-			tokenReturn, err := utils.LoginJwt(c, authService, db)
+			logger, _ := test.NewNullLogger()
 
-			// Assertions
-			if tt.expectErr {
-				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
-				}
-			} else {
-				assert.NoError(t, err)
-
-				// Validate token response for success cases
-				if tt.validateToken {
-					assert.NotZero(t, tokenReturn.UserId, "UserId should not be zero")
-					assert.NotEmpty(t, tokenReturn.AccessToken, "AccessToken should not be empty")
-					assert.NotEmpty(t, tokenReturn.TokenId, "TokenId should not be empty")
-
-					// Verify cookies were set
-					cookies := w.Result().Cookies()
-					var accessTokenFound, refreshTokenFound bool
-					for _, cookie := range cookies {
-						if cookie.Name == "access_token" {
-							accessTokenFound = true
-							assert.NotEmpty(t, cookie.Value)
-							assert.Equal(t, "/", cookie.Path)
-							assert.True(t, cookie.HttpOnly)
-							assert.Equal(t, 600, cookie.MaxAge)
-						}
-						if cookie.Name == "refresh_token" {
-							refreshTokenFound = true
-							assert.NotEmpty(t, cookie.Value)
-							assert.Equal(t, "/", cookie.Path)
-							assert.True(t, cookie.HttpOnly)
-							assert.Equal(t, 604800, cookie.MaxAge)
-						}
-					}
-					assert.True(t, accessTokenFound, "access_token cookie should be set")
-					assert.True(t, refreshTokenFound, "refresh_token cookie should be set")
-				}
+			handler := &authApi.AuthHandler{
+				AccountSvc: mockSvc,
+				DB:         db,
+				Logger:     logger,
 			}
 
-			// Verify all repository mock expectations were met
-			mockRepo.AssertExpectations(t)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest("POST", "/login", bytes.NewBufferString(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			handler.HandleLogin(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectError {
+				if tt.errorContains != "" {
+					assert.Contains(t, w.Body.String(), tt.errorContains)
+				}
+			} else if tt.validateToken {
+				// Verify response contains token info
+				var response map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.NotEmpty(t, response["access_token"])
+				assert.NotEmpty(t, response["tokenId"])
+
+				// Verify cookies were set
+				cookies := w.Result().Cookies()
+				var accessTokenFound, refreshTokenFound bool
+				for _, cookie := range cookies {
+					if cookie.Name == "access_token" {
+						accessTokenFound = true
+						assert.NotEmpty(t, cookie.Value)
+						assert.Equal(t, "/", cookie.Path)
+						assert.True(t, cookie.HttpOnly)
+						assert.Equal(t, 600, cookie.MaxAge)
+					}
+					if cookie.Name == "refresh_token" {
+						refreshTokenFound = true
+						assert.NotEmpty(t, cookie.Value)
+						assert.Equal(t, "/", cookie.Path)
+						assert.True(t, cookie.HttpOnly)
+						assert.Equal(t, 604800, cookie.MaxAge)
+					}
+				}
+				assert.True(t, accessTokenFound, "access_token cookie should be set")
+				assert.True(t, refreshTokenFound, "refresh_token cookie should be set")
+			}
+
+			mockSvc.AssertExpectations(t)
 		})
 	}
 }
 
-// Test Refresh
-func TestRefresh(t *testing.T) {
+// TestHandleRefresh tests the HandleRefresh handler method
+func TestHandleRefresh(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	// Create valid refresh tokens for testing
@@ -673,11 +613,13 @@ func TestRefresh(t *testing.T) {
 	validRefreshToken2, _ := authen.CreateRefreshToken(2)
 
 	tests := []struct {
-		name          string
-		setupCookie   func(c *gin.Context)
-		expectErr     bool
-		errorContains string
-		validateToken bool
+		name           string
+		setupCookie    func(c *gin.Context)
+		mockSetup      func(svc *MockAuthService)
+		expectedStatus int
+		expectError    bool
+		errorContains  string
+		validateToken  bool
 	}{
 		{
 			name: "success - valid refresh token",
@@ -687,16 +629,23 @@ func TestRefresh(t *testing.T) {
 					Value: validRefreshToken,
 				})
 			},
-			expectErr:     false,
-			validateToken: true,
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", validRefreshToken).
+					Return("new_access_token", "new_token_id", 1, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectError:    false,
+			validateToken:  true,
 		},
 		{
 			name: "error - missing refresh token",
 			setupCookie: func(c *gin.Context) {
 				// Don't set any cookie
 			},
-			expectErr:     true,
-			errorContains: "missing refresh token",
+			mockSetup:      func(svc *MockAuthService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "missing refresh token",
 		},
 		{
 			name: "error - invalid refresh token",
@@ -706,8 +655,13 @@ func TestRefresh(t *testing.T) {
 					Value: "invalid.token.here",
 				})
 			},
-			expectErr:     true,
-			errorContains: "invalid refresh token",
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", "invalid.token.here").
+					Return("", "", 0, errors.New("invalid refresh token"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid refresh token",
 		},
 		{
 			name: "error - expired refresh token",
@@ -725,8 +679,13 @@ func TestRefresh(t *testing.T) {
 					Value: expiredTokenString,
 				})
 			},
-			expectErr:     true,
-			errorContains: "invalid refresh token",
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", mock.Anything).
+					Return("", "", 0, errors.New("invalid refresh token"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid refresh token",
 		},
 		{
 			name: "error - malformed refresh token",
@@ -736,8 +695,13 @@ func TestRefresh(t *testing.T) {
 					Value: "malformed-token-without-proper-structure",
 				})
 			},
-			expectErr:     true,
-			errorContains: "invalid refresh token",
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", "malformed-token-without-proper-structure").
+					Return("", "", 0, errors.New("invalid refresh token"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid refresh token",
 		},
 		{
 			name: "success - valid refresh token for different user",
@@ -747,8 +711,13 @@ func TestRefresh(t *testing.T) {
 					Value: validRefreshToken2,
 				})
 			},
-			expectErr:     false,
-			validateToken: true,
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", validRefreshToken2).
+					Return("new_access_token_2", "new_token_id_2", 2, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectError:    false,
+			validateToken:  true,
 		},
 		{
 			name: "error - refresh token with invalid userId type",
@@ -766,8 +735,13 @@ func TestRefresh(t *testing.T) {
 					Value: invalidTokenString,
 				})
 			},
-			expectErr:     true,
-			errorContains: "invalid userID type",
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", mock.Anything).
+					Return("", "", 0, errors.New("invalid userId type in token"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid userId type",
 		},
 		{
 			name: "error - refresh token without userId claim",
@@ -784,14 +758,28 @@ func TestRefresh(t *testing.T) {
 					Value: tokenString,
 				})
 			},
-			expectErr:     true,
-			errorContains: "invalid userID type",
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RefreshAccessToken", mock.Anything).
+					Return("", "", 0, errors.New("invalid userId type in token"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectError:    true,
+			errorContains:  "invalid userId type",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create Gin context with test request
+			mockSvc := new(MockAuthService)
+			tt.mockSetup(mockSvc)
+
+			logger, _ := test.NewNullLogger()
+
+			handler := &authApi.AuthHandler{
+				AccountSvc: mockSvc,
+				Logger:     logger,
+			}
+
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 			c.Request = httptest.NewRequest("POST", "/refresh", nil)
@@ -799,34 +787,31 @@ func TestRefresh(t *testing.T) {
 			// Setup cookie for this test case
 			tt.setupCookie(c)
 
-			// Execute the function
-			err := utils.Refresh(c)
+			handler.HandleRefresh(c)
 
-			// Assertions
-			if tt.expectErr {
-				assert.Error(t, err)
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectError {
 				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
+					assert.Contains(t, w.Body.String(), tt.errorContains)
 				}
-			} else {
-				assert.NoError(t, err)
-
+			} else if tt.validateToken {
 				// Validate that new access token was set for success cases
-				if tt.validateToken {
-					cookies := w.Result().Cookies()
-					var accessTokenFound bool
-					for _, cookie := range cookies {
-						if cookie.Name == "access_token" {
-							accessTokenFound = true
-							assert.NotEmpty(t, cookie.Value)
-							assert.Equal(t, "/", cookie.Path)
-							assert.True(t, cookie.HttpOnly)
-							assert.Equal(t, 600, cookie.MaxAge) // 10 minutes
-						}
+				cookies := w.Result().Cookies()
+				var accessTokenFound bool
+				for _, cookie := range cookies {
+					if cookie.Name == "access_token" {
+						accessTokenFound = true
+						assert.NotEmpty(t, cookie.Value)
+						assert.Equal(t, "/", cookie.Path)
+						assert.True(t, cookie.HttpOnly)
+						assert.Equal(t, 600, cookie.MaxAge) // 10 minutes
 					}
-					assert.True(t, accessTokenFound, "access_token cookie should be set after successful refresh")
 				}
+				assert.True(t, accessTokenFound, "access_token cookie should be set after successful refresh")
 			}
+
+			mockSvc.AssertExpectations(t)
 		})
 	}
 }

@@ -1,7 +1,7 @@
 package documentApi
 
 import (
-	v1 "2_Go/api/v1/utils"
+	"2_Go/api/v1/utils"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
 	"database/sql"
@@ -36,17 +36,27 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "missing tokenId"})
 		return
 	}
-	jwtUsername, err := v1.IsValidToken(c, h.AccountSvc)
+
+	// Get access token from cookie
+	accessToken, err := c.Cookie("access_token")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err})
+		c.JSON(http.StatusBadRequest, gin.H{"message": "missing access token"})
 		return
 	}
+
+	// Validate token
+	jwtTokenId, err := h.AccountSvc.ValidateAccessToken(accessToken)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
 	// check if the token match the current user session in local host.
-	if tokenId != jwtUsername {
+	if tokenId != jwtTokenId {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
 		return
 	}
-	err = v1.UploadDocument(c, &h.DocSvc, h.DB)
+	err = utils.UploadDocument(c, &h.DocSvc, h.DB)
 
 	if err != nil {
 		h.Logger.Errorf("%s Error Upload: %s", c.ClientIP(), err)

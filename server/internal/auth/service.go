@@ -2,6 +2,7 @@ package auth
 
 import (
 	"2_Go/internal/obj"
+	"2_Go/middleware/authen"
 	"database/sql"
 	"fmt"
 
@@ -15,6 +16,16 @@ type AuthService interface {
 	ValidateAccountByIdService(db *sql.DB, userId int, inputPwd string) error
 	Login(db *sql.DB, username, password string) (*Account, error)
 	CheckPassword(account *Account, inputPassword string) error
+
+	// Token operations (no gin.Context dependency)
+	CreateTokensForUser(userId int) (accessToken, tokenId, refreshToken string, err error)
+	RefreshAccessToken(refreshToken string) (newAccessToken, newTokenId string, userId int, err error)
+	ValidateAccessToken(accessToken string) (tokenId string, err error)
+
+	// Transactional wrappers
+	RegisterWithTransaction(db *sql.DB, account Account) error
+	ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error
+
 	handlePasswordAcctCreation(account *Account) (*Account, error)
 	handlePasswordUpdate(account *Account) (*Account, error)
 	hashPassword(password string) (string, error)
@@ -217,4 +228,122 @@ func (s *authService) hashPassword(password string) (string, error) {
 	}
 
 	return string(hashedPassword), nil
+}
+
+// CreateTokensForUser generates access and refresh tokens for a user.
+func (s *authService) CreateTokensForUser(userId int) (accessToken, tokenId, refreshToken string, err error) {
+	accessToken, tokenId, err = authen.CreateAccessToken(userId)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to create access token: %w", err)
+	}
+
+	refreshToken, err = authen.CreateRefreshToken(userId)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to create refresh token: %w", err)
+	}
+
+	return accessToken, tokenId, refreshToken, nil
+}
+
+// RefreshAccessToken validates refresh token and issues new access token.
+func (s *authService) RefreshAccessToken(refreshToken string) (newAccessToken, newTokenId string, userId int, err error) {
+	claims, err := authen.VerifyToken(refreshToken)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("invalid refresh token: %w", err)
+	}
+
+	raw := (*claims)["userId"]
+	userIdFloat, ok := raw.(float64)
+	if !ok {
+		return "", "", 0, fmt.Errorf("invalid userId type in token")
+	}
+	userId = int(userIdFloat)
+
+	newAccessToken, newTokenId, err = authen.CreateAccessToken(userId)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("failed to create new access token: %w", err)
+	}
+
+	return newAccessToken, newTokenId, userId, nil
+}
+
+// ValidateAccessToken verifies an access token and returns the tokenId.
+func (s *authService) ValidateAccessToken(accessToken string) (tokenId string, err error) {
+	claims, err := authen.VerifyToken(accessToken)
+	if err != nil {
+		return "", fmt.Errorf("invalid token: %w", err)
+	}
+
+	tokenId, ok := (*claims)["tokenId"].(string)
+	if !ok {
+		return "", fmt.Errorf("tokenId not found in token")
+	}
+
+	return tokenId, nil
+}
+
+// RegisterWithTransaction handles the full registration flow with transaction.
+func (s *authService) RegisterWithTransaction(db *sql.DB, account Account) error {
+	if err := account.Validate(); err != nil {
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	_, err = s.Register(tx, account)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+
+	return nil
+}
+
+// ChangePasswordWithTransaction handles password change with transaction.
+func (s *authService) ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error {
+	// Validate current password
+	if err := s.ValidateAccountByIdService(db, userId, currentPassword); err != nil {
+		return err
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	account := Account{UserId: userId, Password: currentPassword}
+	_, err = s.ChangePasswordService(tx, account, newPassword)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+
+	return nil
 }

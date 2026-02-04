@@ -43,6 +43,33 @@ func (m *MockAuthService) IsValidToken(c *gin.Context) (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+// New interface methods
+
+func (m *MockAuthService) ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error {
+	args := m.Called(db, userId, currentPassword, newPassword)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) RefreshAccessToken(refreshToken string) (newAccessToken, newTokenId string, userId int, err error) {
+	args := m.Called(refreshToken)
+	return args.String(0), args.String(1), args.Int(2), args.Error(3)
+}
+
+func (m *MockAuthService) ValidateAccessToken(accessToken string) (tokenId string, err error) {
+	args := m.Called(accessToken)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockAuthService) CreateTokensForUser(userId int) (accessToken, tokenId, refreshToken string, err error) {
+	args := m.Called(userId)
+	return args.String(0), args.String(1), args.String(2), args.Error(3)
+}
+
+func (m *MockAuthService) RegisterWithTransaction(db *sql.DB, account auth.Account) error {
+	args := m.Called(db, account)
+	return args.Error(0)
+}
+
 // Test GetPing
 func TestGetPing(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -74,7 +101,7 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	mockSvc := new(MockAuthService)
 
 	// Create a sqlmock database
-	db, mockDB, err := sqlmock.New()
+	db, _, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer db.Close()
 
@@ -84,13 +111,8 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 		DB:         db,
 	}
 
-	// 2. Define Mock Expectations
-	mockSvc.On("ValidateAccountByIdService", db, 123, "oldpassword123").Return(nil)
-	mockSvc.On("ChangePasswordService", mock.Anything, mock.AnythingOfType("auth.Account"), "securepassword123").Return(&auth.Account{}, nil)
-
-	// Set up database transaction expectations
-	mockDB.ExpectBegin()
-	mockDB.ExpectCommit()
+	// 2. Define Mock Expectations - now uses ChangePasswordWithTransaction
+	mockSvc.On("ChangePasswordWithTransaction", db, 123, "oldpassword123", "securepassword123").Return(nil)
 
 	// 3. Create Request and Inject URL Params
 	w := httptest.NewRecorder()
@@ -101,7 +123,7 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 
 	// Set context values required by the handler
 	c.Set("username", "johndoe") // Required by utils.IsValidUsername
-	c.Set("userId", 123)         // Required by ChangePasswordById
+	c.Set("userId", 123)         // Required by handler
 
 	// Create a JSON body with password and newpassword
 	reqBody := map[string]string{
@@ -124,7 +146,6 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	assert.Contains(t, hook.LastEntry().Message, "password updated success")
 
 	mockSvc.AssertExpectations(t)
-	assert.NoError(t, mockDB.ExpectationsWereMet())
 }
 
 func TestHandleRefresh(t *testing.T) {
@@ -152,8 +173,11 @@ func TestHandleRefresh(t *testing.T) {
 	logger, _ := test.NewNullLogger()
 	mockSvc := new(MockAuthService)
 
+	// Mock the RefreshAccessToken method
+	mockSvc.On("RefreshAccessToken", refreshToken).Return("new_access_token", "new_token_id", testUserId, nil)
+
 	handler := &authApi.AuthHandler{
-		Logger:     logger, // stub logger
+		Logger:     logger,
 		AccountSvc: mockSvc,
 	}
 
@@ -177,4 +201,6 @@ func TestHandleRefresh(t *testing.T) {
 		}
 	}
 	assert.True(t, accessTokenFound, "access_token cookie should be set")
+
+	mockSvc.AssertExpectations(t)
 }
