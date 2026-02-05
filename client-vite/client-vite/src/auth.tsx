@@ -47,7 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         queryClient.setQueryData(["me"], null);
         const result = await loginMutation.mutateAsync({ username, password });
 
-        const newToken = result?.token?.tokenId;
+        // const newToken = result?.token?.tokenId;
+        const newToken = result?.tokenId;
+        // console.log('new token is::: ', result?.tokenId);
         setStoredTokenId(newToken)
         setTokenId(newToken)
 

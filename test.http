@@ -216,8 +216,24 @@ POST {{host}}/v1/auth/user/changepassword
 Content-Type: application/json
 
 {    
-    "password": "hello",
-    "newpassword": "hello"    
+    "password": "password2",
+    "newpassword": "hello1"    
 }
 
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njk1MjAyODgsImlhdCI6MTc2OTUxNjY4OCwidG9rZW5JZCI6Ijg4ODdiODY1LTE0NzAtNDZmNS1iN2U5LWUwMWMxM2U2OTU0YSIsInR5cGUiOiJhY2Nlc3MiLCJ1c2VySWQiOjUyNDI4N30.Ug9tkCtKwLElajHg9dGlRz5T_vgiuHjmrrgDz709YXY
+###
+POST {{host}}/register
+Content-Type: application/json
+
+{
+    "username": "abv",
+    "password": "password2"    
+}
+
+###
+POST {{host}}/login
+Content-Type: application/json
+
+{
+    "username": "abv",
+    "password": "hello1"    
+}
