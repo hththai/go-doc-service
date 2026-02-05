@@ -11,13 +11,13 @@ Network:
 3) Zero trust
 
 Server:
-1) CORS - [x]
-2) temp folder - [x]
-3) scan process : Check Malwatch or LMD - [x]
-4) size limit
-5) renamed - [x]
-6) binary 
-7) Rate limit - [x]
+- [x] CORS
+- [x] temp folder
+- [x] scan process : Check Malwatch or LMD
+- [ ] size limit
+- [x] renamed
+- [ ] binary
+- [x] Rate limit
 
 Log:
 Monitor
