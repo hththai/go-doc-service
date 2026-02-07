@@ -86,12 +86,13 @@ func TestValidatePassword(t *testing.T) {
 }
 
 type MockAuthoRepo struct {
-	RegisterFn           func(*sql.Tx, auth.Account) (*auth.Account, error)
-	ValidateUserFn       func(*sql.DB, string) (*auth.Account, error)
-	UpdatePasswordFn     func(*sql.Tx, auth.Account) (*auth.Account, error)
-	UpdatePasswordByIdFn func(*sql.Tx, auth.Account) (*auth.Account, error)
-	GetUsrPasswordFn     func(*sql.DB, string) (int, string, error)
-	GetUsrPasswordByIdFn func(*sql.DB, int) (string, error)
+	RegisterFn                 func(*sql.Tx, auth.Account) (*auth.Account, error)
+	ValidateUserFn             func(*sql.DB, string) (*auth.Account, error)
+	UpdatePasswordFn           func(*sql.Tx, auth.Account) (*auth.Account, error)
+	UpdatePasswordByIdFn       func(*sql.Tx, auth.Account) (*auth.Account, error)
+	UpdatePasswordByIdWithTxFn func(*sql.DB, int, string) error
+	GetUsrPasswordFn           func(*sql.DB, string) (int, string, error)
+	GetUsrPasswordByIdFn       func(*sql.DB, int) (string, error)
 }
 
 func (m *MockAuthoRepo) Register(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
@@ -107,6 +108,13 @@ func (m *MockAuthoRepo) UpdatePassword(tx *sql.Tx, a auth.Account) (*auth.Accoun
 }
 func (m *MockAuthoRepo) UpdatePasswordById(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 	return m.UpdatePasswordByIdFn(tx, a)
+}
+
+func (m *MockAuthoRepo) UpdatePasswordByIdWithTx(db *sql.DB, userId int, hashedPassword string) error {
+	if m.UpdatePasswordByIdWithTxFn != nil {
+		return m.UpdatePasswordByIdWithTxFn(db, userId, hashedPassword)
+	}
+	return nil
 }
 
 func (m *MockAuthoRepo) GetUsrPassword(db *sql.DB, username string) (int, string, error) {
@@ -356,8 +364,8 @@ func TestValidateAccountService(t *testing.T) {
 		}
 
 		err := svc.ValidateAccountService(db, "huy", "12345")
-		if err == nil || err.Error() != "invalid account" {
-			t.Errorf("expected invalid account error, got %v", err)
+		if err == nil || err != auth.ErrInvalidAccount {
+			t.Errorf("expected ErrInvalidAccount, got %v", err)
 		}
 	})
 
@@ -367,8 +375,8 @@ func TestValidateAccountService(t *testing.T) {
 		}
 
 		err := svc.ValidateAccountService(db, "huy", "wrongpwd")
-		if err == nil || err.Error() != "incorrect password" {
-			t.Errorf("expected incorrect password error, got %v", err)
+		if err == nil || err != auth.ErrIncorrectPassword {
+			t.Errorf("expected ErrIncorrectPassword, got %v", err)
 		}
 	})
 

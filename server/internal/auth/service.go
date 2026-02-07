@@ -143,29 +143,6 @@ func (s *authService) ValidateAccountByIdService(db *sql.DB, userId int, inputPw
 
 }
 
-// Service Login.
-// func (s *AuthService) Login(db *sql.DB, username, password string) (*Account, error) {
-// 	// step 1: fetch user.
-// 	// account, err := s.authRepo.ValidateUser(db, username)
-// 	var account Account
-
-// 	// Fetch only password.
-// 	pwd, err := s.authRepo.GetUsrPassword(db, username)
-
-// 	if err != nil {
-// 		return nil, fmt.Errorf("cannot retrieve account")
-// 	}
-
-// 	account.Password = pwd
-
-// 	// Compare password.
-// 	if err := s.CheckPassword(&account, password); err != nil {
-// 		return nil, fmt.Errorf("incorrect password")
-// 	}
-
-// 	return &account, err
-// }
-
 // Working
 func (s *authService) Login(db *sql.DB, username, password string) (*Account, error) {
 	// step 1: fetch user.
@@ -335,24 +312,29 @@ func (s *authService) ChangePasswordWithTransaction(db *sql.DB, userId int, curr
 		return err
 	}
 
+	// Validate new password criteria
+	tempAccount := Account{Password: newPassword}
+	if err := tempAccount.ValidatePassword(); err != nil {
+		return fmt.Errorf("invalid password criteria")
+	}
+
+	// Hash the new password
+	hashedPassword, err := s.hashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("cannot process password: %w", err)
+	}
+
+	// Start transaction in service layer
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
+	defer tx.Rollback() // No-op if committed
 
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	account := Account{UserId: userId, Password: currentPassword}
-	_, err = s.ChangePasswordService(tx, account, newPassword)
-	if err != nil {
-		return err
+	// Update password using existing repository method
+	account := Account{UserId: userId, Password: hashedPassword}
+	if _, err = s.authRepo.UpdatePasswordById(tx, account); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {

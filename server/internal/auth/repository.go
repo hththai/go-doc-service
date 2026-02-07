@@ -65,24 +65,6 @@ func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account
 	return &account, nil
 }
 
-// Get Hashpassword from user_name, and return only password.
-// TODO: check and avoid the need of return account with user_name
-// func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (string, error) {
-// 	row := db.QueryRow(`SELECT password FROM user WHERE user_name=?`, username)
-
-// 	var pwd string
-
-// 	if err := row.Scan(&pwd); err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return "", fmt.Errorf("no user found")
-// 		}
-
-// 		return "", err
-// 	}
-
-// 	return pwd, nil
-// }
-
 // Working: return value of Id and password.
 func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (int, string, error) {
 	row := db.QueryRow(`SELECT id, password FROM user WHERE user_name=?`, username)
@@ -146,3 +128,4 @@ func (r *AuthRepositoryImpl) UpdatePasswordById(tx *sql.Tx, account Account) (*A
 
 	return nil, nil
 }
+
