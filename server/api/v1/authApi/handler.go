@@ -3,7 +3,7 @@ package authApi
 import (
 	"2_Go/internal/auth"
 	"2_Go/internal/obj"
-	"2_Go/utils"
+	"2_Go/middleware/authen"
 	"database/sql"
 	"net/http"
 
@@ -149,7 +149,7 @@ func (h *AuthHandler) GetPing(c *gin.Context) {
 
 // POST /user/changepassword
 func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
-	shouldReturn := utils.IsValidUsername(c)
+	shouldReturn := authen.IsValidUsername(c)
 	if shouldReturn {
 		return
 	}

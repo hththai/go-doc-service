@@ -4,9 +4,16 @@ import (
 	"2_Go/internal/obj"
 	"2_Go/middleware/authen"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
+)
+
+// Error code.
+var (
+	ErrInvalidAccount    = errors.New("Account: Invalid Account")
+	ErrIncorrectPassword = errors.New("Incorrect Password")
 )
 
 type AuthService interface {
@@ -92,7 +99,8 @@ func (s *authService) ValidateAccountService(db *sql.DB, username string, inputP
 	_, crtPwd, err := s.authRepo.GetUsrPassword(db, username)
 
 	if err != nil {
-		return fmt.Errorf("invalid account")
+		// return fmt.Errorf("invalid account")
+		return ErrInvalidAccount
 	}
 
 	var tempAcct Account
@@ -102,7 +110,8 @@ func (s *authService) ValidateAccountService(db *sql.DB, username string, inputP
 	err = s.CheckPassword(&tempAcct, inputPwd)
 
 	if err != nil {
-		return fmt.Errorf("incorrect password")
+		// return fmt.Errorf("incorrect password")
+		return ErrIncorrectPassword
 	}
 	return nil
 
@@ -116,7 +125,8 @@ func (s *authService) ValidateAccountByIdService(db *sql.DB, userId int, inputPw
 	crtPwd, err := s.authRepo.GetUsrPasswordById(db, userId)
 
 	if err != nil {
-		return fmt.Errorf("invalid account")
+		// return fmt.Errorf("invalid account")
+		return ErrInvalidAccount
 	}
 
 	var tempAcct Account
@@ -126,7 +136,8 @@ func (s *authService) ValidateAccountByIdService(db *sql.DB, userId int, inputPw
 	err = s.CheckPassword(&tempAcct, inputPwd)
 
 	if err != nil {
-		return fmt.Errorf("incorrect password")
+		// return fmt.Errorf("incorrect password")
+		return ErrIncorrectPassword
 	}
 	return nil
 
@@ -173,7 +184,8 @@ func (s *authService) Login(db *sql.DB, username, password string) (*Account, er
 
 	// Compare password.
 	if err := s.CheckPassword(&account, password); err != nil {
-		return nil, fmt.Errorf("incorrect password")
+		// return nil, fmt.Errorf("incorrect password")
+		return nil, ErrIncorrectPassword
 	}
 
 	return &account, err
@@ -184,7 +196,8 @@ func (s *authService) CheckPassword(account *Account, inputPassword string) erro
 	err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(inputPassword))
 
 	if err != nil {
-		return fmt.Errorf("invalid password")
+		// return fmt.Errorf("invalid password")
+		return ErrIncorrectPassword
 	}
 
 	return nil
@@ -195,7 +208,8 @@ func (s *authService) CheckPassword(account *Account, inputPassword string) erro
 // Handle password when creating an account. Checking all require fields such as username, password.
 func (s *authService) handlePasswordAcctCreation(account *Account) (*Account, error) {
 	if err := account.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid account")
+		// return nil, fmt.Errorf("invalid account")
+		return nil, ErrInvalidAccount
 	}
 
 	hashedPassword, err := s.hashPassword(account.Password)

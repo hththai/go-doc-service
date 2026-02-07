@@ -177,3 +177,16 @@ func JWTAuthByCookies() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// IsValidUsername checks if the JWT username matches the request parameter username.
+// Returns true if validation fails (user is unauthorized), false if valid.
+func IsValidUsername(c *gin.Context) bool {
+	jwtUser := c.GetString("username") // from Token
+	reqUser := c.Param("username")     // from request
+
+	if jwtUser != reqUser {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return true
+	}
+	return false
+}

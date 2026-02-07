@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
@@ -59,17 +57,6 @@ func SanitizeFileName(name string) (string, error) {
 	}
 
 	return base + ext, nil
-}
-
-func IsValidUsername(c *gin.Context) bool {
-	jwtUser := c.GetString("username") // from Token
-	reqUser := c.Param("username")     // from request
-
-	if jwtUser != reqUser {
-		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-		return true
-	}
-	return false
 }
 
 func SayHello() error {
