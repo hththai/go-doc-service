@@ -12,6 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const errBindingJSON = "%s Error binding JSON: %s"
+
 type AuthHandler struct {
 	AccountSvc auth.AuthService
 	DB         *sql.DB // replace with your DB type
@@ -82,7 +84,7 @@ func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
 func (h *AuthHandler) HandleRegister(c *gin.Context) {
 	var account auth.Account
 	if err := c.ShouldBindJSON(&account); err != nil {
-		h.Logger.Errorf("%s Error binding JSON: %s", c.ClientIP(), err)
+		h.Logger.Errorf(errBindingJSON, c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -109,7 +111,7 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.Logger.Errorf("%s Error binding JSON: %s", c.ClientIP(), err)
+		h.Logger.Errorf(errBindingJSON, c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -160,7 +162,7 @@ func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.Logger.Errorf("%s Error binding JSON: %s", c.ClientIP(), err)
+		h.Logger.Errorf(errBindingJSON, c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
