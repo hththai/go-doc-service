@@ -216,8 +216,8 @@ POST {{host}}/v1/auth/user/changepassword
 Content-Type: application/json
 
 {    
-    "password": "password2",
-    "newpassword": "hello1"    
+    "password": "password",
+    "newpassword": "12"    
 }
 
 ###
@@ -225,7 +225,7 @@ POST {{host}}/register
 Content-Type: application/json
 
 {
-    "username": "abv",
+    "username": "abvg",
     "password": "password2"    
 }
 
@@ -234,6 +234,6 @@ POST {{host}}/login
 Content-Type: application/json
 
 {
-    "username": "abv",
-    "password": "hello1"    
+    "username": "abvg",
+    "password": "password"    
 }

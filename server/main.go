@@ -12,11 +12,9 @@ import (
 
 	"2_Go/utils"
 	"context"
-	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -27,74 +25,38 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// Function to preview PDF
-func previewPDF(c *gin.Context) {
-	id := c.Query("id")
-	token := c.Query("token")
-
-	if token != "abc123" {
-		c.String(http.StatusUnauthorized, "Unauthorized")
-		return
-	}
-
-	filePath := filepath.Join("./filedata/0/0/", id+".pdf")
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		c.String(http.StatusNotFound, "File not found")
-		return
-	}
-
-	c.Header("Content-Type", "application/pdf")
-	c.Header("Content-Disposition", "inline; filename="+strconv.Quote(id+".pdf"))
-
-	// Stream file.
-	c.File(filePath)
-}
-
 var log = logrus.New()
 
 func main() {
+	// Initialize logging first
+	AddLogService()
 
 	dbCredential := config.LoadConfig()
 
 	db, err := config.InitDB(dbCredential)
-
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer db.Close()
 
-	fmt.Println("Database connection successfully!")
-	// doc := internal.CreateNewDoc("Hello")
-	// **************EXAMPLE LOG**************
-
-	// Add Log Services.
-	AddLogService()
+	log.Info("Database connection successful")
 
 	// Start gin http
 	r := gin.Default()
 
-	//TODO: make a function, or interface.
-	// Redis middleware
+	// Redis middleware (production only)
 	if utils.IsProduction() {
-		AddRedisService(err, r)
-		//*******
+		AddRedisService(r)
 	}
 
 	// CORS config.
+	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://client.golang.localdomain", "https://*.hthai.cloud"},
+		AllowOrigins:     corsOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
-		AllowOriginFunc: func(origin string) bool {
-			return true
-		},
 	}))
-
-	// // TODO: Review the order of middleware
-	// r := gin.Default()
-	// r.Use(rateLimit.RateLimitMiddleware(limiter))
 
 	docRepo := document.NewDocumentRepository(db)
 	docService := document.NewDocumentService(docRepo)
@@ -108,27 +70,10 @@ func main() {
 		})
 	})
 
-	r.GET("/preview", previewPDF)
-
 	// Public auth handler for register and login
 	publicAuthHandler := authApi.NewHandler(acctSvc, db, log)
 	r.POST("/register", publicAuthHandler.HandleRegister)
 	r.POST("/login", publicAuthHandler.HandleLogin)
-
-	// Refresh token endpoint.
-	// TODO: handle refresh.
-	// r.POST("/v1/auth/refresh", func(c *gin.Context) {
-	// 	err = v1.Refresh(c)
-
-	// 	if err != nil {
-	// 		log.Errorf("%s Error Change: %s", c.ClientIP(), err)
-	// 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-	// 		return
-	// 	}
-
-	// 	log.Debugf("%s access updated success", c.ClientIP())
-	// 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
-	// })
 
 	// Protected
 	authGrouptest := r.Group("/v2/auth", authen.JWTAuth())
@@ -142,16 +87,18 @@ func main() {
 
 	routers.RegisterV1Routes(r, deps, log)
 
-	// Test
+	// Test endpoint
 	authGrouptest.GET("/test", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
-	r.Run(":8088")
+	log.Info("Server starting on :8088")
+	if err := r.Run(":8088"); err != nil {
+		log.Fatalf("Server error: %v", err)
+	}
 }
 
-// Add Log Services.
-// TODO: Consider using Dependencies Injection.
+// AddLogService configures the application logger.
 func AddLogService() {
 	log.SetOutput(&lumberjack.Logger{
 		Filename:   "./app/log/myapp.log",
@@ -167,15 +114,13 @@ func AddLogService() {
 }
 
 // Register Redis Services.
-// TODO: Consider using Dependencies Injection.
-func AddRedisService(err error, r *gin.Engine) {
+func AddRedisService(r *gin.Engine) {
 	rdb := redis.NewClient(&redis.Options{Addr: "redis-service:6379"})
-	err = rdb.Ping(context.Background()).Err()
-	if err != nil {
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		log.Fatalf("Redis not reachable: %v", err)
 	}
 
-	fmt.Println("Redis connection successfully!")
+	log.Info("Redis connection successfully!")
 
 	limiter := rateLimit.NewRedisRateLimiter(rdb, 10, time.Minute)
 	r.Use(rateLimit.RateLimitMiddleware(limiter))

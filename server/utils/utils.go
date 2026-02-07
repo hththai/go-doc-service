@@ -4,11 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
 
@@ -62,4 +65,28 @@ func SanitizeFileName(name string) (string, error) {
 func SayHello() error {
 	fmt.Println("Hello")
 	return nil
+}
+
+// Dummy example.
+// Function to preview PDF
+func previewPDF(c *gin.Context) {
+	id := c.Query("id")
+	token := c.Query("token")
+
+	if token != "abc123" {
+		c.String(http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	filePath := filepath.Join("./filedata/0/0/", id+".pdf")
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.String(http.StatusNotFound, "File not found")
+		return
+	}
+
+	c.Header("Content-Type", "application/pdf")
+	c.Header("Content-Disposition", "inline; filename="+strconv.Quote(id+".pdf"))
+
+	// Stream file.
+	c.File(filePath)
 }
