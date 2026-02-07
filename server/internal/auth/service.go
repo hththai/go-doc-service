@@ -29,9 +29,9 @@ type AuthService interface {
 	RefreshAccessToken(refreshToken string) (newAccessToken, newTokenId string, userId int, err error)
 	ValidateAccessToken(accessToken string) (tokenId string, err error)
 
-	// Transactional wrappers
-	RegisterWithTransaction(db *sql.DB, account Account) error
-	ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error
+	// High-level operations (manage transactions internally)
+	RegisterAccount(db *sql.DB, account Account) error
+	ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error
 
 	handlePasswordAcctCreation(account *Account) (*Account, error)
 	handlePasswordUpdate(account *Account) (*Account, error)
@@ -58,6 +58,25 @@ func (s *authService) Register(tx *sql.Tx, account Account) (*Account, error) {
 		return nil, account.ErrorResult.Error
 	}
 	return s.authRepo.Register(tx, account)
+}
+
+// RegisterAccount handles the full registration flow.
+func (s *authService) RegisterAccount(db *sql.DB, account Account) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err = s.Register(tx, account); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit failed: %w", err)
+	}
+
+	return nil
 }
 
 // Change Password.
@@ -273,65 +292,28 @@ func (s *authService) ValidateAccessToken(accessToken string) (tokenId string, e
 	return tokenId, nil
 }
 
-// RegisterWithTransaction handles the full registration flow with transaction.
-func (s *authService) RegisterWithTransaction(db *sql.DB, account Account) error {
-	if err := account.Validate(); err != nil {
-		return err
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to start transaction: %w", err)
-	}
-
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	_, err = s.Register(tx, account)
-	if err != nil {
-		return err
-	}
-
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("commit failed: %w", err)
-	}
-
-	return nil
-}
-
-// ChangePasswordWithTransaction handles password change with transaction.
-func (s *authService) ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error {
-	// Validate current password
+// ChangePassword handles the full password change flow.
+func (s *authService) ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error {
 	if err := s.ValidateAccountByIdService(db, userId, currentPassword); err != nil {
 		return err
 	}
 
-	// Validate new password criteria
 	tempAccount := Account{Password: newPassword}
 	if err := tempAccount.ValidatePassword(); err != nil {
 		return fmt.Errorf("invalid password criteria")
 	}
 
-	// Hash the new password
 	hashedPassword, err := s.hashPassword(newPassword)
 	if err != nil {
 		return fmt.Errorf("cannot process password: %w", err)
 	}
 
-	// Start transaction in service layer
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
-	defer tx.Rollback() // No-op if committed
+	defer tx.Rollback()
 
-	// Update password using existing repository method
 	account := Account{UserId: userId, Password: hashedPassword}
 	if _, err = s.authRepo.UpdatePasswordById(tx, account); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)

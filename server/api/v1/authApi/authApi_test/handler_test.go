@@ -45,7 +45,7 @@ func (m *MockAuthService) IsValidToken(c *gin.Context) (string, error) {
 
 // New interface methods
 
-func (m *MockAuthService) ChangePasswordWithTransaction(db *sql.DB, userId int, currentPassword, newPassword string) error {
+func (m *MockAuthService) ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error {
 	args := m.Called(db, userId, currentPassword, newPassword)
 	return args.Error(0)
 }
@@ -65,7 +65,7 @@ func (m *MockAuthService) CreateTokensForUser(userId int) (accessToken, tokenId,
 	return args.String(0), args.String(1), args.String(2), args.Error(3)
 }
 
-func (m *MockAuthService) RegisterWithTransaction(db *sql.DB, account auth.Account) error {
+func (m *MockAuthService) RegisterAccount(db *sql.DB, account auth.Account) error {
 	args := m.Called(db, account)
 	return args.Error(0)
 }
@@ -111,8 +111,8 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 		DB:         db,
 	}
 
-	// 2. Define Mock Expectations - now uses ChangePasswordWithTransaction
-	mockSvc.On("ChangePasswordWithTransaction", db, 123, "oldpassword123", "securepassword123").Return(nil)
+	// 2. Define Mock Expectations - now uses ChangePassword
+	mockSvc.On("ChangePassword", db, 123, "oldpassword123", "securepassword123").Return(nil)
 
 	// 3. Create Request and Inject URL Params
 	w := httptest.NewRecorder()

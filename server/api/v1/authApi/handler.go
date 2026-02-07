@@ -89,7 +89,7 @@ func (h *AuthHandler) HandleRegister(c *gin.Context) {
 
 	account.DefaultObj = obj.DefaultObj{GUID: uuid.New().String()}
 
-	err := h.AccountSvc.RegisterWithTransaction(h.DB, account)
+	err := h.AccountSvc.RegisterAccount(h.DB, account)
 	if err != nil {
 		h.Logger.Errorf("%s Error Register: %s", c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -176,7 +176,7 @@ func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
 	userId := reqUser.(int)
 
 	// Change password with transaction
-	err := h.AccountSvc.ChangePasswordWithTransaction(h.DB, userId, req.Password, req.NewPassword)
+	err := h.AccountSvc.ChangePassword(h.DB, userId, req.Password, req.NewPassword)
 	if err != nil {
 		h.Logger.Errorf("%s Error Change: %s", c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
