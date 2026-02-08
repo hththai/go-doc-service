@@ -5,14 +5,22 @@ import (
 	"fmt"
 )
 
+// DBExecutor abstracts both *sql.DB and *sql.Tx for query execution.
+type DBExecutor interface {
+	Exec(query string, args ...any) (sql.Result, error)
+	Query(query string, args ...any) (*sql.Rows, error)
+	QueryRow(query string, args ...any) *sql.Row
+}
+
 type AuthRepository interface {
 	Register(tx *sql.Tx, account Account) (*Account, error)
-	ValidateUser(db *sql.DB, username string) (*Account, error)
+	ValidateUser(username string) (*Account, error)
 	UpdatePassword(tx *sql.Tx, account Account) (*Account, error)
 	UpdatePasswordById(tx *sql.Tx, account Account) (*Account, error)
-	// GetUsrPassword(db *sql.DB, username string) (string, error)
-	GetUsrPassword(db *sql.DB, username string) (int, string, error)
-	GetUsrPasswordById(db *sql.DB, userId int) (string, error)
+	GetUsrPassword(username string) (int, string, error)
+	GetUsrPasswordById(userId int) (string, error)
+	// Transaction support
+	BeginTx() (*sql.Tx, error)
 }
 
 type AuthRepositoryImpl struct {
@@ -21,6 +29,11 @@ type AuthRepositoryImpl struct {
 
 func NewAuthRepoImpl(db *sql.DB) AuthRepository {
 	return &AuthRepositoryImpl{db: db}
+}
+
+// BeginTx starts a new database transaction.
+func (r *AuthRepositoryImpl) BeginTx() (*sql.Tx, error) {
+	return r.db.Begin()
 }
 
 // Insert into database new account.
@@ -49,9 +62,9 @@ func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, er
 	return nil, nil
 }
 
-func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account, error) {
+func (r *AuthRepositoryImpl) ValidateUser(username string) (*Account, error) {
 
-	row := db.QueryRow(`SELECT user_name, password from user where user_name=?`, username)
+	row := r.db.QueryRow(`SELECT user_name, password from user where user_name=?`, username)
 
 	var account Account
 	if err := row.Scan(&account.Username, &account.Password); err != nil {
@@ -66,8 +79,8 @@ func (r *AuthRepositoryImpl) ValidateUser(db *sql.DB, username string) (*Account
 }
 
 // Working: return value of Id and password.
-func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (int, string, error) {
-	row := db.QueryRow(`SELECT id, password FROM user WHERE user_name=?`, username)
+func (r *AuthRepositoryImpl) GetUsrPassword(username string) (int, string, error) {
+	row := r.db.QueryRow(`SELECT id, password FROM user WHERE user_name=?`, username)
 
 	var id int
 	var pwd string
@@ -84,8 +97,8 @@ func (r *AuthRepositoryImpl) GetUsrPassword(db *sql.DB, username string) (int, s
 }
 
 // Replacing GetUsrPassword
-func (r *AuthRepositoryImpl) GetUsrPasswordById(db *sql.DB, userId int) (string, error) {
-	row := db.QueryRow(`SELECT password FROM user WHERE id=?`, userId)
+func (r *AuthRepositoryImpl) GetUsrPasswordById(userId int) (string, error) {
+	row := r.db.QueryRow(`SELECT password FROM user WHERE id=?`, userId)
 
 	var pwd string
 

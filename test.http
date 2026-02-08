@@ -217,7 +217,7 @@ Content-Type: application/json
 
 {    
     "password": "password",
-    "newpassword": "12"    
+    "newpassword": "password"    
 }
 
 ###
@@ -225,7 +225,7 @@ POST {{host}}/register
 Content-Type: application/json
 
 {
-    "username": "abvg",
+    "username": "abvgc",
     "password": "password2"    
 }
 

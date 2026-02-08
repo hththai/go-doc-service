@@ -86,43 +86,47 @@ func TestValidatePassword(t *testing.T) {
 }
 
 type MockAuthoRepo struct {
-	RegisterFn                 func(*sql.Tx, auth.Account) (*auth.Account, error)
-	ValidateUserFn             func(*sql.DB, string) (*auth.Account, error)
-	UpdatePasswordFn           func(*sql.Tx, auth.Account) (*auth.Account, error)
-	UpdatePasswordByIdFn       func(*sql.Tx, auth.Account) (*auth.Account, error)
-	UpdatePasswordByIdWithTxFn func(*sql.DB, int, string) error
-	GetUsrPasswordFn           func(*sql.DB, string) (int, string, error)
-	GetUsrPasswordByIdFn       func(*sql.DB, int) (string, error)
+	RegisterFn           func(*sql.Tx, auth.Account) (*auth.Account, error)
+	ValidateUserFn       func(string) (*auth.Account, error)
+	UpdatePasswordFn     func(*sql.Tx, auth.Account) (*auth.Account, error)
+	UpdatePasswordByIdFn func(*sql.Tx, auth.Account) (*auth.Account, error)
+	GetUsrPasswordFn     func(string) (int, string, error)
+	GetUsrPasswordByIdFn func(int) (string, error)
+	BeginTxFn            func() (*sql.Tx, error)
 }
 
 func (m *MockAuthoRepo) Register(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 	return m.RegisterFn(tx, a)
 }
 
-func (m *MockAuthoRepo) ValidateUser(db *sql.DB, username string) (*auth.Account, error) {
-	return m.ValidateUserFn(db, username)
+func (m *MockAuthoRepo) ValidateUser(username string) (*auth.Account, error) {
+	if m.ValidateUserFn != nil {
+		return m.ValidateUserFn(username)
+	}
+	return nil, nil
 }
 
 func (m *MockAuthoRepo) UpdatePassword(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 	return m.UpdatePasswordFn(tx, a)
 }
+
 func (m *MockAuthoRepo) UpdatePasswordById(tx *sql.Tx, a auth.Account) (*auth.Account, error) {
 	return m.UpdatePasswordByIdFn(tx, a)
 }
 
-func (m *MockAuthoRepo) UpdatePasswordByIdWithTx(db *sql.DB, userId int, hashedPassword string) error {
-	if m.UpdatePasswordByIdWithTxFn != nil {
-		return m.UpdatePasswordByIdWithTxFn(db, userId, hashedPassword)
+func (m *MockAuthoRepo) GetUsrPassword(username string) (int, string, error) {
+	return m.GetUsrPasswordFn(username)
+}
+
+func (m *MockAuthoRepo) GetUsrPasswordById(userId int) (string, error) {
+	return m.GetUsrPasswordByIdFn(userId)
+}
+
+func (m *MockAuthoRepo) BeginTx() (*sql.Tx, error) {
+	if m.BeginTxFn != nil {
+		return m.BeginTxFn()
 	}
-	return nil
-}
-
-func (m *MockAuthoRepo) GetUsrPassword(db *sql.DB, username string) (int, string, error) {
-	return m.GetUsrPasswordFn(db, username)
-}
-
-func (m *MockAuthoRepo) GetUsrPasswordById(db *sql.DB, userId int) (string, error) {
-	return m.GetUsrPasswordByIdFn(db, userId)
+	return nil, nil
 }
 
 func TestHandleHashPassword(t *testing.T) {
@@ -348,8 +352,6 @@ func TestCheckPassword(t *testing.T) {
 
 // TODO: Need to review and update.
 func TestValidateAccountService(t *testing.T) {
-	var db *sql.DB = nil
-
 	mockRepo := &MockAuthoRepo{}
 	svc := auth.NewAuthService(mockRepo)
 
@@ -359,33 +361,33 @@ func TestValidateAccountService(t *testing.T) {
 	}
 
 	t.Run("user not found", func(t *testing.T) {
-		mockRepo.GetUsrPasswordFn = func(db *sql.DB, username string) (int, string, error) {
+		mockRepo.GetUsrPasswordFn = func(username string) (int, string, error) {
 			return -1, "", fmt.Errorf("no user")
 		}
 
-		err := svc.ValidateAccountService(db, "huy", "12345")
+		err := svc.ValidateAccountService("huy", "12345")
 		if err == nil || err != auth.ErrInvalidAccount {
 			t.Errorf("expected ErrInvalidAccount, got %v", err)
 		}
 	})
 
 	t.Run("incorrect password", func(t *testing.T) {
-		mockRepo.GetUsrPasswordFn = func(db *sql.DB, username string) (int, string, error) {
+		mockRepo.GetUsrPasswordFn = func(username string) (int, string, error) {
 			return -1, hash("correctpwd"), nil
 		}
 
-		err := svc.ValidateAccountService(db, "huy", "wrongpwd")
+		err := svc.ValidateAccountService("huy", "wrongpwd")
 		if err == nil || err != auth.ErrIncorrectPassword {
 			t.Errorf("expected ErrIncorrectPassword, got %v", err)
 		}
 	})
 
 	t.Run("correct password", func(t *testing.T) {
-		mockRepo.GetUsrPasswordFn = func(db *sql.DB, username string) (int, string, error) {
+		mockRepo.GetUsrPasswordFn = func(username string) (int, string, error) {
 			return -1, hash("correctpwd"), nil
 		}
 
-		err := svc.ValidateAccountService(db, "huy", "correctpwd")
+		err := svc.ValidateAccountService("huy", "correctpwd")
 		if err != nil {
 			t.Errorf("expected success, got error %v", err)
 		}

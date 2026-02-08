@@ -13,6 +13,6 @@ import (
 func RegisterV1Routes(r *gin.Engine, deps *v1.Dependencies, logger *logrus.Logger) {
 	apiv1 := r.Group("/v1/auth", authen.JWTAuthByCookies())
 
-	authApi.Register(apiv1, authApi.NewHandler(deps.AuthSvc, deps.DB, logger))
-	documentApi.Register(apiv1, documentApi.NewHandler(deps.AuthSvc, deps.DocSvc, deps.DB, logger))
+	authApi.Register(apiv1, authApi.NewHandler(deps.AuthSvc, logger))
+	documentApi.Register(apiv1, documentApi.NewHandler(deps.AuthSvc, deps.DocSvc, logger))
 }

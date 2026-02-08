@@ -19,7 +19,7 @@ import (
 
 var INDEX_FOLDER = 100
 
-func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.DB) error {
+func UploadDocument(c *gin.Context, service *document.DocumentService) error {
 
 	formTitle := c.PostForm("name")
 	derscription := c.PostForm("description")
@@ -41,7 +41,7 @@ func UploadDocument(c *gin.Context, service *document.DocumentService, db *sql.D
 	}
 
 	// Begin transaction
-	tx, err := db.Begin()
+	tx, err := service.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}

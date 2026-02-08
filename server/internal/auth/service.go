@@ -10,6 +10,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Note: database/sql is still needed for sql.Tx in Register and ChangePasswordService
+
 // Error code.
 var (
 	ErrInvalidAccount    = errors.New("Account: Invalid Account")
@@ -19,9 +21,9 @@ var (
 type AuthService interface {
 	Register(tx *sql.Tx, account Account) (*Account, error)
 	ChangePasswordService(tx *sql.Tx, account Account, newPassword string) (*Account, error)
-	ValidateAccountService(db *sql.DB, username string, inputPwd string) error
-	ValidateAccountByIdService(db *sql.DB, userId int, inputPwd string) error
-	Login(db *sql.DB, username, password string) (*Account, error)
+	ValidateAccountService(username string, inputPwd string) error
+	ValidateAccountByIdService(userId int, inputPwd string) error
+	Login(username, password string) (*Account, error)
 	CheckPassword(account *Account, inputPassword string) error
 
 	// Token operations (no gin.Context dependency)
@@ -30,8 +32,8 @@ type AuthService interface {
 	ValidateAccessToken(accessToken string) (tokenId string, err error)
 
 	// High-level operations (manage transactions internally)
-	RegisterAccount(db *sql.DB, account Account) error
-	ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error
+	RegisterAccount(account Account) error
+	ChangePassword(userId int, currentPassword, newPassword string) error
 
 	handlePasswordAcctCreation(account *Account) (*Account, error)
 	handlePasswordUpdate(account *Account) (*Account, error)
@@ -61,8 +63,8 @@ func (s *authService) Register(tx *sql.Tx, account Account) (*Account, error) {
 }
 
 // RegisterAccount handles the full registration flow.
-func (s *authService) RegisterAccount(db *sql.DB, account Account) error {
-	tx, err := db.Begin()
+func (s *authService) RegisterAccount(account Account) error {
+	tx, err := s.authRepo.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}
@@ -111,11 +113,11 @@ func (s *authService) ChangePasswordService(tx *sql.Tx, account Account, newPass
 
 // TODO: deleting replace by ValidateAccountByIdService
 // Validate current username and password.
-func (s *authService) ValidateAccountService(db *sql.DB, username string, inputPwd string) error {
+func (s *authService) ValidateAccountService(username string, inputPwd string) error {
 
 	// 1. Get current pwd.
 	var crtPwd string
-	_, crtPwd, err := s.authRepo.GetUsrPassword(db, username)
+	_, crtPwd, err := s.authRepo.GetUsrPassword(username)
 
 	if err != nil {
 		// return fmt.Errorf("invalid account")
@@ -137,11 +139,11 @@ func (s *authService) ValidateAccountService(db *sql.DB, username string, inputP
 }
 
 // Validate current user and password.
-func (s *authService) ValidateAccountByIdService(db *sql.DB, userId int, inputPwd string) error {
+func (s *authService) ValidateAccountByIdService(userId int, inputPwd string) error {
 
 	// 1. Get current pwd.
 	var crtPwd string
-	crtPwd, err := s.authRepo.GetUsrPasswordById(db, userId)
+	crtPwd, err := s.authRepo.GetUsrPasswordById(userId)
 
 	if err != nil {
 		// return fmt.Errorf("invalid account")
@@ -163,13 +165,13 @@ func (s *authService) ValidateAccountByIdService(db *sql.DB, userId int, inputPw
 }
 
 // Working
-func (s *authService) Login(db *sql.DB, username, password string) (*Account, error) {
+func (s *authService) Login(username, password string) (*Account, error) {
 	// step 1: fetch user.
-	// account, err := s.authRepo.ValidateUser(db, username)
+	// account, err := s.authRepo.ValidateUser(username)
 	var account Account
 
 	// Fetch only password.
-	id, pwd, err := s.authRepo.GetUsrPassword(db, username)
+	id, pwd, err := s.authRepo.GetUsrPassword(username)
 
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve account")
@@ -293,8 +295,8 @@ func (s *authService) ValidateAccessToken(accessToken string) (tokenId string, e
 }
 
 // ChangePassword handles the full password change flow.
-func (s *authService) ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error {
-	if err := s.ValidateAccountByIdService(db, userId, currentPassword); err != nil {
+func (s *authService) ChangePassword(userId int, currentPassword, newPassword string) error {
+	if err := s.ValidateAccountByIdService(userId, currentPassword); err != nil {
 		return err
 	}
 
@@ -308,7 +310,7 @@ func (s *authService) ChangePassword(db *sql.DB, userId int, currentPassword, ne
 		return fmt.Errorf("cannot process password: %w", err)
 	}
 
-	tx, err := db.Begin()
+	tx, err := s.authRepo.BeginTx()
 	if err != nil {
 		return fmt.Errorf("failed to start transaction: %w", err)
 	}

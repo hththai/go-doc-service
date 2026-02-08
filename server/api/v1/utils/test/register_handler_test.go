@@ -6,7 +6,6 @@ import (
 	"2_Go/middleware/authen"
 	serverutils "2_Go/utils"
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -30,8 +28,8 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) Login(db *sql.DB, username, password string) (*auth.Account, error) {
-	args := m.Called(db, username, password)
+func (m *MockAuthService) Login(username, password string) (*auth.Account, error) {
+	args := m.Called(username, password)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -48,13 +46,13 @@ func (m *MockAuthService) RefreshAccessToken(refreshToken string) (newAccessToke
 	return args.String(0), args.String(1), args.Int(2), args.Error(3)
 }
 
-func (m *MockAuthService) RegisterAccount(db *sql.DB, account auth.Account) error {
-	args := m.Called(db, account)
+func (m *MockAuthService) RegisterAccount(account auth.Account) error {
+	args := m.Called(account)
 	return args.Error(0)
 }
 
-func (m *MockAuthService) ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error {
-	args := m.Called(db, userId, currentPassword, newPassword)
+func (m *MockAuthService) ChangePassword(userId int, currentPassword, newPassword string) error {
+	args := m.Called(userId, currentPassword, newPassword)
 	return args.Error(0)
 }
 
@@ -65,7 +63,7 @@ func TestHandleRegister(t *testing.T) {
 	tests := []struct {
 		name           string
 		body           string
-		mockSetup      func(svc *MockAuthService, db *sql.DB)
+		mockSetup      func(svc *MockAuthService)
 		expectedStatus int
 		expectError    bool
 		errorContains  string
@@ -73,8 +71,8 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "success - valid registration",
 			body: `{"username":"testuser","password":"password123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("RegisterAccount", db, mock.MatchedBy(func(acc auth.Account) bool {
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RegisterAccount", mock.MatchedBy(func(acc auth.Account) bool {
 					return acc.Username == "testuser" && acc.Password == "password123"
 				})).Return(nil)
 			},
@@ -84,7 +82,7 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - invalid JSON",
 			body: `{"username":"test"`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+			mockSetup: func(svc *MockAuthService) {
 				// No mock needed as it should fail before service call
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -93,7 +91,7 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - missing username",
 			body: `{"password":"password123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+			mockSetup: func(svc *MockAuthService) {
 				// No mock needed - Gin binding validation fails before service call
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -103,7 +101,7 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - password too short",
 			body: `{"username":"testuser","password":"1234"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+			mockSetup: func(svc *MockAuthService) {
 				// No mock needed - Gin binding validation fails before service call
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -113,7 +111,7 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - missing password",
 			body: `{"username":"testuser"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+			mockSetup: func(svc *MockAuthService) {
 				// No mock needed - Gin binding validation fails before service call
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -123,7 +121,7 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - empty request body",
 			body: `{}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+			mockSetup: func(svc *MockAuthService) {
 				// No mock needed - Gin binding validation fails before service call
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -133,8 +131,8 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - transaction begin fails",
 			body: `{"username":"testuser","password":"password123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("RegisterAccount", db, mock.Anything).
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RegisterAccount", mock.Anything).
 					Return(errors.New("failed to start transaction"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -144,8 +142,8 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - username exists",
 			body: `{"username":"existinguser","password":"password123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("RegisterAccount", db, mock.Anything).
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RegisterAccount", mock.Anything).
 					Return(errors.New("username exists"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -155,8 +153,8 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "error - transaction commit fails",
 			body: `{"username":"testuser","password":"password123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("RegisterAccount", db, mock.Anything).
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RegisterAccount", mock.Anything).
 					Return(errors.New("commit failed"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -166,8 +164,8 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "success - valid registration with email",
 			body: `{"username":"testuser","email":"test@example.com","password":"password123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("RegisterAccount", db, mock.MatchedBy(func(acc auth.Account) bool {
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RegisterAccount", mock.MatchedBy(func(acc auth.Account) bool {
 					return acc.Username == "testuser" && acc.Email == "test@example.com"
 				})).Return(nil)
 			},
@@ -177,8 +175,8 @@ func TestHandleRegister(t *testing.T) {
 		{
 			name: "success - minimum valid password length",
 			body: `{"username":"testuser","password":"12345"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("RegisterAccount", db, mock.Anything).Return(nil)
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("RegisterAccount", mock.Anything).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectError:    false,
@@ -190,13 +188,8 @@ func TestHandleRegister(t *testing.T) {
 			// Setup mock service
 			mockSvc := new(MockAuthService)
 
-			// Setup mock DB
-			db, _, err := sqlmock.New()
-			assert.NoError(t, err)
-			defer db.Close()
-
 			// Setup mock expectations
-			tt.mockSetup(mockSvc, db)
+			tt.mockSetup(mockSvc)
 
 			// Create logger
 			logger, _ := test.NewNullLogger()
@@ -204,7 +197,6 @@ func TestHandleRegister(t *testing.T) {
 			// Create handler
 			handler := &authApi.AuthHandler{
 				AccountSvc: mockSvc,
-				DB:         db,
 				Logger:     logger,
 			}
 
@@ -240,7 +232,7 @@ func TestHandleChangePassword(t *testing.T) {
 		userId         interface{}
 		setUserId      bool
 		setUsername    bool
-		mockSetup      func(svc *MockAuthService, db *sql.DB)
+		mockSetup      func(svc *MockAuthService)
 		expectedStatus int
 		expectError    bool
 		errorContains  string
@@ -251,8 +243,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "oldpassword123", "newpassword123").Return(nil)
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "oldpassword123", "newpassword123").Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectError:    false,
@@ -263,7 +255,7 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup:   func(svc *MockAuthService, db *sql.DB) {},
+			mockSetup:   func(svc *MockAuthService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectError:    true,
 		},
@@ -272,7 +264,7 @@ func TestHandleChangePassword(t *testing.T) {
 			body:        `{"password":"oldpassword123","newpassword":"newpassword123"}`,
 			setUserId:   false,
 			setUsername: true,
-			mockSetup:   func(svc *MockAuthService, db *sql.DB) {},
+			mockSetup:   func(svc *MockAuthService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectError:    true,
 			errorContains:  "Invalid user id",
@@ -283,8 +275,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "wrongpassword", "newpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "wrongpassword", "newpassword123").
 					Return(errors.New("incorrect password"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -297,8 +289,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      999,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 999, "oldpassword123", "newpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 999, "oldpassword123", "newpassword123").
 					Return(errors.New("invalid account"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -311,8 +303,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "oldpassword123", "newpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "oldpassword123", "newpassword123").
 					Return(errors.New("failed to start transaction"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -325,8 +317,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "oldpassword123", "1234").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "oldpassword123", "1234").
 					Return(errors.New("invalid password criteria"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -339,8 +331,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "oldpassword123", "newpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "oldpassword123", "newpassword123").
 					Return(errors.New("database error"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -353,8 +345,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "oldpassword123", "newpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "oldpassword123", "newpassword123").
 					Return(errors.New("commit failed"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -367,8 +359,8 @@ func TestHandleChangePassword(t *testing.T) {
 			userId:      1,
 			setUserId:   true,
 			setUsername: true,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("ChangePassword", db, 1, "oldpassword123", "12345").Return(nil)
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("ChangePassword", 1, "oldpassword123", "12345").Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectError:    false,
@@ -379,17 +371,12 @@ func TestHandleChangePassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := new(MockAuthService)
 
-			db, _, err := sqlmock.New()
-			assert.NoError(t, err)
-			defer db.Close()
-
-			tt.mockSetup(mockSvc, db)
+			tt.mockSetup(mockSvc)
 
 			logger, _ := test.NewNullLogger()
 
 			handler := &authApi.AuthHandler{
 				AccountSvc: mockSvc,
-				DB:         db,
 				Logger:     logger,
 			}
 
@@ -429,7 +416,7 @@ func TestHandleLogin(t *testing.T) {
 	tests := []struct {
 		name           string
 		body           string
-		mockSetup      func(svc *MockAuthService, db *sql.DB)
+		mockSetup      func(svc *MockAuthService)
 		expectedStatus int
 		expectError    bool
 		errorContains  string
@@ -438,8 +425,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "success - valid login",
 			body: `{"username":"testuser","password":"oldpassword123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "testuser", "oldpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "testuser", "oldpassword123").
 					Return(&auth.Account{UserId: 1, Username: "testuser"}, nil)
 				svc.On("CreateTokensForUser", 1).
 					Return("access_token_value", "token_id_value", "refresh_token_value", nil)
@@ -451,7 +438,7 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - invalid JSON",
 			body: `{"username":"test"`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
+			mockSetup: func(svc *MockAuthService) {
 				// No mock needed as it should fail before service call
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -460,8 +447,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - missing username",
 			body: `{"password":"oldpassword123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "", "oldpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "", "oldpassword123").
 					Return(nil, errors.New("cannot retrieve account"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -470,8 +457,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - missing password",
 			body: `{"username":"testuser"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "testuser", "").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "testuser", "").
 					Return(nil, errors.New("incorrect password"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -480,8 +467,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - empty request body",
 			body: `{}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "", "").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "", "").
 					Return(nil, errors.New("cannot retrieve account"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -490,8 +477,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - user not found",
 			body: `{"username":"nonexistent","password":"oldpassword123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "nonexistent", "oldpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "nonexistent", "oldpassword123").
 					Return(nil, errors.New("cannot retrieve account"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -501,8 +488,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - incorrect password",
 			body: `{"username":"testuser","password":"wrongpassword"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "testuser", "wrongpassword").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "testuser", "wrongpassword").
 					Return(nil, errors.New("incorrect password"))
 			},
 			expectedStatus: http.StatusBadRequest,
@@ -512,8 +499,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "error - token creation fails",
 			body: `{"username":"testuser","password":"oldpassword123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "testuser", "oldpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "testuser", "oldpassword123").
 					Return(&auth.Account{UserId: 1, Username: "testuser"}, nil)
 				svc.On("CreateTokensForUser", 1).
 					Return("", "", "", errors.New("failed to create session"))
@@ -525,8 +512,8 @@ func TestHandleLogin(t *testing.T) {
 		{
 			name: "success - valid login with different user",
 			body: `{"username":"anotheruser","password":"oldpassword123"}`,
-			mockSetup: func(svc *MockAuthService, db *sql.DB) {
-				svc.On("Login", db, "anotheruser", "oldpassword123").
+			mockSetup: func(svc *MockAuthService) {
+				svc.On("Login", "anotheruser", "oldpassword123").
 					Return(&auth.Account{UserId: 2, Username: "anotheruser"}, nil)
 				svc.On("CreateTokensForUser", 2).
 					Return("access_token_value_2", "token_id_value_2", "refresh_token_value_2", nil)
@@ -541,17 +528,12 @@ func TestHandleLogin(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockSvc := new(MockAuthService)
 
-			db, _, err := sqlmock.New()
-			assert.NoError(t, err)
-			defer db.Close()
-
-			tt.mockSetup(mockSvc, db)
+			tt.mockSetup(mockSvc)
 
 			logger, _ := test.NewNullLogger()
 
 			handler := &authApi.AuthHandler{
 				AccountSvc: mockSvc,
-				DB:         db,
 				Logger:     logger,
 			}
 

@@ -4,7 +4,6 @@ import (
 	"2_Go/internal/auth"
 	"2_Go/internal/obj"
 	"2_Go/middleware/authen"
-	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,15 +15,12 @@ const errBindingJSON = "%s Error binding JSON: %s"
 
 type AuthHandler struct {
 	AccountSvc auth.AuthService
-	DB         *sql.DB // replace with your DB type
-	// Logger     *logrus.Logger
-	Logger logrus.FieldLogger
+	Logger     logrus.FieldLogger
 }
 
-func NewHandler(acct auth.AuthService, db *sql.DB, logger logrus.FieldLogger) *AuthHandler {
+func NewHandler(acct auth.AuthService, logger logrus.FieldLogger) *AuthHandler {
 	return &AuthHandler{
 		AccountSvc: acct,
-		DB:         db,
 		Logger:     logger,
 	}
 }
@@ -91,7 +87,7 @@ func (h *AuthHandler) HandleRegister(c *gin.Context) {
 
 	account.DefaultObj = obj.DefaultObj{GUID: uuid.New().String()}
 
-	err := h.AccountSvc.RegisterAccount(h.DB, account)
+	err := h.AccountSvc.RegisterAccount(account)
 	if err != nil {
 		h.Logger.Errorf("%s Error Register: %s", c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -117,7 +113,7 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 	}
 
 	// Authenticate user
-	account, err := h.AccountSvc.Login(h.DB, req.Username, req.Password)
+	account, err := h.AccountSvc.Login(req.Username, req.Password)
 	if err != nil {
 		h.Logger.Errorf("%s Error Login: %s", c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -178,7 +174,7 @@ func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
 	userId := reqUser.(int)
 
 	// Change password with transaction
-	err := h.AccountSvc.ChangePassword(h.DB, userId, req.Password, req.NewPassword)
+	err := h.AccountSvc.ChangePassword(userId, req.Password, req.NewPassword)
 	if err != nil {
 		h.Logger.Errorf("%s Error Change: %s", c.ClientIP(), err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

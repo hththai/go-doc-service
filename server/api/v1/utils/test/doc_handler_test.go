@@ -49,6 +49,14 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
+func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*sql.Tx), args.Error(1)
+}
+
 // Helper function to create multipart request
 func createMultipartRequest(formData map[string]string, includeFile bool, fileName, fileContent string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
@@ -108,8 +116,7 @@ func TestUploadDocument(t *testing.T) {
 		fileContent   string
 		userId        int
 		setUserId     bool
-		mockRepo      func(repo *MockDocumentRepository)
-		mockDB        func() (*sql.DB, sqlmock.Sqlmock)
+		mockRepo      func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock)
 		expectErr     bool
 		errorContains string
 	}{
@@ -124,16 +131,14 @@ func TestUploadDocument(t *testing.T) {
 			fileContent: "dummy file content",
 			userId:      123,
 			setUserId:   true,
-			mockRepo: func(repo *MockDocumentRepository) {
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				mockDB.ExpectBegin()
+				mockDB.ExpectCommit()
+				tx, _ := db.Begin()
+				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
 				repo.On("InsertFilePath", mock.Anything, mock.Anything).Return(nil)
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
 			},
 			expectErr: false,
 		},
@@ -146,15 +151,13 @@ func TestUploadDocument(t *testing.T) {
 			includeFile: false,
 			userId:      456,
 			setUserId:   true,
-			mockRepo: func(repo *MockDocumentRepository) {
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				mockDB.ExpectBegin()
+				mockDB.ExpectCommit()
+				tx, _ := db.Begin()
+				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(2), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit()
-				return db, mock
 			},
 			expectErr: false,
 		},
@@ -166,12 +169,8 @@ func TestUploadDocument(t *testing.T) {
 			},
 			includeFile: false,
 			setUserId:   false,
-			mockRepo: func(repo *MockDocumentRepository) {
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				// No mock needed as it should fail before repository call
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				return db, mock
 			},
 			expectErr:     true,
 			errorContains: "user not authenticated",
@@ -185,13 +184,8 @@ func TestUploadDocument(t *testing.T) {
 			includeFile: false,
 			userId:      123,
 			setUserId:   true,
-			mockRepo: func(repo *MockDocumentRepository) {
-				// No mock needed as transaction should fail before repository call
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin().WillReturnError(errors.New("failed to start transaction"))
-				return db, mock
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				repo.On("BeginTx").Return(nil, errors.New("failed to start transaction"))
 			},
 			expectErr:     true,
 			errorContains: "failed to start transaction",
@@ -205,15 +199,13 @@ func TestUploadDocument(t *testing.T) {
 			includeFile: false,
 			userId:      123,
 			setUserId:   true,
-			mockRepo: func(repo *MockDocumentRepository) {
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				mockDB.ExpectBegin()
+				mockDB.ExpectRollback()
+				tx, _ := db.Begin()
+				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).
 					Return(int64(-1), errors.New("failed to set obj id"))
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectRollback()
-				return db, mock
 			},
 			expectErr:     true,
 			errorContains: "metadata save failed",
@@ -227,16 +219,14 @@ func TestUploadDocument(t *testing.T) {
 			includeFile: false,
 			userId:      123,
 			setUserId:   true,
-			mockRepo: func(repo *MockDocumentRepository) {
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				mockDB.ExpectBegin()
+				mockDB.ExpectRollback()
+				tx, _ := db.Begin()
+				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(3), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).
 					Return(int64(-1), errors.New("failed to save metadata"))
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectRollback()
-				return db, mock
 			},
 			expectErr:     true,
 			errorContains: "metadata save failed",
@@ -250,15 +240,13 @@ func TestUploadDocument(t *testing.T) {
 			includeFile: false,
 			userId:      123,
 			setUserId:   true,
-			mockRepo: func(repo *MockDocumentRepository) {
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				mockDB.ExpectBegin()
+				mockDB.ExpectCommit().WillReturnError(errors.New("commit failed"))
+				tx, _ := db.Begin()
+				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(4), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(4), nil)
-			},
-			mockDB: func() (*sql.DB, sqlmock.Sqlmock) {
-				db, mock, _ := sqlmock.New()
-				mock.ExpectBegin()
-				mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
-				return db, mock
 			},
 			expectErr:     true,
 			errorContains: "commit failed",
@@ -275,15 +263,15 @@ func TestUploadDocument(t *testing.T) {
 
 			// Setup mocks
 			mockRepo := new(MockDocumentRepository)
-			tt.mockRepo(mockRepo)
-
-			db, mockDB := tt.mockDB()
+			db, mockDB, _ := sqlmock.New()
 			defer db.Close()
+
+			tt.mockRepo(mockRepo, db, mockDB)
 
 			service := document.NewDocumentService(mockRepo)
 
 			// Execute
-			err := utils.UploadDocument(c, service, db)
+			err := utils.UploadDocument(c, service)
 
 			// Verify results
 			verifyTestResult(t, err, tt.expectErr, tt.errorContains, mockRepo, mockDB)

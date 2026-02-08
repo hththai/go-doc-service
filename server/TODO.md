@@ -1,6 +1,7 @@
 # Server Architecture Review & TODO
 
 **Date:** 2026-02-01
+**Last Updated:** 2026-02-08
 **Total Lines of Code:** ~4,234 lines of Go code
 **Test Files:** 6 test files
 
@@ -49,28 +50,28 @@ server/
 
 ## Critical Issues
 
-### 1. Business Logic in Wrong Layer ❌
+### 1. Business Logic in Wrong Layer ⚠️ (Partial Progress)
 
 **Problem:**
-- `api/v1/utils/register_handler.go` (417 lines) - Contains authentication business logic
-- `api/v1/utils/document_handler.go` (251 lines) - Contains file upload business logic
+- `api/v1/utils/register_handler.go` (417 lines) - ⚠️ Auth logic partially extracted to auth service
+- `api/v1/utils/document_handler.go` (251 lines) - ❌ Still contains file upload business logic
 - These are not utilities but complex business operations
 
 **Files:**
-- `/server/api/v1/utils/register_handler.go`
-- `/server/api/v1/utils/document_handler.go`
+- `/server/api/v1/utils/register_handler.go` - Review for remaining logic
+- `/server/api/v1/utils/document_handler.go` - Needs extraction to document service
 
 **Fix:**
-- [ ] Extract business logic from `api/v1/utils/` to appropriate service layers
+- [x] Extract business logic from `api/v1/utils/` to appropriate service layers
 - [ ] Keep utils package for actual utilities (validation, sanitization, helpers)
-- [ ] Move file handling logic to `internal/document/service.go`
-- [ ] Move authentication orchestration to `internal/auth/service.go`
+- [ ] Move file handling logic from `api/v1/utils/document_handler.go` to `internal/document/service.go`
+- [x] Move authentication orchestration to `internal/auth/service.go` (RegisterAccount, ChangePassword, token operations)
 
 ---
 
-### 2. Handlers Accessing Database Directly ❌
+### 2. Handlers Accessing Database Directly ✅ COMPLETED
 
-**Problem:**
+**Previous Problem:**
 ```go
 type AuthHandler struct {
     AccountSvc auth.AuthService
@@ -79,15 +80,24 @@ type AuthHandler struct {
 }
 ```
 
-**Files:**
-- `/server/api/v1/authApi/handler.go`
-- `/server/api/v1/documentApi/handler.go`
+**Current State:**
+```go
+type AuthHandler struct {
+    AccountSvc auth.AuthService
+    Logger     logrus.FieldLogger
+}  // ✅ Clean - no DB dependency
+```
 
-**Fix:**
-- [ ] Remove `*sql.DB` from all handler structs
-- [ ] Handlers should only depend on services
-- [ ] Services manage all database transactions
-- [ ] Update handler initialization in `main.go`
+**Files Updated:**
+- `/server/api/v1/authApi/handler.go` ✅
+- `/server/api/v1/documentApi/handler.go` ✅
+
+**Completed:**
+- [x] Remove `*sql.DB` from all handler structs
+- [x] Handlers should only depend on services
+- [x] Services manage all database transactions
+- [x] Update handler initialization in `main.go`
+- [x] Repositories expose `BeginTx()` for transaction support
 
 ---
 
@@ -118,19 +128,19 @@ type Config struct {
 
 ---
 
-### 4. Inconsistent Service Layer ❌
+### 4. Inconsistent Service Layer ⚠️ (Partial Progress)
 
 **Problem:**
-- `auth` module: Full repository+service pattern with business logic
-- `document` module: Thin service layer (just delegates to repository)
+- `auth` module: ✅ Full repository+service pattern with business logic and internal tx management
+- `document` module: ❌ Thin service layer (just delegates to repository)
 - No consistent approach to validation
 
 **Files:**
-- `/server/internal/auth/service.go` - Good example
-- `/server/internal/document/service.go` - Too thin
+- `/server/internal/auth/service.go` - ✅ Good example (updated with RegisterAccount, ChangePassword, token ops)
+- `/server/internal/document/service.go` - ❌ Too thin (needs UploadDocument logic from utils)
 
 **Fix:**
-- [ ] Add proper business logic to `internal/document/service.go`
+- [ ] Add proper business logic to `internal/document/service.go` (move from api/v1/utils/document_handler.go)
 - [ ] Move file validation logic from handlers to document service
 - [ ] Standardize service method signatures across modules
 - [ ] Document service layer responsibilities
@@ -315,14 +325,16 @@ type Config struct {
 
 1. **Extract Business Logic from Utils**
    - [ ] Move file handling from `api/v1/utils/document_handler.go` to `internal/document/service.go`
-   - [ ] Move auth logic from `api/v1/utils/register_handler.go` to `internal/auth/service.go`
-   - [ ] Update handler imports and calls
+   - [x] Move auth logic from `api/v1/utils/register_handler.go` to `internal/auth/service.go`
+   - [x] Token operations (CreateTokensForUser, RefreshAccessToken, ValidateAccessToken) moved to auth service
+   - [x] High-level operations (RegisterAccount, ChangePassword) with internal transaction management
 
-2. **Remove DB Dependencies from Handlers**
-   - [ ] Update `AuthHandler` struct - remove `DB` field
-   - [ ] Update `DocumentHandler` struct - remove `DB` field
-   - [ ] Services handle all DB operations
-   - [ ] Update `main.go` handler initialization
+2. **Remove DB Dependencies from Handlers** ✓
+   - [x] Update `AuthHandler` struct - remove `DB` field
+   - [x] Update `DocumentHandler` struct - remove `DB` field
+   - [x] Services handle all DB operations
+   - [x] Update `main.go` handler initialization
+   - [x] Repositories now expose `BeginTx()` for transaction support
 
 3. **Centralize Configuration**
    - [ ] Create `internal/config/config.go`
@@ -405,14 +417,19 @@ type Config struct {
 ## Key Files Reference
 
 ### Critical Files to Refactor
-- `/server/api/v1/utils/register_handler.go` - 417 lines, needs extraction
-- `/server/api/v1/utils/document_handler.go` - 251 lines, needs extraction
-- `/server/main.go` - 232 lines, needs simplification
-- `/server/internal/document/service.go` - Too thin, needs enhancement
+- `/server/api/v1/utils/register_handler.go` - 417 lines (partially extracted, review remaining)
+- `/server/api/v1/utils/document_handler.go` - 251 lines, needs extraction to document service
+- `/server/main.go` - needs simplification
+- `/server/internal/document/service.go` - Too thin, needs business logic (file handling)
+
+### Completed Refactoring ✓
+- `/server/api/v1/authApi/handler.go` - Clean handler, no DB dependency
+- `/server/api/v1/documentApi/handler.go` - Clean handler, no DB dependency
+- `/server/internal/auth/service.go` - Full service with transaction management
 
 ### Good Examples to Follow
-- `/server/internal/auth/service.go` - Good service layer pattern
-- `/server/internal/auth/repository.go` - Good repository pattern
+- `/server/internal/auth/service.go` - Good service layer pattern with internal tx management
+- `/server/internal/auth/repository.go` - Good repository pattern with BeginTx()
 - `/server/internal/auth/test/auth_test.go` - Good test patterns
 
 ### Configuration Files

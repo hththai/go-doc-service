@@ -4,7 +4,6 @@ import (
 	"2_Go/api/v1/utils"
 	"2_Go/internal/auth"
 	"2_Go/internal/document"
-	"database/sql"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,15 +13,13 @@ import (
 type DocumentHandler struct {
 	AccountSvc auth.AuthService
 	DocSvc     document.DocumentService
-	DB         *sql.DB // replace with your DB type
 	Logger     logrus.FieldLogger
 }
 
-func NewHandler(acct auth.AuthService, doc document.DocumentService, db *sql.DB, logger logrus.FieldLogger) *DocumentHandler {
+func NewHandler(acct auth.AuthService, doc document.DocumentService, logger logrus.FieldLogger) *DocumentHandler {
 	return &DocumentHandler{
 		AccountSvc: acct,
 		DocSvc:     doc,
-		DB:         db,
 		Logger:     logger,
 	}
 }
@@ -56,7 +53,7 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
 		return
 	}
-	err = utils.UploadDocument(c, &h.DocSvc, h.DB)
+	err = utils.UploadDocument(c, &h.DocSvc)
 
 	if err != nil {
 		h.Logger.Errorf("%s Error Upload: %s", c.ClientIP(), err)

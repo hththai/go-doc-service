@@ -11,7 +11,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -24,8 +23,8 @@ type MockAuthService struct {
 	mock.Mock
 }
 
-func (m *MockAuthService) ValidateAccountByIdService(db *sql.DB, userId int, password string) error {
-	args := m.Called(db, userId, password)
+func (m *MockAuthService) ValidateAccountByIdService(userId int, password string) error {
+	args := m.Called(userId, password)
 	return args.Error(0)
 }
 
@@ -45,8 +44,8 @@ func (m *MockAuthService) IsValidToken(c *gin.Context) (string, error) {
 
 // New interface methods
 
-func (m *MockAuthService) ChangePassword(db *sql.DB, userId int, currentPassword, newPassword string) error {
-	args := m.Called(db, userId, currentPassword, newPassword)
+func (m *MockAuthService) ChangePassword(userId int, currentPassword, newPassword string) error {
+	args := m.Called(userId, currentPassword, newPassword)
 	return args.Error(0)
 }
 
@@ -65,8 +64,8 @@ func (m *MockAuthService) CreateTokensForUser(userId int) (accessToken, tokenId,
 	return args.String(0), args.String(1), args.String(2), args.Error(3)
 }
 
-func (m *MockAuthService) RegisterAccount(db *sql.DB, account auth.Account) error {
-	args := m.Called(db, account)
+func (m *MockAuthService) RegisterAccount(account auth.Account) error {
+	args := m.Called(account)
 	return args.Error(0)
 }
 
@@ -100,19 +99,13 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	logger.Level = logrus.DebugLevel // Enable debug level logging
 	mockSvc := new(MockAuthService)
 
-	// Create a sqlmock database
-	db, _, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer db.Close()
-
 	h := &authApi.AuthHandler{
 		AccountSvc: mockSvc,
 		Logger:     logger,
-		DB:         db,
 	}
 
 	// 2. Define Mock Expectations - now uses ChangePassword
-	mockSvc.On("ChangePassword", db, 123, "oldpassword123", "securepassword123").Return(nil)
+	mockSvc.On("ChangePassword", 123, "oldpassword123", "securepassword123").Return(nil)
 
 	// 3. Create Request and Inject URL Params
 	w := httptest.NewRecorder()

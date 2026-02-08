@@ -10,6 +10,11 @@ func NewDocumentService(repo DocumentRepository) *DocumentService {
 	return &DocumentService{repo: repo}
 }
 
+// BeginTx starts a new database transaction.
+func (s *DocumentService) BeginTx() (*sql.Tx, error) {
+	return s.repo.BeginTx()
+}
+
 func (s *DocumentService) SetLatestObjID(tx *sql.Tx, document *Document) (int64, error) {
 	return s.repo.SetLatestObjId(tx, document)
 }

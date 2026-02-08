@@ -11,6 +11,8 @@ type DocumentRepository interface {
 	SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error)
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
+	// Transaction support
+	BeginTx() (*sql.Tx, error)
 }
 
 type documentRepositoryImpl struct {
@@ -19,6 +21,11 @@ type documentRepositoryImpl struct {
 
 func NewDocumentRepository(db *sql.DB) DocumentRepository {
 	return &documentRepositoryImpl{db: db}
+}
+
+// BeginTx starts a new database transaction.
+func (r *documentRepositoryImpl) BeginTx() (*sql.Tx, error) {
+	return r.db.Begin()
 }
 
 // Resolve objID gapless by table if there is file(s) attachment.

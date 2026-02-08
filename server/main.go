@@ -71,7 +71,7 @@ func main() {
 	})
 
 	// Public auth handler for register and login
-	publicAuthHandler := authApi.NewHandler(acctSvc, db, log)
+	publicAuthHandler := authApi.NewHandler(acctSvc, log)
 	r.POST("/register", publicAuthHandler.HandleRegister)
 	r.POST("/login", publicAuthHandler.HandleLogin)
 
@@ -81,7 +81,6 @@ func main() {
 	deps := &v1.Dependencies{
 		AuthSvc: acctSvc,
 		DocSvc:  *docService,
-		DB:      db,
 		Logger:  log,
 	}
 
