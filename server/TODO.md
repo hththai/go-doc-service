@@ -60,6 +60,7 @@ server/
 - ✅ Auth logic moved to `internal/auth/service.go`
 - ✅ File handling moved to `internal/document/service.go`
 - ✅ `document_handler.go` deleted (no longer needed)
+- ✅ `register_handler.go` deleted (no longer needed)
 
 **Completed:**
 - [x] Extract business logic from `api/v1/utils/` to appropriate service layers
@@ -424,7 +425,6 @@ type Config struct {
 ## Key Files Reference
 
 ### Critical Files to Refactor
-- `/server/api/v1/utils/register_handler.go` - 417 lines (partially extracted, review remaining)
 - `/server/main.go` - needs simplification
 
 ### Completed Refactoring ✓
@@ -433,6 +433,7 @@ type Config struct {
 - `/server/internal/auth/service.go` - Full service with transaction management
 - `/server/internal/document/service.go` - Full service with UploadDocument, file handling, tx management
 - `/server/api/v1/utils/document_handler.go` - DELETED (logic moved to document service)
+- `/server/api/v1/utils/register_handler.go` - DELETED (logic moved to auth service)
 
 ### Good Examples to Follow
 - `/server/internal/auth/service.go` - Good service layer pattern with internal tx management
