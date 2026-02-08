@@ -1,6 +1,7 @@
 package authentest
 
 import (
+	"2_Go/internal/config"
 	"2_Go/middleware/authen"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
+
+func init() {
+	config.Load()
+}
 
 func TestSayHello(t *testing.T) {
 	err := authen.SayHello()

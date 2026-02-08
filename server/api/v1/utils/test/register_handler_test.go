@@ -3,8 +3,8 @@ package test
 import (
 	"2_Go/api/v1/authApi"
 	"2_Go/internal/auth"
+	"2_Go/internal/config"
 	"2_Go/middleware/authen"
-	serverutils "2_Go/utils"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -19,6 +19,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+func init() {
+	config.Load()
+}
 
 // MockAuthService mocks the auth.AuthService interface
 // Embedding auth.AuthService allows the mock to satisfy the interface
@@ -655,7 +659,7 @@ func TestHandleRefresh(t *testing.T) {
 						"exp":    time.Now().Add(-1 * time.Hour).Unix(), // Expired 1 hour ago
 						"type":   "refresh",
 					})
-				expiredTokenString, _ := expiredToken.SignedString([]byte(serverutils.GetConfigJWT()))
+				expiredTokenString, _ := expiredToken.SignedString([]byte(config.Get().JWT.Secret))
 				c.Request.AddCookie(&http.Cookie{
 					Name:  "refresh_token",
 					Value: expiredTokenString,
@@ -711,7 +715,7 @@ func TestHandleRefresh(t *testing.T) {
 						"exp":    time.Now().Add(7 * 24 * time.Hour).Unix(),
 						"type":   "refresh",
 					})
-				invalidTokenString, _ := invalidToken.SignedString([]byte(serverutils.GetConfigJWT()))
+				invalidTokenString, _ := invalidToken.SignedString([]byte(config.Get().JWT.Secret))
 				c.Request.AddCookie(&http.Cookie{
 					Name:  "refresh_token",
 					Value: invalidTokenString,
@@ -734,7 +738,7 @@ func TestHandleRefresh(t *testing.T) {
 						"exp":  time.Now().Add(7 * 24 * time.Hour).Unix(),
 						"type": "refresh",
 					})
-				tokenString, _ := tokenWithoutUserId.SignedString([]byte(serverutils.GetConfigJWT()))
+				tokenString, _ := tokenWithoutUserId.SignedString([]byte(config.Get().JWT.Secret))
 				c.Request.AddCookie(&http.Cookie{
 					Name:  "refresh_token",
 					Value: tokenString,

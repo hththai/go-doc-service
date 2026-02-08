@@ -1,7 +1,7 @@
 package authen
 
 import (
-	"2_Go/utils"
+	"2_Go/internal/config"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,7 +12,9 @@ import (
 	"github.com/google/uuid"
 )
 
-var secretKey = []byte(utils.GetConfigJWT())
+func getSecretKey() []byte {
+	return []byte(config.Get().JWT.Secret)
+}
 
 // For testing purpose
 func SayHello() error {
@@ -35,7 +37,7 @@ func SayHello() error {
 // 			"type":     "access",
 // 		})
 
-// 	tokenString, err := token.SignedString(secretKey)
+// 	tokenString, err := token.SignedString(getSecretKey())
 
 // 	if err != nil {
 // 		return "", "", err
@@ -58,7 +60,7 @@ func CreateAccessToken(userId int) (string, string, error) {
 			"type":    "access",
 		})
 
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString(getSecretKey())
 
 	if err != nil {
 		return "", "", err
@@ -69,7 +71,7 @@ func CreateAccessToken(userId int) (string, string, error) {
 
 func VerifyToken(tokenString string) (*jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+		return getSecretKey(), nil
 	})
 
 	if err != nil {
@@ -93,7 +95,7 @@ func CreateRefreshToken(userId int) (string, error) {
 			"type":   "refresh",
 		})
 
-	singedToken, err := token.SignedString(secretKey)
+	singedToken, err := token.SignedString(getSecretKey())
 
 	if err != nil {
 		return "", err
@@ -116,7 +118,7 @@ func JWTAuth() gin.HandlerFunc {
 
 		// Validate if it access_token.
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return secretKey, nil
+			return getSecretKey(), nil
 		})
 		if err != nil {
 			c.AbortWithStatusJSON(401, gin.H{"error": "invalid token"})

@@ -1,9 +1,9 @@
 package utils
 
 import (
+	"2_Go/internal/config"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,27 +12,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
+// IsProduction returns true if running in production environment.
 func IsProduction() bool {
-	return os.Getenv("GO_ENV") == "production"
-}
-
-// TODO: May need to make it more automation.
-func GetConfigJWT() string {
-	_ = godotenv.Load(".env")
-
-	env := os.Getenv("GO_ENV")
-	switch env {
-	case "development":
-		_ = godotenv.Overload(".env.development")
-	case "production":
-		_ = godotenv.Overload(".env.production")
-	default:
-		log.Println("GO_ENV not set, using defaults from .env")
-	}
-	return os.Getenv("JWT_SECRET")
+	return config.IsProduction()
 }
 
 func SanitizeFileName(name string) (string, error) {

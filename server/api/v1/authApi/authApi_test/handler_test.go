@@ -3,6 +3,7 @@ package authApi_test
 import (
 	"2_Go/api/v1/authApi"
 	"2_Go/internal/auth"
+	"2_Go/internal/config"
 	"2_Go/middleware/authen"
 	"bytes"
 	"database/sql"
@@ -17,6 +18,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+func init() {
+	config.Load()
+}
 
 type MockAuthService struct {
 	auth.AuthService

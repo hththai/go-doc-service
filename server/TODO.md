@@ -1,7 +1,7 @@
 # Server Architecture Review & TODO
 
 **Date:** 2026-02-01
-**Last Updated:** 2026-02-08 (document handler refactored)
+**Last Updated:** 2026-02-08 (configuration centralized)
 **Total Lines of Code:** ~4,234 lines of Go code
 **Test Files:** 6 test files
 
@@ -19,10 +19,11 @@ server/
 │   └── utils/
 ├── internal/         # Business Logic Layer
 │   ├── auth/         # Authentication & authorization
+│   ├── config/       # Centralized configuration ✓
 │   ├── document/     # Document management
 │   ├── log/          # Logging models
 │   ├── obj/          # Shared domain objects
-│   └── repo/         # Database configuration
+│   └── repo/         # Database schema & initialization
 ├── middleware/       # Middleware components
 │   └── authen/       # JWT authentication
 └── utils/            # Shared utilities
@@ -102,28 +103,42 @@ type AuthHandler struct {
 
 ---
 
-### 3. Scattered Configuration ❌
+### 3. Scattered Configuration ✅ COMPLETED
 
-**Problem:**
+**Previous Problem:**
 - Config loading in multiple places:
   - `internal/repo/config.go` - DB config
   - `utils/utils.go` - JWT config loading
   - `main.go` - Environment detection
 - No centralized configuration struct
 
-**Fix:**
-- [ ] Create `internal/config/` package
-- [ ] Define single `Config` struct with all settings
-- [ ] Centralize all `.env` loading
-- [ ] Inject config into services/handlers as needed
+**Current State:**
+- ✅ Created `internal/config/config.go` with centralized Config struct
+- ✅ All configuration loaded once via `config.Load()`
+- ✅ Separated database schema to `internal/repo/schema.go`
+- ✅ Created `internal/repo/database.go` for DB initialization using config
+- ✅ Updated `middleware/authen/` to use `config.Get().JWT.Secret`
+- ✅ Updated `utils/utils.go` to delegate `IsProduction()` to config
+- ✅ Updated `main.go` to use centralized config
 
-**Example structure:**
+**Files Created/Updated:**
+- `/server/internal/config/config.go` - NEW: Centralized config with Config struct
+- `/server/internal/repo/schema.go` - NEW: Database migrations
+- `/server/internal/repo/database.go` - NEW: InitDB using config
+- `/server/internal/repo/config.go` - DELETED (split into schema.go + database.go)
+- `/server/middleware/authen/authenWithJWT.go` - Uses config.Get().JWT.Secret
+- `/server/utils/utils.go` - Delegates to config.IsProduction()
+- `/server/main.go` - Uses config.Load() and passes config to services
+
+**Config Structure:**
 ```go
 type Config struct {
-    Database DatabaseConfig
-    JWT      JWTConfig
-    Server   ServerConfig
-    Redis    RedisConfig
+    Env      string
+    Server   ServerConfig   // Port
+    Database DatabaseConfig // User, Password, Host, Port, Name
+    JWT      JWTConfig      // Secret
+    CORS     CORSConfig     // Origins
+    Redis    RedisConfig    // Addr
 }
 ```
 
@@ -344,11 +359,11 @@ type Config struct {
    - [x] Update `main.go` handler initialization
    - [x] Repositories now expose `BeginTx()` for transaction support
 
-3. **Centralize Configuration**
-   - [ ] Create `internal/config/config.go`
-   - [ ] Define `Config` struct
-   - [ ] Migrate all config loading to config package
-   - [ ] Update all packages to use centralized config
+3. **Centralize Configuration** ✓
+   - [x] Create `internal/config/config.go`
+   - [x] Define `Config` struct
+   - [x] Migrate all config loading to config package
+   - [x] Update all packages to use centralized config
 
 4. **Add DTO Layer**
    - [ ] Create `api/v1/models/` directory
@@ -432,8 +447,12 @@ type Config struct {
 - `/server/api/v1/documentApi/handler.go` - Clean handler, no DB dependency, uses service for uploads
 - `/server/internal/auth/service.go` - Full service with transaction management
 - `/server/internal/document/service.go` - Full service with UploadDocument, file handling, tx management
+- `/server/internal/config/config.go` - Centralized configuration with Config struct
+- `/server/internal/repo/schema.go` - Database migrations (extracted from old config.go)
+- `/server/internal/repo/database.go` - InitDB using centralized config
 - `/server/api/v1/utils/document_handler.go` - DELETED (logic moved to document service)
 - `/server/api/v1/utils/register_handler.go` - DELETED (logic moved to auth service)
+- `/server/internal/repo/config.go` - DELETED (split into schema.go + database.go)
 
 ### Good Examples to Follow
 - `/server/internal/auth/service.go` - Good service layer pattern with internal tx management

@@ -5,16 +5,13 @@ import (
 	"2_Go/api/v1/authApi"
 	"2_Go/api/v1/routers"
 	"2_Go/internal/auth"
+	"2_Go/internal/config"
 	"2_Go/internal/document"
-	config "2_Go/internal/repo"
+	"2_Go/internal/repo"
 	rateLimit "2_Go/middleware"
 	"2_Go/middleware/authen"
-
-	"2_Go/utils"
 	"context"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -31,9 +28,10 @@ func main() {
 	// Initialize logging first
 	AddLogService()
 
-	dbCredential := config.LoadConfig()
+	// Load centralized config
+	cfg := config.Load()
 
-	db, err := config.InitDB(dbCredential)
+	db, err := repo.InitDB(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,14 +43,13 @@ func main() {
 	r := gin.Default()
 
 	// Redis middleware (production only)
-	if utils.IsProduction() {
-		AddRedisService(r)
+	if config.IsProduction() {
+		AddRedisService(r, cfg)
 	}
 
 	// CORS config.
-	corsOrigins := strings.Split(os.Getenv("CORS_ORIGINS"), ",")
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     corsOrigins,
+		AllowOrigins:     cfg.CORS.Origins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -91,8 +88,8 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "success"})
 	})
 
-	log.Info("Server starting on :8088")
-	if err := r.Run(":8088"); err != nil {
+	log.Infof("Server starting on :%s", cfg.Server.Port)
+	if err := r.Run(":" + cfg.Server.Port); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
 }
@@ -113,8 +110,8 @@ func AddLogService() {
 }
 
 // Register Redis Services.
-func AddRedisService(r *gin.Engine) {
-	rdb := redis.NewClient(&redis.Options{Addr: "redis-service:6379"})
+func AddRedisService(r *gin.Engine, cfg *config.Config) {
+	rdb := redis.NewClient(&redis.Options{Addr: cfg.Redis.Addr})
 	if err := rdb.Ping(context.Background()).Err(); err != nil {
 		log.Fatalf("Redis not reachable: %v", err)
 	}
