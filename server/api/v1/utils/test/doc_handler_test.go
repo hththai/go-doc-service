@@ -1,7 +1,6 @@
 package test
 
 import (
-	"2_Go/api/v1/utils"
 	"2_Go/internal/document"
 	"bytes"
 	"database/sql"
@@ -105,6 +104,11 @@ func verifyTestResult(t *testing.T, err error, expectErr bool, errorContains str
 	assert.NoError(t, mockDB.ExpectationsWereMet())
 }
 
+// mockSaveFile is a mock file save function for testing
+func mockSaveFile(file *multipart.FileHeader, dst string) error {
+	return nil
+}
+
 func TestUploadDocument(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -115,7 +119,6 @@ func TestUploadDocument(t *testing.T) {
 		fileName      string
 		fileContent   string
 		userId        int
-		setUserId     bool
 		mockRepo      func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock)
 		expectErr     bool
 		errorContains string
@@ -130,7 +133,6 @@ func TestUploadDocument(t *testing.T) {
 			fileName:    "test.pdf",
 			fileContent: "dummy file content",
 			userId:      123,
-			setUserId:   true,
 			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				mockDB.ExpectBegin()
 				mockDB.ExpectCommit()
@@ -150,7 +152,6 @@ func TestUploadDocument(t *testing.T) {
 			},
 			includeFile: false,
 			userId:      456,
-			setUserId:   true,
 			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				mockDB.ExpectBegin()
 				mockDB.ExpectCommit()
@@ -162,20 +163,6 @@ func TestUploadDocument(t *testing.T) {
 			expectErr: false,
 		},
 		{
-			name: "error - user not authenticated",
-			formData: map[string]string{
-				"name":        "testDocumentName",
-				"description": "testDescription",
-			},
-			includeFile: false,
-			setUserId:   false,
-			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
-				// No mock needed as it should fail before repository call
-			},
-			expectErr:     true,
-			errorContains: "user not authenticated",
-		},
-		{
 			name: "error - transaction begin fails",
 			formData: map[string]string{
 				"name":        "testDocumentName",
@@ -183,7 +170,6 @@ func TestUploadDocument(t *testing.T) {
 			},
 			includeFile: false,
 			userId:      123,
-			setUserId:   true,
 			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				repo.On("BeginTx").Return(nil, errors.New("failed to start transaction"))
 			},
@@ -198,7 +184,6 @@ func TestUploadDocument(t *testing.T) {
 			},
 			includeFile: false,
 			userId:      123,
-			setUserId:   true,
 			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				mockDB.ExpectBegin()
 				mockDB.ExpectRollback()
@@ -218,7 +203,6 @@ func TestUploadDocument(t *testing.T) {
 			},
 			includeFile: false,
 			userId:      123,
-			setUserId:   true,
 			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				mockDB.ExpectBegin()
 				mockDB.ExpectRollback()
@@ -229,7 +213,7 @@ func TestUploadDocument(t *testing.T) {
 					Return(int64(-1), errors.New("failed to save metadata"))
 			},
 			expectErr:     true,
-			errorContains: "metadata save failed",
+			errorContains: "failed to save metadata",
 		},
 		{
 			name: "error - commit fails",
@@ -239,7 +223,6 @@ func TestUploadDocument(t *testing.T) {
 			},
 			includeFile: false,
 			userId:      123,
-			setUserId:   true,
 			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
 				mockDB.ExpectBegin()
 				mockDB.ExpectCommit().WillReturnError(errors.New("commit failed"))
@@ -258,8 +241,8 @@ func TestUploadDocument(t *testing.T) {
 			// Create multipart request
 			body, contentType := createMultipartRequest(tt.formData, tt.includeFile, tt.fileName, tt.fileContent)
 
-			// Setup test context
-			c, _ := setupTestContext(body, contentType, tt.setUserId, tt.userId)
+			// Setup test context to parse multipart form
+			c, _ := setupTestContext(body, contentType, true, tt.userId)
 
 			// Setup mocks
 			mockRepo := new(MockDocumentRepository)
@@ -270,8 +253,21 @@ func TestUploadDocument(t *testing.T) {
 
 			service := document.NewDocumentService(mockRepo)
 
-			// Execute
-			err := utils.UploadDocument(c, service)
+			// Build input from context
+			input := &document.UploadInput{
+				Title:       tt.formData["name"],
+				Description: tt.formData["description"],
+				UserId:      tt.userId,
+			}
+
+			// Get file if included
+			if tt.includeFile {
+				file, _ := c.FormFile("file")
+				input.File = file
+			}
+
+			// Execute using service method
+			err := service.UploadDocument(input, mockSaveFile)
 
 			// Verify results
 			verifyTestResult(t, err, tt.expectErr, tt.errorContains, mockRepo, mockDB)

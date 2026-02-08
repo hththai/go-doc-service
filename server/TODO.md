@@ -1,7 +1,7 @@
 # Server Architecture Review & TODO
 
 **Date:** 2026-02-01
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-08 (document handler refactored)
 **Total Lines of Code:** ~4,234 lines of Go code
 **Test Files:** 6 test files
 
@@ -50,21 +50,21 @@ server/
 
 ## Critical Issues
 
-### 1. Business Logic in Wrong Layer ⚠️ (Partial Progress)
+### 1. Business Logic in Wrong Layer ✅ COMPLETED
 
-**Problem:**
+**Previous Problem:**
 - `api/v1/utils/register_handler.go` (417 lines) - ⚠️ Auth logic partially extracted to auth service
 - `api/v1/utils/document_handler.go` (251 lines) - ❌ Still contains file upload business logic
-- These are not utilities but complex business operations
 
-**Files:**
-- `/server/api/v1/utils/register_handler.go` - Review for remaining logic
-- `/server/api/v1/utils/document_handler.go` - Needs extraction to document service
+**Current State:**
+- ✅ Auth logic moved to `internal/auth/service.go`
+- ✅ File handling moved to `internal/document/service.go`
+- ✅ `document_handler.go` deleted (no longer needed)
 
-**Fix:**
+**Completed:**
 - [x] Extract business logic from `api/v1/utils/` to appropriate service layers
-- [ ] Keep utils package for actual utilities (validation, sanitization, helpers)
-- [ ] Move file handling logic from `api/v1/utils/document_handler.go` to `internal/document/service.go`
+- [x] Keep utils package for actual utilities (validation, sanitization, helpers)
+- [x] Move file handling logic from `api/v1/utils/document_handler.go` to `internal/document/service.go`
 - [x] Move authentication orchestration to `internal/auth/service.go` (RegisterAccount, ChangePassword, token operations)
 
 ---
@@ -128,21 +128,23 @@ type Config struct {
 
 ---
 
-### 4. Inconsistent Service Layer ⚠️ (Partial Progress)
+### 4. Inconsistent Service Layer ✅ COMPLETED
 
-**Problem:**
+**Previous Problem:**
+- `document` module had thin service layer (just delegates to repository)
+
+**Current State:**
 - `auth` module: ✅ Full repository+service pattern with business logic and internal tx management
-- `document` module: ❌ Thin service layer (just delegates to repository)
-- No consistent approach to validation
+- `document` module: ✅ Full service pattern with UploadDocument, file handling, tx management
 
-**Files:**
-- `/server/internal/auth/service.go` - ✅ Good example (updated with RegisterAccount, ChangePassword, token ops)
-- `/server/internal/document/service.go` - ❌ Too thin (needs UploadDocument logic from utils)
+**Files Updated:**
+- `/server/internal/auth/service.go` - ✅ Full service (RegisterAccount, ChangePassword, token ops)
+- `/server/internal/document/service.go` - ✅ Full service (UploadDocument, file handling, virus scan)
 
-**Fix:**
-- [ ] Add proper business logic to `internal/document/service.go` (move from api/v1/utils/document_handler.go)
-- [ ] Move file validation logic from handlers to document service
-- [ ] Standardize service method signatures across modules
+**Completed:**
+- [x] Add proper business logic to `internal/document/service.go` (moved from api/v1/utils/document_handler.go)
+- [x] Move file validation logic from handlers to document service
+- [x] Standardize service method signatures across modules
 - [ ] Document service layer responsibilities
 
 ---
@@ -165,15 +167,19 @@ type Config struct {
 
 ## Medium Priority Issues
 
-### 6. Transaction Management Scattered
+### 6. Transaction Management Scattered ⚠️ (Partial Progress)
 
-**Problem:**
+**Previous Problem:**
 - Transaction handling in `api/v1/utils/` handlers
 - Inconsistent transaction patterns
 
+**Current State:**
+- ✅ Transaction handling moved to service layer (auth and document services)
+- ⚠️ Services still expose `*sql.Tx` in some method signatures
+
 **Fix:**
 - [ ] Implement Unit of Work pattern
-- [ ] Centralize transaction management in service layer
+- [x] Centralize transaction management in service layer
 - [ ] Service methods should not expose `*sql.Tx` parameters
 - [ ] Consider using a transaction middleware or context
 
@@ -323,11 +329,12 @@ type Config struct {
 
 ### Phase 1: Immediate (High Priority) - Weeks 1-2
 
-1. **Extract Business Logic from Utils**
-   - [ ] Move file handling from `api/v1/utils/document_handler.go` to `internal/document/service.go`
+1. **Extract Business Logic from Utils** ✓
+   - [x] Move file handling from `api/v1/utils/document_handler.go` to `internal/document/service.go`
    - [x] Move auth logic from `api/v1/utils/register_handler.go` to `internal/auth/service.go`
    - [x] Token operations (CreateTokensForUser, RefreshAccessToken, ValidateAccessToken) moved to auth service
    - [x] High-level operations (RegisterAccount, ChangePassword) with internal transaction management
+   - [x] Document service now handles: UploadDocument, file temp storage, virus scanning, path building
 
 2. **Remove DB Dependencies from Handlers** ✓
    - [x] Update `AuthHandler` struct - remove `DB` field
@@ -348,9 +355,9 @@ type Config struct {
    - [ ] Define response DTOs
    - [ ] Add DTO↔Domain mapping functions
 
-5. **Standardize Service Layer**
-   - [ ] Enhance `internal/document/service.go` with business logic
-   - [ ] Ensure consistent service patterns
+5. **Standardize Service Layer** ✓
+   - [x] Enhance `internal/document/service.go` with business logic
+   - [x] Ensure consistent service patterns
    - [ ] Move validation to services
 
 ### Phase 2: Medium Term - Weeks 3-4
@@ -418,18 +425,19 @@ type Config struct {
 
 ### Critical Files to Refactor
 - `/server/api/v1/utils/register_handler.go` - 417 lines (partially extracted, review remaining)
-- `/server/api/v1/utils/document_handler.go` - 251 lines, needs extraction to document service
 - `/server/main.go` - needs simplification
-- `/server/internal/document/service.go` - Too thin, needs business logic (file handling)
 
 ### Completed Refactoring ✓
 - `/server/api/v1/authApi/handler.go` - Clean handler, no DB dependency
-- `/server/api/v1/documentApi/handler.go` - Clean handler, no DB dependency
+- `/server/api/v1/documentApi/handler.go` - Clean handler, no DB dependency, uses service for uploads
 - `/server/internal/auth/service.go` - Full service with transaction management
+- `/server/internal/document/service.go` - Full service with UploadDocument, file handling, tx management
+- `/server/api/v1/utils/document_handler.go` - DELETED (logic moved to document service)
 
 ### Good Examples to Follow
 - `/server/internal/auth/service.go` - Good service layer pattern with internal tx management
 - `/server/internal/auth/repository.go` - Good repository pattern with BeginTx()
+- `/server/internal/document/service.go` - Good service pattern with FileSaveFunc injection for testability
 - `/server/internal/auth/test/auth_test.go` - Good test patterns
 
 ### Configuration Files
