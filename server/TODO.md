@@ -146,7 +146,7 @@ type Config struct {
 - [x] Add proper business logic to `internal/document/service.go` (moved from api/v1/utils/document_handler.go)
 - [x] Move file validation logic from handlers to document service
 - [x] Standardize service method signatures across modules
-- [ ] Document service layer responsibilities
+- [x] Document service layer responsibilities (see `internal/SERVICE_LAYER.md`)
 
 ---
 
