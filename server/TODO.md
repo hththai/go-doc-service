@@ -64,10 +64,10 @@ server/
 - ✅ `register_handler.go` deleted (no longer needed)
 
 **Completed:**
-- [x] Extract business logic from `api/v1/utils/` to appropriate service layers
-- [x] Keep utils package for actual utilities (validation, sanitization, helpers)
-- [x] Move file handling logic from `api/v1/utils/document_handler.go` to `internal/document/service.go`
-- [x] Move authentication orchestration to `internal/auth/service.go` (RegisterAccount, ChangePassword, token operations)
+- ✅ Extract business logic from `api/v1/utils/` to appropriate service layers
+- ✅ Keep utils package for actual utilities (validation, sanitization, helpers)
+- ✅ Move file handling logic from `api/v1/utils/document_handler.go` to `internal/document/service.go`
+- ✅ Move authentication orchestration to `internal/auth/service.go` (RegisterAccount, ChangePassword, token operations)
 
 ---
 
@@ -95,11 +95,11 @@ type AuthHandler struct {
 - `/server/api/v1/documentApi/handler.go` ✅
 
 **Completed:**
-- [x] Remove `*sql.DB` from all handler structs
-- [x] Handlers should only depend on services
-- [x] Services manage all database transactions
-- [x] Update handler initialization in `main.go`
-- [x] Repositories expose `BeginTx()` for transaction support
+- ✅ Remove `*sql.DB` from all handler structs
+- ✅ Handlers should only depend on services
+- ✅ Services manage all database transactions
+- ✅ Update handler initialization in `main.go`
+- ✅ Repositories expose `BeginTx()` for transaction support
 
 ---
 
@@ -158,10 +158,10 @@ type Config struct {
 - `/server/internal/document/service.go` - ✅ Full service (UploadDocument, file handling, virus scan)
 
 **Completed:**
-- [x] Add proper business logic to `internal/document/service.go` (moved from api/v1/utils/document_handler.go)
-- [x] Move file validation logic from handlers to document service
-- [x] Standardize service method signatures across modules
-- [x] Document service layer responsibilities (see `internal/SERVICE_LAYER.md`)
+- ✅ Add proper business logic to `internal/document/service.go` (moved from api/v1/utils/document_handler.go)
+- ✅ Move file validation logic from handlers to document service
+- ✅ Standardize service method signatures across modules
+- ✅ Document service layer responsibilities (see `internal/SERVICE_LAYER.md`)
 
 ---
 
@@ -195,7 +195,7 @@ type Config struct {
 
 **Fix:**
 - [ ] Implement Unit of Work pattern
-- [x] Centralize transaction management in service layer
+- ✅ Centralize transaction management in service layer
 - [ ] Service methods should not expose `*sql.Tx` parameters
 - [ ] Consider using a transaction middleware or context
 
@@ -346,24 +346,24 @@ type Config struct {
 ### Phase 1: Immediate (High Priority) - Weeks 1-2
 
 1. **Extract Business Logic from Utils** ✅
-   - [x] Move file handling from `api/v1/utils/document_handler.go` to `internal/document/service.go`
-   - [x] Move auth logic from `api/v1/utils/register_handler.go` to `internal/auth/service.go`
-   - [x] Token operations (CreateTokensForUser, RefreshAccessToken, ValidateAccessToken) moved to auth service
-   - [x] High-level operations (RegisterAccount, ChangePassword) with internal transaction management
-   - [x] Document service now handles: UploadDocument, file temp storage, virus scanning, path building
+   - ✅ Move file handling from `api/v1/utils/document_handler.go` to `internal/document/service.go`
+   - ✅ Move auth logic from `api/v1/utils/register_handler.go` to `internal/auth/service.go`
+   - ✅ Token operations (CreateTokensForUser, RefreshAccessToken, ValidateAccessToken) moved to auth service
+   - ✅ High-level operations (RegisterAccount, ChangePassword) with internal transaction management
+   - ✅ Document service now handles: UploadDocument, file temp storage, virus scanning, path building
 
 2. **Remove DB Dependencies from Handlers** ✅
-   - [x] Update `AuthHandler` struct - remove `DB` field
-   - [x] Update `DocumentHandler` struct - remove `DB` field
-   - [x] Services handle all DB operations
-   - [x] Update `main.go` handler initialization
-   - [x] Repositories now expose `BeginTx()` for transaction support
+   - ✅ Update `AuthHandler` struct - remove `DB` field
+   - ✅ Update `DocumentHandler` struct - remove `DB` field
+   - ✅ Services handle all DB operations
+   - ✅ Update `main.go` handler initialization
+   - ✅ Repositories now expose `BeginTx()` for transaction support
 
 3. **Centralize Configuration** ✅
-   - [x] Create `internal/config/config.go`
-   - [x] Define `Config` struct
-   - [x] Migrate all config loading to config package
-   - [x] Update all packages to use centralized config
+   - ✅ Create `internal/config/config.go`
+   - ✅ Define `Config` struct
+   - ✅ Migrate all config loading to config package
+   - ✅ Update all packages to use centralized config
 
 4. **Add DTO Layer**
    - [ ] Create `api/v1/models/` directory
@@ -372,8 +372,8 @@ type Config struct {
    - [ ] Add DTO↔Domain mapping functions
 
 5. **Standardize Service Layer** ✅
-   - [x] Enhance `internal/document/service.go` with business logic
-   - [x] Ensure consistent service patterns
+   - ✅ Enhance `internal/document/service.go` with business logic
+   - ✅ Ensure consistent service patterns
    - [ ] Move validation to services
 
 ### Phase 2: Medium Term - Weeks 3-4
