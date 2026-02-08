@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     tools {
-        go 'Go 1.25.0' // Use the name you configured in Global Tool Configuration
+        go '1.25.0'
     }
 
     stages {
