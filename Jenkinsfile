@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'golang:1.25'
-            args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     stages {
         stage('Checkout') {
@@ -31,7 +26,6 @@ pipeline {
         }
 
         stage('Docker Build') {
-            agent any
             steps {
                 dir('server') {
                     sh 'docker build -t 2go-server:latest .'
