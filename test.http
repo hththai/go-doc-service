@@ -135,11 +135,17 @@ Content-Type: multipart/form-data; boundary=WebBoundary
 --WebBoundary
 Content-Disposition: form-data; name="title"
 
+This is title
+--WebBoundary
+Content-Disposition: form-data; name="description"
+
+Thisis description
+
 Hayden Thai Resume
 --WebBoundary
 Content-Disposition: form-data; name="tokenId"
 
-3cf1a029-5525-4610-8a93-0e01d1323bfe
+ae05869e-786a-4c12-bc85-802de6e43948
 --WebBoundary
 Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 
@@ -185,11 +191,10 @@ Content-Type: application/json
 }
 ###
 GET {{host}}/v1/auth/users/me
-
 Content-Type: application/json
 
 {
-    "tokenId": "ab5efec8-00da-4477-87a6-0ecdcd0c96a6"
+    "tokenId": "ae05869e-786a-4c12-bc85-802de6e43948"
 }
 
 ###
@@ -243,6 +248,7 @@ POST {{host}}/v1/auth/upload
 Content-Type: application/json
 
 {
+    "tokenId": "ae05869e-786a-4c12-bc85-802de6e43948",
     "name": "hello",
-    "description": "Description"
+    "description": "Description",
 }
