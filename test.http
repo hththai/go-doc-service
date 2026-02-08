@@ -237,3 +237,12 @@ Content-Type: application/json
     "username": "abvg",
     "password": "password"    
 }
+
+###Test upload without file
+POST {{host}}/v1/auth/upload
+Content-Type: application/json
+
+{
+    "name": "hello",
+    "description": "Description"
+}

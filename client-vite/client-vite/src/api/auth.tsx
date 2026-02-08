@@ -1,4 +1,4 @@
-// TODO: store in api folder.
+
 // Sample login function.
 export async function loginRequest({ username, password }: { username: string, password: string }) {
     const res = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
@@ -20,7 +20,7 @@ export async function loginRequest({ username, password }: { username: string, p
 }
 
 export async function refreshRequest() {
-    const res = await fetch(`${import.meta.env.VITE_API_URL} / v1 / auth / refresh`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/refresh`, {
         method: "POST",
         credentials: "include", // REQUIRED: sends refresh_token cookie
     });
