@@ -1,11 +1,20 @@
 http:
   routers:
     apigolang:
-      rule: "Host(`${API_DOMAIN_LOCAL}`) || Host(`${API_DOMAIN_PROD}`)"
+      rule: "Host(`${API_DOMAIN_PROD}`) && PathPrefix(`/go`)"
       entryPoints:
+        - web
         - websecure
       service: apigolang
+      middlewares:
+        - api-strip-prefix
       tls: {}
+
+  middlewares:
+    api-strip-prefix:
+      stripPrefix:
+        prefixes:
+          - "/go"
 
   services:
     apigolang:
