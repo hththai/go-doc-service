@@ -6,9 +6,17 @@ pipeline {
     }
 
     environment {
+        // Non-sensitive config
         API_DOMAIN_LOCAL = 'api.golang.localdomain'
         API_DOMAIN_PROD  = 'api.golang.hthai.cloud'
         API_PORT         = '8088'
+        GO_ENV           = 'production'
+
+        // Secrets from Jenkins Credentials
+        DB_ROOT_PASSWORD = credentials('db-root-password')
+        DB_USER          = credentials('db-user')
+        DB_PASSWORD      = credentials('db-password')
+        JWT_SECRET       = credentials('jwt-secret')
     }
 
     stages {
@@ -40,6 +48,27 @@ pipeline {
                 dir('server/dynamic') {
                     sh 'envsubst < config.yml.template > config.yml'
                     sh 'cat config.yml'
+                }
+            }
+        }
+
+        stage('Generate .env') {
+            steps {
+                dir('server') {
+                    sh '''
+                        cat > .env << EOF
+DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+DB_NAME=goDocument
+DB_USER=${DB_USER}
+DB_PASSWORD=${DB_PASSWORD}
+DB_HOST=db
+DB_PORT=3306
+GO_ENV=${GO_ENV}
+API_PORT=${API_PORT}
+JWT_SECRET=${JWT_SECRET}
+CORS_ORIGINS=https://${API_DOMAIN_PROD}
+EOF
+                    '''
                 }
             }
         }

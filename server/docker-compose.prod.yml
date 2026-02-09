@@ -1,0 +1,78 @@
+version: '3.9'
+
+# Production compose - connects to existing Traefik on host
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-service:
+    image: redis:7-alpine
+    restart: always
+    networks:
+      - backend
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build: .
+    container_name: golang_api
+    user: "1000:1000"
+    volumes:
+      - mydata:/app
+    environment:
+      - GO_ENV=${GO_ENV:-production}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME}
+      - REDIS_ADDR=redis-service:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    networks:
+      - backend
+      - traefik
+    depends_on:
+      db:
+        condition: service_healthy
+      redis-service:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.go-api.rule=Host(`${API_DOMAIN:-api.golang.hthai.cloud}`)"
+      - "traefik.http.routers.go-api.entrypoints=websecure"
+      - "traefik.http.routers.go-api.tls=true"
+      - "traefik.http.services.go-api.loadbalancer.server.port=8088"
+      - "traefik.docker.network=traefik"
+
+volumes:
+  mydata:
+  dbdata:
+
+networks:
+  backend:
+    driver: bridge
+  traefik:
+    external: true  # Connect to existing Traefik network
