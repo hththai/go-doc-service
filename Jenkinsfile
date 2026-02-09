@@ -7,8 +7,7 @@ pipeline {
 
     environment {
         // Non-sensitive config
-        API_DOMAIN_LOCAL = 'api.golang.localdomain'
-        API_DOMAIN_PROD  = 'api.golang.hthai.cloud'
+        API_DOMAIN_PROD  = 'box.hthai.cloud'
         API_PORT         = '8088'
         GO_ENV           = 'production'
 

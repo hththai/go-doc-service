@@ -61,10 +61,13 @@ services:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.go-api.rule=Host(`${API_DOMAIN:-api.golang.hthai.cloud}`)"
-      - "traefik.http.routers.go-api.entrypoints=websecure"
-      - "traefik.http.routers.go-api.tls=true"
-      - "traefik.http.services.go-api.loadbalancer.server.port=8088"
+      - "traefik.http.routers.api.rule=Host(`${API_DOMAIN}`) && PathPrefix(`/go`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.middlewares.api-strip-prefix.stripprefix.prefixes=/go"
+      - "traefik.http.routers.api.middlewares=api-strip-prefix"
+      - "traefik.http.services.api.loadbalancer.server.port=8088"
+      - "traefik.http.routers.api.tls=true"
       - "traefik.docker.network=traefik"
 
 volumes:
