@@ -7,26 +7,15 @@ services:
     restart: unless-stopped
     networks:
       - backend
-    command:
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.file.directory=/etc/traefik/dynamic"
-      - "--providers.file.watch=true"
-      - "--entryPoints.web.address=:80"
-    # ports:
-    #   - "80:80"
-    #   - "8080:8080"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dashboard.rule=Host(`traefik.localhost`)"
-      - "traefik.http.routers.dashboard.entrypoints=web"
-      - "traefik.http.routers.dashboard.service=api@internal"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard (insecure mode)
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik.yml:/etc/traefik/traefik.yml:ro"
       - "./dynamic:/etc/traefik/dynamic"
+      - "./certs:/certs:ro"
 
   whoami:
     image: "traefik/whoami"
@@ -43,18 +32,18 @@ services:
     container_name: mysql_db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: your
-      MYSQL_DATABASE: your
-      MYSQL_USER: your
-      MYSQL_PASSWORD: your
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "3307:3306"
+      - "${DB_PORT:-3307}:3306"
     volumes:
       - dbdata:/var/lib/mysql
     networks:
       - backend
     healthcheck:
-      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-ppassword" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_ROOT_PASSWORD}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -72,33 +61,43 @@ services:
       start_period: 30s
 
   api:
-    build: . # Current directory (where Dockerfile & main.go are)
+    build: .
     container_name: golang_api
     user: "1000:1000"
-    # ports:
-    #   - "8088:8088"
+    ports:
+      - "${API_PORT:-8088}:8088"
     volumes:
       - mydata:/app
     environment:
-      - GO_ENV=production
-      - DB_USER=your
-      - DB_PASSWORD=your
+      - GO_ENV=${GO_ENV:-production}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_NAME=goDocument
-      - REDIS_HOST=redis-service
-      - REDIS_PORT=6379
+      - DB_NAME=${DB_NAME}
+      - REDIS_ADDR=redis-service:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     networks:
       - backend
     depends_on:
       db:
         condition: service_healthy
-    labels:
-      #Using to resolve port managed by traefik
-      - "traefik.enable=true"
-      - "traefik.http.routers.api.rule=Host(`api.golang.localdomain`)"
-      - "traefik.http.routers.api.entrypoints=web"
-      - "traefik.http.services.api.loadbalancer.server.port=8088"
+      redis-service:
+        condition: service_healthy
+    # Routing configured via dynamic/config.yml instead of labels
+  # client:
+  #   build: ../client-vite/client-vite # path to your client folder
+  #   container_name: client_app
+  #   restart: unless-stopped
+  #   networks:
+  #     - backend
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.client.rule=Host(`client.golang.localdomain`)"
+  #     - "traefik.http.routers.client.entrypoints=websecure"
+  #     - "traefik.http.routers.client.tls=true"
+  #     - "traefik.http.services.client.loadbalancer.server.port=80"
 
 volumes:
   mydata:

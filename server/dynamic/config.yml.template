@@ -1,0 +1,14 @@
+http:
+  routers:
+    apigolang:
+      rule: "Host(`${API_DOMAIN_LOCAL}`) || Host(`${API_DOMAIN_PROD}`)"
+      entryPoints:
+        - websecure
+      service: apigolang
+      tls: {}
+
+  services:
+    apigolang:
+      loadBalancer:
+        servers:
+          - url: "http://golang_api:${API_PORT}"

@@ -1,6 +1,7 @@
 .env.development
 .env.production
 .env*
+!.env.example
 **/docker-compose.yml
 *.dev.*
 **/sess/
@@ -9,5 +10,6 @@
 **/certs
 **/cert.pem
 **/key.pem
+**/dynamic/config.yml
 **/filedata
 **/app

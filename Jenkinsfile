@@ -5,6 +5,12 @@ pipeline {
         go '1.25.0'
     }
 
+    environment {
+        API_DOMAIN_LOCAL = 'api.golang.localdomain'
+        API_DOMAIN_PROD  = 'api.golang.hthai.cloud'
+        API_PORT         = '8088'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -25,6 +31,15 @@ pipeline {
             steps {
                 dir('server') {
                     sh 'go test -v ./...'
+                }
+            }
+        }
+
+        stage('Generate Config') {
+            steps {
+                dir('server/dynamic') {
+                    sh 'envsubst < config.yml.template > config.yml'
+                    sh 'cat config.yml'
                 }
             }
         }
