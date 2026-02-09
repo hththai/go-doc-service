@@ -35,6 +35,9 @@ pipeline {
         }
 
         stage('Test') {
+            environment {
+                GO_ENV = 'test'
+            }
             steps {
                 dir('server') {
                     sh 'go test -v ./...'
