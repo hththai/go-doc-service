@@ -84,33 +84,10 @@ EOF
             steps {
                 dir('server') {
                     sh '''
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v "$(pwd):$(pwd)" \
-                            -w "$(pwd)" \
-                            -e API_DOMAIN=${API_DOMAIN_PROD} \
-                            -e DB_NAME=goDocument \
-                            -e DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD} \
-                            -e DB_USER=${DB_USER} \
-                            -e DB_PASSWORD=${DB_PASSWORD} \
-                            -e GO_ENV=${GO_ENV} \
-                            -e API_PORT=${API_PORT} \
-                            -e JWT_SECRET=${JWT_SECRET} \
-                            docker/compose:latest -f docker-compose.prod.yml down --remove-orphans || true
-
-                        docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v "$(pwd):$(pwd)" \
-                            -w "$(pwd)" \
-                            -e API_DOMAIN=${API_DOMAIN_PROD} \
-                            -e DB_NAME=goDocument \
-                            -e DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD} \
-                            -e DB_USER=${DB_USER} \
-                            -e DB_PASSWORD=${DB_PASSWORD} \
-                            -e GO_ENV=${GO_ENV} \
-                            -e API_PORT=${API_PORT} \
-                            -e JWT_SECRET=${JWT_SECRET} \
-                            docker/compose:latest -f docker-compose.prod.yml up -d --build
+                        export API_DOMAIN=${API_DOMAIN_PROD}
+                        export DB_NAME=goDocument
+                        docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+                        docker-compose -f docker-compose.prod.yml up -d --build
                     '''
                 }
             }
