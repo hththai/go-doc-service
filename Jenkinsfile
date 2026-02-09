@@ -89,6 +89,7 @@ EOF
                     sh '''
                         export API_DOMAIN=${API_DOMAIN_PROD}
                         export DB_NAME=goDocument
+                        docker network create traefik || true
                         docker-compose -f docker-compose.prod.yml down --remove-orphans || true
                         docker-compose -f docker-compose.prod.yml up -d
                     '''
