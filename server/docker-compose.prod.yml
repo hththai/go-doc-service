@@ -66,7 +66,7 @@ services:
       - "traefik.http.routers.api.middlewares=api-strip-prefix"
       - "traefik.http.services.api.loadbalancer.server.port=8088"
       - "traefik.http.routers.api.tls=true"
-      - "traefik.docker.network=backend"
+      - "traefik.docker.network=0_host-services_backend"
 
 volumes:
   mydata:
@@ -76,4 +76,5 @@ networks:
   internal:
     driver: bridge
   backend:
-    external: true  # Connect to existing Traefik network on host
+    external: true
+    name: 0_host-services_backend  # Traefik network on host
