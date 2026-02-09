@@ -36,6 +36,7 @@ services:
   api:
     image: 2go-server:latest
     container_name: golang_api
+    restart: always
     user: "1000:1000"
     volumes:
       - mydata:/app
