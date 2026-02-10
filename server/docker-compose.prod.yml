@@ -45,7 +45,7 @@ services:
       - GO_ENV=${GO_ENV:-production}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=db
+      - DB_HOST=mysql_db
       - DB_PORT=3306
       - DB_NAME=${DB_NAME}
       - REDIS_ADDR=redis-service:6379
