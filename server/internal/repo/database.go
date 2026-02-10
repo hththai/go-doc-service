@@ -4,6 +4,8 @@ import (
 	"2_Go/internal/config"
 	"database/sql"
 	"fmt"
+	"log"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -14,9 +16,24 @@ func InitDB(cfg *config.Config) (*sql.DB, error) {
 
 	// Connect without database to create it if needed.
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/", dbCfg.User, dbCfg.Password, dbCfg.Host, dbCfg.Port)
-	db, err := sql.Open("mysql", dsn)
+
+	var db *sql.DB
+	var err error
+
+	// Retry connection up to 10 times with 3 second intervals
+	for i := 0; i < 10; i++ {
+		db, err = sql.Open("mysql", dsn)
+		if err == nil {
+			err = db.Ping()
+		}
+		if err == nil {
+			break
+		}
+		log.Printf("Failed to connect to database (attempt %d/10): %v", i+1, err)
+		time.Sleep(3 * time.Second)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
+		return nil, fmt.Errorf("failed to connect after 10 attempts: %w", err)
 	}
 
 	_, err = db.Exec("CREATE DATABASE IF NOT EXISTS " + dbCfg.Name)
