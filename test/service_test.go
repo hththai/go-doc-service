@@ -12,9 +12,13 @@ import (
 	"github.com/gavv/httpexpect/v2"
 )
 
+const baseURL = "https://box.hthai.cloud/go"
+
+// const baseURL = "http://api.golang.localdomain"
+
 func TestPing(t *testing.T) {
 	// e := httpexpect.New(t, "http://api.golang.localdomain/testupload")
-	e := httpexpect.New(t, "http://api.golang.localdomain")
+	e := httpexpect.New(t, baseURL)
 
 	// Get ping
 	e.GET("/ping").
@@ -23,7 +27,7 @@ func TestPing(t *testing.T) {
 }
 
 func TestConcurrentPing(t *testing.T) {
-	e := httpexpect.New(t, "http://api.golang.localdomain")
+	e := httpexpect.New(t, baseURL)
 
 	// Number of concurrent requests.
 	const workers = 15
@@ -46,7 +50,7 @@ func TestConcurrentPing(t *testing.T) {
 }
 
 // func TestUploadWithoutFile(t *testing.T) {
-// 	e := httpexpect.New(t, "http://api.golang.localdomain")
+// 	e := httpexpect.New(t, baseURL)
 
 // 	e.POST("/testupload").WithMultipart().
 // 		WithFormField("name", "Testing by library2323").
@@ -56,7 +60,7 @@ func TestConcurrentPing(t *testing.T) {
 // }
 
 func TestUploadWithoutFilePen(t *testing.T) {
-	e := httpexpect.New(t, "http://api.golang.localdomain")
+	e := httpexpect.New(t, baseURL)
 
 	// Number of concurrent requests.
 	const workers = 4
@@ -83,7 +87,7 @@ func TestUploadWithoutFilePen(t *testing.T) {
 }
 
 func TestUploadFileError(t *testing.T) {
-	e := httpexpect.New(t, "http://api.golang.localdomain")
+	e := httpexpect.New(t, baseURL)
 
 	// Open the file.
 	file, err := os.Open("./Hayden Thai_Resume-2.pdf")
@@ -101,7 +105,7 @@ func TestUploadFileError(t *testing.T) {
 }
 
 func TestUploadFileSuccess(t *testing.T) {
-	e := httpexpect.New(t, "http://api.golang.localdomain")
+	e := httpexpect.New(t, baseURL)
 
 	// Open the file.
 	file, err := os.Open("./example.txt")
@@ -119,7 +123,7 @@ func TestUploadFileSuccess(t *testing.T) {
 }
 
 func TestUploadConcurrentRandom(t *testing.T) {
-	e := httpexpect.New(t, "http://api.golang.localdomain")
+	e := httpexpect.New(t, baseURL)
 
 	const workers = 10
 	var wg sync.WaitGroup
@@ -173,7 +177,7 @@ func TestUploadConcurrentRandom(t *testing.T) {
 }
 
 func BenchmarkUploadConcurrentRandom(b *testing.B) {
-	e := httpexpect.New(b, "http://api.golang.localdomain")
+	e := httpexpect.New(b, baseURL)
 
 	// Seed randomness once
 	rand.Seed(time.Now().UnixNano())

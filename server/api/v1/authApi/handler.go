@@ -2,6 +2,7 @@ package authApi
 
 import (
 	"2_Go/internal/auth"
+	"2_Go/internal/config"
 	"2_Go/internal/obj"
 	"2_Go/middleware/authen"
 	"net/http"
@@ -34,7 +35,7 @@ func (h *AuthHandler) setAccessTokenCookie(c *gin.Context, token string) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   config.Get().Cookie.Secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   600, // 10 min
 	})
@@ -47,7 +48,7 @@ func (h *AuthHandler) setRefreshTokenCookie(c *gin.Context, token string) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   config.Get().Cookie.Secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   604800, // 1 week
 	})
@@ -60,7 +61,7 @@ func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   config.Get().Cookie.Secure,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})
@@ -69,7 +70,7 @@ func (h *AuthHandler) clearAuthCookies(c *gin.Context) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   config.Get().Cookie.Secure,
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   -1,
 	})

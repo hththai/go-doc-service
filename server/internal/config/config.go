@@ -16,6 +16,7 @@ type Config struct {
 	JWT      JWTConfig
 	CORS     CORSConfig
 	Redis    RedisConfig
+	Cookie   CookieConfig
 }
 
 type ServerConfig struct {
@@ -42,6 +43,10 @@ type RedisConfig struct {
 	Addr string
 }
 
+type CookieConfig struct {
+	Secure bool
+}
+
 var cfg *Config
 
 // Load initializes configuration from environment files.
@@ -54,12 +59,13 @@ func Load() *Config {
 	_ = godotenv.Load(".env")
 
 	env := os.Getenv("GO_ENV")
-	switch env {
-	case "development":
-		_ = godotenv.Overload(".env.development")
-	case "production":
-		_ = godotenv.Overload(".env.production")
-	default:
+	if env != "" {
+		// Load .env.{GO_ENV} — works for any environment:
+		// development, staging, production, etc.
+		if err := godotenv.Overload(".env." + env); err != nil {
+			log.Printf("No .env.%s file found, using defaults from .env", env)
+		}
+	} else {
 		log.Println("GO_ENV not set, using defaults from .env")
 	}
 
@@ -83,6 +89,9 @@ func Load() *Config {
 		},
 		Redis: RedisConfig{
 			Addr: getEnvOrDefault("REDIS_ADDR", "redis-service:6379"),
+		},
+		Cookie: CookieConfig{
+			Secure: getCookieSecure(env),
 		},
 	}
 
@@ -114,6 +123,14 @@ func getEnvOrDefault(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func getCookieSecure(env string) bool {
+	if v := os.Getenv("COOKIE_SECURE"); v != "" {
+		return v == "true"
+	}
+	// Secure by default, only disable for development
+	return env != "development"
 }
 
 func parseCORSOrigins(origins string) []string {

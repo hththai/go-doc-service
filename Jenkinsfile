@@ -1,15 +1,22 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['production', 'staging', 'development'], description: 'Target deployment environment')
+    }
+
     tools {
         go '1.25.0'
     }
 
     environment {
+        // Derived from parameter
+        GO_ENV           = "${params.DEPLOY_ENV}"
+
         // Non-sensitive config
         API_DOMAIN_PROD  = 'box.hthai.cloud'
         API_PORT         = '8088'
-        GO_ENV           = 'production'
+        COOKIE_SECURE    = "${params.DEPLOY_ENV != 'development' ? 'true' : 'false'}"
 
         // Secrets from Jenkins Credentials
         DB_ROOT_PASSWORD = credentials('db-root-password')
@@ -69,6 +76,7 @@ GO_ENV=${GO_ENV}
 API_PORT=${API_PORT}
 JWT_SECRET=${JWT_SECRET}
 CORS_ORIGINS=https://${API_DOMAIN_PROD}
+COOKIE_SECURE=${COOKIE_SECURE}
 EOF
                     '''
                 }
