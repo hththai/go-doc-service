@@ -39,8 +39,8 @@ pipeline {
                 dir('client-vite/client-vite') {
                     sh """
                         export CLIENT_DOMAIN=${CLIENT_DOMAIN}
-                        docker compose -f docker-compose.prod.yml down --remove-orphans || true
-                        docker compose -f docker-compose.prod.yml up -d
+                        docker-compose -f docker-compose.prod.yml down --remove-orphans || true
+                        docker-compose -f docker-compose.prod.yml up -d
                     """
                 }
             }
