@@ -1,0 +1,21 @@
+# Production compose - connects to existing Traefik on host
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  client:
+    image: 2go-client-vite:latest
+    container_name: vite_client
+    restart: always
+    networks:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.client-vite.rule=Host(`${CLIENT_DOMAIN}`)"
+      - "traefik.http.routers.client-vite.entrypoints=web"
+      - "traefik.http.services.client-vite.loadbalancer.server.port=80"
+      - "traefik.docker.network=0_host-services_backend"
+
+networks:
+  backend:
+    external: true
+    name: 0_host-services_backend

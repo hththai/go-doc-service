@@ -13,7 +13,6 @@ import {
 import './styles.css'
 import reportWebVitals from './reportWebVitals.ts'
 import { AuthProvider, useAuth } from './auth.tsx'
-import './styles.css'
 
 // Create a new router instance
 const queryClient = new QueryClient()

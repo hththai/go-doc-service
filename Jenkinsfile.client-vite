@@ -1,0 +1,59 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['production', 'staging', 'development'], description: 'Target deployment environment')
+    }
+
+    environment {
+        CLIENT_DOMAIN = 'box.hthai.cloud'
+        VITE_API_URL  = "https://${CLIENT_DOMAIN}/go"
+        IMAGE_NAME    = '2go-client-vite'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install & Test') {
+            steps {
+                dir('client-vite/client-vite') {
+                    sh 'npm ci'
+                    sh 'npm run test'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('client-vite/client-vite') {
+                    sh "docker build --build-arg VITE_API_URL=${VITE_API_URL} -t ${IMAGE_NAME}:latest ."
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                dir('client-vite/client-vite') {
+                    sh """
+                        export CLIENT_DOMAIN=${CLIENT_DOMAIN}
+                        docker compose -f docker-compose.prod.yml down --remove-orphans || true
+                        docker compose -f docker-compose.prod.yml up -d
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Client Vite deployed successfully!'
+        }
+        failure {
+            echo 'Client Vite build failed!'
+        }
+    }
+}
