@@ -18,11 +18,10 @@ pipeline {
             }
         }
 
-        stage('Install & Test') {
+        stage('Test') {
             steps {
                 dir('client-vite/client-vite') {
-                    sh 'npm ci'
-                    sh 'npm run test'
+                    sh "docker run --rm -w /app -v \$(pwd):/app node:20-alpine sh -c 'npm ci && npm run test'"
                 }
             }
         }
