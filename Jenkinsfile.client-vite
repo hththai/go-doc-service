@@ -21,10 +21,7 @@ pipeline {
         stage('Test') {
             steps {
                 dir('client-vite/client-vite') {
-                    sh '''
-                        WORKDIR="$(pwd)"
-                        docker run --rm -w /app -v "${WORKDIR}":/app node:20-alpine sh -c "npm ci && npm run test"
-                    '''
+                    sh 'docker build --target test .'
                 }
             }
         }
