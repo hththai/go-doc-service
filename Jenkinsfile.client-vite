@@ -21,7 +21,7 @@ pipeline {
         stage('Test') {
             steps {
                 dir('client-vite/client-vite') {
-                    sh "docker run --rm -w /app -v \$(pwd):/app node:20-alpine sh -c 'npm ci && npm run test'"
+                    sh 'docker run --rm -w /app -v "$(pwd)":/app node:20-alpine sh -c "npm ci && npm run test"'
                 }
             }
         }
