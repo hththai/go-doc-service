@@ -39,25 +39,27 @@ export async function refreshRequest() {
   return data;
 }
 
-// api folder.
-// Add requirement to have tokenId.
-export async function getMe({ tokenId }: { tokenId: string }) {
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/users/me`, {
-    method: "POST",
-    credentials: "include", // sends cookies
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ tokenId }),
+export async function getMe(): Promise<{ userId: number } | null> {
+  let res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/users/me`, {
+    method: "GET",
+    credentials: "include",
   });
 
   if (res.status === 401) {
-    return null;
+    // Access token expired — silently try to refresh and retry once
+    const refreshRes = await fetch(
+      `${import.meta.env.VITE_API_URL}/v1/auth/refresh`,
+      { method: "POST", credentials: "include" },
+    );
+    if (!refreshRes.ok) return null; // refresh token also gone
+
+    res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/users/me`, {
+      method: "GET",
+      credentials: "include",
+    });
   }
 
-  if (!res.ok) {
-    throw new Error("Not authenticated");
-  }
+  if (!res.ok) return null;
 
   return res.json();
 }

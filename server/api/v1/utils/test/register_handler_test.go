@@ -555,14 +555,17 @@ func TestHandleLogin(t *testing.T) {
 					assert.Contains(t, w.Body.String(), tt.errorContains)
 				}
 			} else if tt.validateToken {
-				// Verify response contains token info
+				// Tokens must not appear in the response body — they live in HttpOnly cookies only
 				var response map[string]interface{}
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				assert.NoError(t, err)
-				assert.NotEmpty(t, response["access_token"])
-				assert.NotEmpty(t, response["tokenId"])
+				assert.NotEmpty(t, response["userId"], "response should contain userId")
+				_, hasAccessToken := response["access_token"]
+				assert.False(t, hasAccessToken, "access_token must not appear in response body")
+				_, hasTokenId := response["tokenId"]
+				assert.False(t, hasTokenId, "tokenId must not appear in response body")
 
-				// Verify cookies were set
+				// Verify HttpOnly cookies were set
 				cookies := w.Result().Cookies()
 				var accessTokenFound, refreshTokenFound bool
 				for _, cookie := range cookies {

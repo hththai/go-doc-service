@@ -19,6 +19,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+const (
+	contentTypeHeader = "Content-Type"
+	applicationJSON   = "application/json"
+)
+
 func init() {
 	config.Load()
 }
@@ -72,6 +77,14 @@ func (m *MockAuthService) CreateTokensForUser(userId int) (accessToken, tokenId,
 func (m *MockAuthService) RegisterAccount(account auth.Account) error {
 	args := m.Called(account)
 	return args.Error(0)
+}
+
+func (m *MockAuthService) Login(username, password string) (*auth.Account, error) {
+	args := m.Called(username, password)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*auth.Account), args.Error(1)
 }
 
 // Test GetPing
@@ -130,7 +143,7 @@ func TestHandleChangePasswordSuccess(t *testing.T) {
 	}
 	bodyBytes, _ := json.Marshal(reqBody)
 	c.Request, _ = http.NewRequest("POST", "/user/changepassword", bytes.NewReader(bodyBytes))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request.Header.Set(contentTypeHeader, applicationJSON)
 
 	// 4. Execute
 	h.HandleChangePassword(c)
@@ -199,6 +212,145 @@ func TestHandleRefresh(t *testing.T) {
 		}
 	}
 	assert.True(t, accessTokenFound, "access_token cookie should be set")
+
+	mockSvc.AssertExpectations(t)
+}
+
+// TestGetMe_Success verifies that GetMe returns userId when middleware has set it in context.
+func TestGetMeSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("userId", 42)
+	c.Request, _ = http.NewRequest(http.MethodGet, "/users/me", nil)
+
+	logger, _ := test.NewNullLogger()
+	h := &authApi.AuthHandler{Logger: logger}
+
+	h.GetMe(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+	assert.Equal(t, float64(42), body["userId"])
+}
+
+// TestGetMe_MissingUserId verifies that GetMe returns 401 when middleware did not set userId (e.g. cookie missing).
+func TestGetMeMissingUserId(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest(http.MethodGet, "/users/me", nil)
+
+	logger, _ := test.NewNullLogger()
+	h := &authApi.AuthHandler{Logger: logger}
+
+	h.GetMe(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// TestHandleLogin_Success verifies that a successful login sets HttpOnly cookies and does NOT expose
+// the access_token or tokenId in the response body.
+func TestHandleLoginSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	mockSvc := new(MockAuthService)
+
+	h := &authApi.AuthHandler{
+		AccountSvc: mockSvc,
+		Logger:     logger,
+	}
+
+	mockSvc.On("Login", "testuser", "password123").Return(&auth.Account{UserId: 123}, nil)
+	mockSvc.On("CreateTokensForUser", 123).Return("access_token_value", "token_id_value", "refresh_token_value", nil)
+
+	reqBody := map[string]string{
+		"username": "testuser",
+		"password": "password123",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest(http.MethodPost, "/login", bytes.NewReader(bodyBytes))
+	c.Request.Header.Set(contentTypeHeader, applicationJSON)
+	c.Request.RemoteAddr = "127.0.0.1:8080"
+
+	h.HandleLogin(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var body map[string]interface{}
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+
+	// Response must contain userId
+	assert.Equal(t, float64(123), body["userId"])
+
+	// Response must NOT expose tokens — they belong in HttpOnly cookies only
+	_, hasAccessToken := body["access_token"]
+	assert.False(t, hasAccessToken, "access_token must not appear in response body")
+	_, hasTokenId := body["tokenId"]
+	assert.False(t, hasTokenId, "tokenId must not appear in response body")
+
+	// Both HttpOnly cookies must be set
+	cookies := w.Result().Cookies()
+	var accessFound, refreshFound bool
+	for _, cookie := range cookies {
+		if cookie.Name == "access_token" {
+			accessFound = true
+			assert.True(t, cookie.HttpOnly, "access_token cookie must be HttpOnly")
+		}
+		if cookie.Name == "refresh_token" {
+			refreshFound = true
+			assert.True(t, cookie.HttpOnly, "refresh_token cookie must be HttpOnly")
+		}
+	}
+	assert.True(t, accessFound, "access_token cookie should be set")
+	assert.True(t, refreshFound, "refresh_token cookie should be set")
+
+	mockSvc.AssertExpectations(t)
+}
+
+// TestHandleLogin_InvalidCredentials verifies that a login failure returns 400 and no cookies.
+func TestHandleLoginInvalidCredentials(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	mockSvc := new(MockAuthService)
+
+	h := &authApi.AuthHandler{
+		AccountSvc: mockSvc,
+		Logger:     logger,
+	}
+
+	mockSvc.On("Login", "testuser", "wrongpassword").Return(nil, auth.ErrIncorrectPassword)
+
+	reqBody := map[string]string{
+		"username": "testuser",
+		"password": "wrongpassword",
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest(http.MethodPost, "/login", bytes.NewReader(bodyBytes))
+	c.Request.Header.Set(contentTypeHeader, applicationJSON)
+	c.Request.RemoteAddr = "127.0.0.1:8080"
+
+	h.HandleLogin(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// No auth cookies should be set on failure
+	cookies := w.Result().Cookies()
+	for _, cookie := range cookies {
+		assert.NotEqual(t, "access_token", cookie.Name, "access_token cookie must not be set on failed login")
+		assert.NotEqual(t, "refresh_token", cookie.Name, "refresh_token cookie must not be set on failed login")
+	}
 
 	mockSvc.AssertExpectations(t)
 }

@@ -1,5 +1,5 @@
-# @host = http://localhost:8088
-@host = https://box.hthai.cloud/go
+@host = http://localhost:8088
+# @host = https://box.hthai.cloud/go
 
 GET http://localhost:8088/ping
 
@@ -163,15 +163,6 @@ Content-Type: application/json
     "password": "hello"    
 }
 
-###
-POST https://api.golang.localdomain/loginjwt
-Content-Type: application/json
-
-{
-   "username": "hthai",
-    "password": "hello"      
-}
-
 
 ###
 POST {{host}}/register
@@ -195,7 +186,7 @@ GET {{host}}/v1/auth/users/me
 Content-Type: application/json
 
 {
-    "tokenId": "5ec972ed-6d6c-4935-ae54-68288b6020a8"
+    "tokenId": "e1a44ecc-8405-4056-b0d9-5c02882d5223"
 }
 
 ###

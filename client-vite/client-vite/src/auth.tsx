@@ -2,30 +2,13 @@ import * as React from "react";
 import { useCurrentUser } from "./hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLogin } from "./hooks/useLogin";
-// import { sleep } from './utils';
-
-const key = "tokenId";
-
-function getStoredTokenId() {
-  return localStorage.getItem(key);
-}
-
-function setStoredTokenId(tokenId: string | null) {
-  if (tokenId) {
-    localStorage.setItem(key, tokenId);
-  } else {
-    localStorage.removeItem(key);
-  }
-}
 
 export interface AuthUser {
-  tokenId: string;
-  username: string;
+  userId: number;
 }
 
 export interface AuthContext {
   user: AuthUser | null;
-  tokenId: string | null;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -35,26 +18,14 @@ export interface AuthContext {
 const AuthContext = React.createContext<AuthContext | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [tokenId, setTokenId] = React.useState<string | null>(
-    getStoredTokenId(),
-  );
   const queryClient = useQueryClient();
   const loginMutation = useLogin();
-  const { data: user, isLoading } = useCurrentUser(tokenId);
+  const { data: user, isLoading } = useCurrentUser();
 
   const login = async (username: string, password: string) => {
-    // Clear stale user before login attempt.
-    queryClient.setQueryData(["me"], null);
-    const result = await loginMutation.mutateAsync({ username, password });
-
-    // const newToken = result?.token?.tokenId;
-    const newToken = result?.tokenId;
-    // console.log('new token is::: ', result?.tokenId);
-    setStoredTokenId(newToken);
-    setTokenId(newToken);
-
-    await queryClient.invalidateQueries({ queryKey: ["me", tokenId] });
-    console.log("\nresult is:::", result);
+    await loginMutation.mutateAsync({ username, password });
+    // Refresh the session check — cookie is now set by the server
+    await queryClient.invalidateQueries({ queryKey: ["me"] });
   };
 
   const logout = async () => {
@@ -62,23 +33,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       credentials: "include",
     });
-
-    queryClient.setQueryData(["me", tokenId], null);
-    queryClient.invalidateQueries({ queryKey: ["me", tokenId] });
-    setStoredTokenId(null);
-    setTokenId(null);
+    queryClient.setQueryData(["me"], null);
   };
 
   const value: AuthContext = {
     user: user ?? null,
-    tokenId: tokenId,
-    isAuthenticated: !!tokenId,
+    isAuthenticated: !!user,
     login,
     logout,
     isLoading,
   };
 
-  console.log(value);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

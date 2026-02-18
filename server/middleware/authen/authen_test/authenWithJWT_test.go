@@ -128,3 +128,74 @@ func TestIsValidUsername_EmptyJWTUsername(t *testing.T) {
 		t.Errorf("Expected status 403 Forbidden, got %d", w.Code)
 	}
 }
+
+// TestJWTAuthByCookiesValidToken verifies that a valid access_token cookie passes the middleware
+// and sets userId in the gin context.
+func TestJWTAuthByCookiesValidToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	expectedUserId := 99
+	tokenString, _, err := authen.CreateAccessToken(expectedUserId)
+	if err != nil {
+		t.Fatalf("failed to create access token: %v", err)
+	}
+
+	r := gin.New()
+	r.GET("/me", authen.JWTAuthByCookies(), func(c *gin.Context) {
+		uid, exists := c.Get("userId")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "userId not set"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"userId": uid})
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/me", nil)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: tokenString})
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestJWTAuthByCookiesMissingCookie verifies that a request without the access_token cookie is rejected with 401.
+func TestJWTAuthByCookiesMissingCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+	r.GET("/me", authen.JWTAuthByCookies(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, nil)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/me", nil)
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+// TestJWTAuthByCookiesInvalidToken verifies that a malformed or tampered token is rejected with 401.
+func TestJWTAuthByCookiesInvalidToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	r := gin.New()
+	r.GET("/me", authen.JWTAuthByCookies(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, nil)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/me", nil)
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: "not.a.valid.jwt"})
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}

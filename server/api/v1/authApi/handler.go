@@ -122,7 +122,7 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 	}
 
 	// Create tokens
-	accessToken, tokenId, refreshToken, err := h.AccountSvc.CreateTokensForUser(account.UserId)
+	accessToken, _, refreshToken, err := h.AccountSvc.CreateTokensForUser(account.UserId)
 	if err != nil {
 		h.Logger.Errorf("%s Error creating tokens: %s", c.ClientIP(), err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create session"})
@@ -134,11 +134,7 @@ func (h *AuthHandler) HandleLogin(c *gin.Context) {
 	h.setRefreshTokenCookie(c, refreshToken)
 
 	h.Logger.Debugf("%s Login success", c.ClientIP())
-	c.JSON(http.StatusOK, obj.AuthToken{
-		UserId:      account.UserId,
-		TokenId:     tokenId,
-		AccessToken: accessToken,
-	})
+	c.JSON(http.StatusOK, gin.H{"userId": account.UserId})
 }
 
 func (h *AuthHandler) GetPing(c *gin.Context) {
@@ -186,38 +182,14 @@ func (h *AuthHandler) HandleChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
 }
 
-// GET /users/me - validate access token.
+// GET /users/me - protected by JWTAuthByCookies middleware.
 func (h *AuthHandler) GetMe(c *gin.Context) {
-	var req struct {
-		TokenId string `json:"tokenId"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+	userId, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 		return
 	}
-
-	// Get cookie
-	accessToken, err := c.Cookie("access_token")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "missing access token"})
-		return
-	}
-
-	// Validate token
-	tokenId, err := h.AccountSvc.ValidateAccessToken(accessToken)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-		return
-	}
-
-	// Check if the token matches
-	if req.TokenId != tokenId {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid access"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"sessionId": tokenId})
+	c.JSON(http.StatusOK, gin.H{"userId": userId})
 }
 
 // POST /logout.
