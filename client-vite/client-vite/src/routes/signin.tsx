@@ -4,8 +4,6 @@ import * as React from "react";
 import { useAuth } from "../auth";
 import { z } from "zod";
 import { useState } from "react";
-//import { useRefresh } from "../hooks/useRefresh";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useQueryClient } from "@tanstack/react-query";
 import LoginForm from "@/components/Login/Login";
 
@@ -26,10 +24,6 @@ export const Route = createFileRoute("/signin")({
 function SigninComponent() {
   const auth = useAuth();
 
-  const tokenId = auth.tokenId;
-  const { data: user } = useCurrentUser(tokenId);
-
-  console.log("\nValue return current user::: ", user);
   // const login = useLogin();
   // const refresh = useRefresh();
   const navigate = Route.useNavigate();
@@ -55,7 +49,7 @@ function SigninComponent() {
 
       await router.invalidate();
 
-      await queryClient.invalidateQueries({ queryKey: ["me", auth.tokenId] });
+      await queryClient.invalidateQueries({ queryKey: ["me"] });
 
       await navigate({ to: search.redirect || fallback });
     } catch (err) {
