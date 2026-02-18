@@ -8,111 +8,111 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as SigninRouteImport } from './routes/signin'
-import { Route as AuthRouteImport } from './routes/_auth'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthUploadRouteImport } from './routes/_auth.upload'
+import { Route as rootRouteImport } from "./routes/__root";
+import { Route as SigninRouteImport } from "./routes/signin";
+import { Route as AuthRouteImport } from "./routes/_auth";
+import { Route as IndexRouteImport } from "./routes/index";
+import { Route as AuthUploadRouteImport } from "./routes/_auth.upload";
 
 const SigninRoute = SigninRouteImport.update({
-  id: '/signin',
-  path: '/signin',
+  id: "/signin",
+  path: "/signin",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AuthRoute = AuthRouteImport.update({
-  id: '/_auth',
+  id: "/_auth",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AuthUploadRoute = AuthUploadRouteImport.update({
-  id: '/upload',
-  path: '/upload',
+  id: "/upload",
+  path: "/upload",
   getParentRoute: () => AuthRoute,
-} as any)
+} as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/signin': typeof SigninRoute
-  '/upload': typeof AuthUploadRoute
+  "/": typeof IndexRoute;
+  "/signin": typeof SigninRoute;
+  "/upload": typeof AuthUploadRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/signin': typeof SigninRoute
-  '/upload': typeof AuthUploadRoute
+  "/": typeof IndexRoute;
+  "/signin": typeof SigninRoute;
+  "/upload": typeof AuthUploadRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/_auth': typeof AuthRouteWithChildren
-  '/signin': typeof SigninRoute
-  '/_auth/upload': typeof AuthUploadRoute
+  __root__: typeof rootRouteImport;
+  "/": typeof IndexRoute;
+  "/_auth": typeof AuthRouteWithChildren;
+  "/signin": typeof SigninRoute;
+  "/_auth/upload": typeof AuthUploadRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/signin' | '/upload'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/signin' | '/upload'
-  id: '__root__' | '/' | '/_auth' | '/signin' | '/_auth/upload'
-  fileRoutesById: FileRoutesById
+  fileRoutesByFullPath: FileRoutesByFullPath;
+  fullPaths: "/" | "/signin" | "/upload";
+  fileRoutesByTo: FileRoutesByTo;
+  to: "/" | "/signin" | "/upload";
+  id: "__root__" | "/" | "/_auth" | "/signin" | "/_auth/upload";
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AuthRoute: typeof AuthRouteWithChildren
-  SigninRoute: typeof SigninRoute
+  IndexRoute: typeof IndexRoute;
+  AuthRoute: typeof AuthRouteWithChildren;
+  SigninRoute: typeof SigninRoute;
 }
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    '/signin': {
-      id: '/signin'
-      path: '/signin'
-      fullPath: '/signin'
-      preLoaderRoute: typeof SigninRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_auth': {
-      id: '/_auth'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_auth/upload': {
-      id: '/_auth/upload'
-      path: '/upload'
-      fullPath: '/upload'
-      preLoaderRoute: typeof AuthUploadRouteImport
-      parentRoute: typeof AuthRoute
-    }
+    "/signin": {
+      id: "/signin";
+      path: "/signin";
+      fullPath: "/signin";
+      preLoaderRoute: typeof SigninRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_auth": {
+      id: "/_auth";
+      path: "";
+      fullPath: "";
+      preLoaderRoute: typeof AuthRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/": {
+      id: "/";
+      path: "/";
+      fullPath: "/";
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/_auth/upload": {
+      id: "/_auth/upload";
+      path: "/upload";
+      fullPath: "/upload";
+      preLoaderRoute: typeof AuthUploadRouteImport;
+      parentRoute: typeof AuthRoute;
+    };
   }
 }
 
 interface AuthRouteChildren {
-  AuthUploadRoute: typeof AuthUploadRoute
+  AuthUploadRoute: typeof AuthUploadRoute;
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthUploadRoute: AuthUploadRoute,
-}
+};
 
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRouteWithChildren,
   SigninRoute: SigninRoute,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();

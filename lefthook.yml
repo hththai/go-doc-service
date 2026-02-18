@@ -1,0 +1,28 @@
+pre-commit:
+  parallel: true
+  commands:
+    go-fmt:
+      root: server
+      glob: "*.go"
+      run: gofmt -l {staged_files} | grep . && echo "Run 'gofmt -w ./...' to fix formatting" && exit 1 || exit 0
+    go-vet:
+      root: server
+      run: go vet ./...
+    client-types:
+      root: client-vite/client-vite
+      glob: "*.{ts,tsx}"
+      run: npx tsc --noEmit
+    client-format:
+      root: client-vite/client-vite
+      glob: "*.{ts,tsx,css,json}"
+      run: npx prettier --check {staged_files}
+
+pre-push:
+  parallel: true
+  commands:
+    go-test:
+      root: server
+      run: go test ./...
+    client-test:
+      root: client-vite/client-vite
+      run: npm run test

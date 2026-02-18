@@ -141,4 +141,3 @@ func (r *AuthRepositoryImpl) UpdatePasswordById(tx *sql.Tx, account Account) (*A
 
 	return nil, nil
 }
-

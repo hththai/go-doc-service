@@ -1,13 +1,13 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute("/")({
   beforeLoad: () => {
     throw redirect({
-      to: '/upload'
-    })
+      to: "/upload",
+    });
     // component: App,
   },
-})
+});
 
 // function App() {
 //   return (

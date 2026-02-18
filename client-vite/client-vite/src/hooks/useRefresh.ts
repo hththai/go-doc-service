@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { refreshRequest } from "../api/auth";
 
 export function useRefresh() {
-    return useMutation({
-        mutationFn: refreshRequest,
-    });
+  return useMutation({
+    mutationFn: refreshRequest,
+  });
 }

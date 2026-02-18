@@ -15,16 +15,16 @@
 
 /* Updated to wave-based animation with dash offset */
 @keyframes wave-glow {
-    0% {
-        stroke-dashoffset: 1200;
-    }
+  0% {
+    stroke-dashoffset: 1200;
+  }
 
-    100% {
-        stroke-dashoffset: -100;
-    }
+  100% {
+    stroke-dashoffset: -100;
+  }
 }
 
 .animate-wave-glow {
-    animation: wave-glow 3s ease-in-out infinite;
-    filter: drop-shadow(0 0 6px rgba(30, 41, 59, 0.5));
+  animation: wave-glow 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(30, 41, 59, 0.5));
 }

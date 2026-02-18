@@ -7,7 +7,7 @@
   // Current (broken):
   `${import.meta.env.VITE_API_URL} / v1 / auth / refresh`
   // Should be:
-  `${import.meta.env.VITE_API_URL}/v1/auth/refresh`
+  `${import.meta.env.VITE_API_URL}/v1/auth/refresh`;
   ```
 
 ## Code Quality
