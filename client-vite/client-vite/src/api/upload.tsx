@@ -5,13 +5,6 @@ export async function uploadFile(metadata: UploadMetadata, file?: File | null) {
     throw new Error("Title is required.");
   }
 
-  // 1. Read tokenId form localStorage.
-  // TODO: move this key to env.
-  const tokenId = localStorage.getItem("tokenId");
-  if (!tokenId) {
-    throw new Error("Missing token.");
-  }
-
   const form = new FormData();
 
   // Append all metadata fields dynamically
@@ -26,9 +19,6 @@ export async function uploadFile(metadata: UploadMetadata, file?: File | null) {
   if (file) {
     form.append("file", file);
   }
-
-  // Attach tokenId value into form.
-  form.append("tokenId", tokenId);
 
   const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/upload`, {
     method: "POST",

@@ -114,12 +114,7 @@ POST http://localhost:8088/v1/auth/refresh
 GET http://localhost:8088/v1/auth/me
 
 ###
-POST http://localhost:8088/v1/auth/users/me
-Content-Type: application/json
-
-{
-    "tokenId": "ebae29e8-e089-401e-a365-ca52e6309120"
-}
+GET http://localhost:8088/v1/auth/users/me
 
 ###
 POST http://localhost:8088/v1/auth/logout
@@ -143,10 +138,6 @@ Content-Disposition: form-data; name="description"
 Thisis description
 
 Hayden Thai Resume
---WebBoundary
-Content-Disposition: form-data; name="tokenId"
-
-ae05869e-786a-4c12-bc85-802de6e43948
 --WebBoundary
 Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 
