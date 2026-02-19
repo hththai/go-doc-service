@@ -185,9 +185,6 @@ Content-Type: application/json
 GET {{host}}/v1/auth/users/me
 Content-Type: application/json
 
-{
-    "tokenId": "e1a44ecc-8405-4056-b0d9-5c02882d5223"
-}
 
 ###
 GET {{host}}/v1/auth/test
