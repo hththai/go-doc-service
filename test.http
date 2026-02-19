@@ -234,10 +234,14 @@ Content-Type: application/json
 
 ###Test upload without file
 POST {{host}}/v1/auth/upload
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=boundary
 
-{
-    "tokenId": "ae05869e-786a-4c12-bc85-802de6e43948",
-    "name": "hello",
-    "description": "Description",
-}
+--boundary
+Content-Disposition: form-data; name="name"
+
+hello
+--boundary
+Content-Disposition: form-data; name="description"
+
+Description
+--boundary--
