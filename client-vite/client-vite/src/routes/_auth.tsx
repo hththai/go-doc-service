@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 
 export const Route = createFileRoute("/_auth")({
   beforeLoad: ({ context, location }) => {
+    if (context.auth.isLoading) return; // wait for auth check to complete
     if (!context.auth.isAuthenticated) {
       throw redirect({
         to: "/signin",
@@ -21,6 +22,8 @@ function AuthLayout() {
   const router = useRouter();
   const navigate = Route.useNavigate();
   const auth = useAuth();
+
+  if (auth.isLoading || !auth.isAuthenticated) return null;
 
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout?")) {
