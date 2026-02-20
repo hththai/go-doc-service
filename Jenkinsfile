@@ -97,8 +97,8 @@ EOF
                     sh '''
                         export API_DOMAIN=${API_DOMAIN_PROD}
                         export DB_NAME=goDocument
-                        docker-compose -f docker-compose.prod.yml down --remove-orphans || true
-                        docker-compose -f docker-compose.prod.yml up -d
+                        docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-build api
+                        docker image prune -f
                     '''
                 }
             }
