@@ -99,23 +99,24 @@ EOF
                         export DB_NAME=goDocument
 
                         # One-time migration: move data from old mydata volume to new named volumes
-                        if docker volume inspect mydata >/dev/null 2>&1; then
-                            echo "Migrating data from old mydata volume..."
+                        # Docker Compose prefixes volumes with the project (directory) name: server_mydata
+                        if docker volume inspect server_mydata >/dev/null 2>&1; then
+                            echo "Migrating data from old server_mydata volume..."
                             docker run --rm \
-                                -v mydata:/old \
-                                -v filedata:/new_filedata \
-                                -v logdata:/new_logdata \
+                                -v server_mydata:/old \
+                                -v server_filedata:/new_filedata \
+                                -v server_logdata:/new_logdata \
                                 alpine sh -c "
                                     cp -rp /old/filedata/. /new_filedata/ 2>/dev/null || true
                                     mkdir -p /new_logdata
                                     cp -rp /old/app/log/. /new_logdata/ 2>/dev/null || true
                                 "
-                            echo "Migration done. Remove old volume manually when ready: docker volume rm mydata"
+                            echo "Migration done. Remove old volume manually when ready: docker volume rm server_mydata"
                         fi
 
                         # Ensure volume directories are owned by appuser (uid/gid 1000)
-                        docker run --rm -v filedata:/data alpine chown -R 1000:1000 /data
-                        docker run --rm -v logdata:/data alpine chown -R 1000:1000 /data
+                        docker run --rm -v server_filedata:/data alpine chown -R 1000:1000 /data
+                        docker run --rm -v server_logdata:/data alpine chown -R 1000:1000 /data
 
                         docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-build api
                         docker image prune -f
