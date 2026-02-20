@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     adduser \
     curl \
     ca-certificates \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Maldet
@@ -48,11 +49,11 @@ RUN groupadd -g 1000 appuser \
 # Create pub paths (must be done as root)
 RUN /usr/local/maldetect/maldet --mkpubpaths
 
-# Copy Go binary from builder
+# Copy Go binary and entrypoint from builder
 COPY --from=builder /app/main /app/main
-
-USER appuser
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8088
 
-CMD ["/app/main"]
+ENTRYPOINT ["/entrypoint.sh"]

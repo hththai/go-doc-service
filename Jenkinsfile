@@ -114,10 +114,6 @@ EOF
                             echo "Migration done. Remove old volume manually when ready: docker volume rm server_mydata"
                         fi
 
-                        # Ensure volume directories are owned by appuser (uid/gid 1000)
-                        docker run --rm -v server_filedata:/data alpine chown -R 1000:1000 /data
-                        docker run --rm -v server_logdata:/data alpine chown -R 1000:1000 /data
-
                         docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-build api
                         docker image prune -f
                     '''
