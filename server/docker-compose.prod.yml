@@ -41,7 +41,8 @@ services:
     restart: always
     user: "1000:1000"
     volumes:
-      - mydata:/app
+      - filedata:/app/filedata
+      - logdata:/app/app/log
     environment:
       - GO_ENV=${GO_ENV:-production}
       - DB_USER=${DB_USER}
@@ -72,7 +73,8 @@ services:
       - "traefik.docker.network=0_host-services_backend"
 
 volumes:
-  mydata:
+  filedata:
+  logdata:
   dbdata:
 
 

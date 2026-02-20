@@ -97,6 +97,22 @@ EOF
                     sh '''
                         export API_DOMAIN=${API_DOMAIN_PROD}
                         export DB_NAME=goDocument
+
+                        # One-time migration: move data from old mydata volume to new named volumes
+                        if docker volume inspect mydata >/dev/null 2>&1; then
+                            echo "Migrating data from old mydata volume..."
+                            docker run --rm \
+                                -v mydata:/old \
+                                -v filedata:/new_filedata \
+                                -v logdata:/new_logdata \
+                                alpine sh -c "
+                                    cp -rp /old/filedata/. /new_filedata/ 2>/dev/null || true
+                                    mkdir -p /new_logdata
+                                    cp -rp /old/app/log/. /new_logdata/ 2>/dev/null || true
+                                "
+                            echo "Migration done. Remove old volume manually when ready: docker volume rm mydata"
+                        fi
+
                         docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-build api
                         docker image prune -f
                     '''
