@@ -39,9 +39,10 @@ ENV PATH="/usr/local/maldetect:${PATH}"
 RUN sed -i 's/^scan_user_access=.*/scan_user_access=1/' /usr/local/maldetect/conf.maldet \
     && grep '^scan_user_access' /usr/local/maldetect/conf.maldet
 
-# Create non-root appuser
+# Create non-root appuser and required data directories
 RUN groupadd -g 1000 appuser \
     && useradd -u 1000 -g appuser -m appuser \
+    && mkdir -p /app/app/log /app/filedata \
     && chown -R appuser:appuser /app
 
 # Create pub paths (must be done as root)
