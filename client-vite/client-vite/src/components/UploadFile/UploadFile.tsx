@@ -1,4 +1,5 @@
 import { uploadFile, type UploadMetadata } from "@/api/upload";
+import { scanInvoice, parseOcrDate } from "@/api/ocr";
 import { useState, useRef } from "react";
 import PurchaseInfo from "./PurchaseInfo/PurchaseInfo";
 
@@ -31,6 +32,8 @@ export default function UploadFile() {
   const [metadata, setMetadata] = useState<UploadMetadata>(getInitialMetadata);
   const [file, setFile] = useState<File | null>(null);
   const [success, setSuccess] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -55,10 +58,31 @@ export default function UploadFile() {
   function handleClear() {
     setMetadata(getInitialMetadata());
     setFile(null);
+    setScanError(null);
 
     // Reset the file input visually.
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleScan() {
+    if (!file) return;
+    setScanning(true);
+    setScanError(null);
+    try {
+      const { invoice } = await scanInvoice(file);
+      // Pre-fill only empty fields so user input is not overridden.
+      setMetadata((prev) => ({
+        ...prev,
+        buyFrom: prev.buyFrom || invoice.seller || "",
+        buyPrice: prev.buyPrice || invoice.total || "",
+        buyAt: prev.buyAt || parseOcrDate(invoice.document_date) || "",
+      }));
+    } catch {
+      setScanError("Could not extract invoice data. Please fill in manually.");
+    } finally {
+      setScanning(false);
     }
   }
 
@@ -157,12 +181,52 @@ export default function UploadFile() {
                     </div>
                   </div>
 
-                  {/* Show selected file */}
+                  {/* Show selected file + Scan button */}
                   {file && (
-                    <div className="mt-4 text-sm text-gray-700">
-                      Selected file:{" "}
-                      <span className="font-medium">{file.name}</span>
+                    <div className="mt-4 flex items-center gap-3">
+                      <span className="text-sm text-gray-700">
+                        Selected:{" "}
+                        <span className="font-medium">{file.name}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleScan}
+                        disabled={scanning}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {scanning ? (
+                          <>
+                            <svg
+                              className="animate-spin h-4 w-4"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              />
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8v8H4z"
+                              />
+                            </svg>
+                            Scanning...
+                          </>
+                        ) : (
+                          "Scan"
+                        )}
+                      </button>
                     </div>
+                  )}
+
+                  {/* Scan error */}
+                  {scanError && (
+                    <p className="mt-2 text-sm text-red-600">{scanError}</p>
                   )}
 
                   {/* Optional image preview */}
