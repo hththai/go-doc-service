@@ -91,9 +91,9 @@ EOF
 
         stage('Docker Build') {
             steps {
-                dir('server') {
-                    sh 'docker build -t 2go-server:latest .'
-                }
+                // Build context is the project root so Docker can reach both
+                // server/ and ocr/ (required by the go.mod replace directive).
+                sh 'docker build -f server/Dockerfile -t 2go-server:latest .'
             }
         }
 

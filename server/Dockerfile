@@ -3,10 +3,15 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+# Copy the local ocr module first so the go.mod replace directive
+# (replace github.com/hththai/ocr => ../ocr) resolves to /ocr inside
+# the builder. The build context must be the project root for this to work.
+COPY ocr/ /ocr/
+
+COPY server/go.mod server/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY server/ .
 RUN go build -o main .
 
 ### Final Image ###
@@ -50,7 +55,7 @@ RUN /usr/local/maldetect/maldet --mkpubpaths
 
 # Copy Go binary and entrypoint from builder
 COPY --from=builder /app/main /app/main
-COPY entrypoint.sh /entrypoint.sh
+COPY server/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 8088
