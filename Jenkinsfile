@@ -19,10 +19,11 @@ pipeline {
         COOKIE_SECURE    = "${params.DEPLOY_ENV != 'development' ? 'true' : 'false'}"
 
         // Secrets from Jenkins Credentials
-        DB_ROOT_PASSWORD = credentials('db-root-password')
-        DB_USER          = credentials('db-user')
-        DB_PASSWORD      = credentials('db-password')
-        JWT_SECRET       = credentials('jwt-secret')
+        DB_ROOT_PASSWORD   = credentials('db-root-password')
+        DB_USER            = credentials('db-user')
+        DB_PASSWORD        = credentials('db-password')
+        JWT_SECRET         = credentials('jwt-secret')
+        ANTHROPIC_API_KEY  = credentials('anthropic-api-key')
     }
 
     stages {
@@ -77,6 +78,7 @@ API_PORT=${API_PORT}
 JWT_SECRET=${JWT_SECRET}
 CORS_ORIGINS=https://${API_DOMAIN_PROD}
 COOKIE_SECURE=${COOKIE_SECURE}
+ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 EOF
                     '''
                 }
