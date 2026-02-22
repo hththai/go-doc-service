@@ -52,6 +52,7 @@ services:
       - REDIS_ADDR=redis-service:6379
       - JWT_SECRET=${JWT_SECRET}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     networks:
       - internal
       - backend
