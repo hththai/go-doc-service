@@ -43,6 +43,7 @@ func CreateDocumentTable(db *sql.DB) error {
 		description varchar(1000),
 		created_at timestamp default current_timestamp,
 		modified_at timestamp default current_timestamp on update current_timestamp,
+		buy_from varchar(1000),
 		buy_price real,
 		sold_price real,
 		buy_at timestamp,
