@@ -10,7 +10,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Dashboard (insecure mode)
+      - "8080:8080" # Dashboard (insecure mode)
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./traefik.yml:/etc/traefik/traefik.yml:ro"
@@ -40,6 +40,7 @@ services:
       - "${DB_PORT:-3307}:3306"
     volumes:
       - dbdata:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     networks:
       - backend
     healthcheck:
@@ -63,11 +64,11 @@ services:
   api:
     build: .
     container_name: golang_api
-    user: "1000:1000"
     ports:
       - "${API_PORT:-8088}:8088"
     volumes:
-      - mydata:/app
+      - filedata:/app/filedata
+      - logdata:/app/app/log
     environment:
       - GO_ENV=${GO_ENV:-production}
       - DB_USER=${DB_USER}
@@ -85,7 +86,7 @@ services:
         condition: service_healthy
       redis-service:
         condition: service_healthy
-    # Routing configured via dynamic/config.yml instead of labels
+  # Routing configured via dynamic/config.yml instead of labels
   # client:
   #   build: ../client-vite/client-vite # path to your client folder
   #   container_name: client_app
@@ -100,7 +101,8 @@ services:
   #     - "traefik.http.services.client.loadbalancer.server.port=80"
 
 volumes:
-  mydata:
+  filedata:
+  logdata:
   dbdata:
 
 
