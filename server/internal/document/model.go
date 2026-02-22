@@ -20,17 +20,24 @@ var StatusLabels = map[Status]string{
 }
 
 type Document struct {
-	GUID        string    `json:"guid"`
-	Id          string    `json:"id"`
-	UserId      int       `json:"userId"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Extension   string    `json:"extension"`
-	FilePath    string    `json:"filepath"`
-	FileSize    float64   `json:"filesize"`
-	CreatedAt   time.Time `json:"createdAt"`
-	ModifiedAt  time.Time `json:"modifiedAt"`
-	Status      Status    `json:"status"`
+	GUID         string       `json:"guid"`
+	Id           string       `json:"id"`
+	UserId       int          `json:"userId"`
+	Title        string       `json:"title"`
+	Description  string       `json:"description"`
+	Extension    string       `json:"extension"`
+	FilePath     string       `json:"filepath"`
+	FileSize     float64      `json:"filesize"`
+	CreatedAt    time.Time    `json:"createdAt"`
+	ModifiedAt   time.Time    `json:"modifiedAt"`
+	Status       Status       `json:"status"`
+	PurchaseInfo PurchaseInfo `json:"purchaseInfo"`
+}
+
+type PurchaseInfo struct {
+	BuyAt    time.Time `json:"buyAt"`
+	BuyFrom  time.Time `json:"buyFrom"`
+	BuyPrice float64   `json:"buyPrice"`
 }
 
 func PrintHello() {
