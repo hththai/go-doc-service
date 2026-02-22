@@ -21,10 +21,10 @@ func MigrateAll(db *sql.DB) error {
 		{4, createFilePathTable},
 		{5, createObjIdTable},
 		// Add new migrations here — never edit existing ones above.
-		// {6, func(db *sql.DB) error {
-		//     _, err := db.Exec(`ALTER TABLE obj_doc ADD COLUMN purchase_notes VARCHAR(500)`)
-		//     return err
-		// }},
+		{6, func(db *sql.DB) error {
+			_, err := db.Exec(`ALTER TABLE obj_doc ADD COLUMN buy_from VARCHAR(1000)`)
+			return err
+		}},
 	}
 
 	for _, m := range migrations {
