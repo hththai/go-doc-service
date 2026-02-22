@@ -84,7 +84,7 @@ func TestHandleOCR(t *testing.T) {
 			},
 		},
 		{
-			name:        "successful OCR returns 200 with full result",
+			name:        "successful OCR returns 200 with invoice only",
 			formField:   "file",
 			filename:    "invoice.png",
 			fileContent: fakeImageBytes,
@@ -94,15 +94,20 @@ func TestHandleOCR(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
-				var result ocr.Result
-				assert.NoError(t, json.Unmarshal(body, &result))
-				assert.Equal(t, "Acme Pty Ltd", result.Invoice.Seller)
-				assert.Equal(t, "12 345 678 901", result.Invoice.ABN)
-				assert.Equal(t, "$1,234.00", result.Invoice.Total)
-				assert.Equal(t, "claude-haiku-4-5", result.Model)
-				assert.Equal(t, int64(800), result.InputTokens)
-				assert.Equal(t, int64(120), result.OutputTokens)
-				assert.Len(t, result.Invoice.Items, 1)
+				var resp ocrApi.OCRResponse
+				assert.NoError(t, json.Unmarshal(body, &resp))
+				assert.Equal(t, "Acme Pty Ltd", resp.Invoice.Seller)
+				assert.Equal(t, "12 345 678 901", resp.Invoice.ABN)
+				assert.Equal(t, "$1,234.00", resp.Invoice.Total)
+				assert.Len(t, resp.Invoice.Items, 1)
+
+				// Internal fields must not be exposed to callers.
+				var raw map[string]any
+				assert.NoError(t, json.Unmarshal(body, &raw))
+				assert.NotContains(t, raw, "model")
+				assert.NotContains(t, raw, "input_tokens")
+				assert.NotContains(t, raw, "output_tokens")
+				assert.NotContains(t, raw, "raw_response")
 			},
 		},
 		{
@@ -133,9 +138,9 @@ func TestHandleOCR(t *testing.T) {
 			},
 			expectedStatus: http.StatusOK,
 			checkBody: func(t *testing.T, body []byte) {
-				var result ocr.Result
-				assert.NoError(t, json.Unmarshal(body, &result))
-				assert.Equal(t, "Acme Pty Ltd", result.Invoice.Seller)
+				var resp ocrApi.OCRResponse
+				assert.NoError(t, json.Unmarshal(body, &resp))
+				assert.Equal(t, "Acme Pty Ltd", resp.Invoice.Seller)
 			},
 		},
 	}
