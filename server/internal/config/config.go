@@ -10,13 +10,18 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Env      string
-	Server   ServerConfig
-	Database DatabaseConfig
-	JWT      JWTConfig
-	CORS     CORSConfig
-	Redis    RedisConfig
-	Cookie   CookieConfig
+	Env       string
+	Server    ServerConfig
+	Database  DatabaseConfig
+	JWT       JWTConfig
+	CORS      CORSConfig
+	Redis     RedisConfig
+	Cookie    CookieConfig
+	Anthropic AnthropicConfig
+}
+
+type AnthropicConfig struct {
+	APIKey string
 }
 
 type ServerConfig struct {
@@ -92,6 +97,9 @@ func Load() *Config {
 		},
 		Cookie: CookieConfig{
 			Secure: getCookieSecure(env),
+		},
+		Anthropic: AnthropicConfig{
+			APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		},
 	}
 

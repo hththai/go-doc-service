@@ -90,7 +90,7 @@ Content-Type: application/json
 {
     "username": "tim5",
     "password": "hello",
-    "newpassword": "hello"    
+    "newpassword": "hello"     
 }
 
 ### test auth
@@ -221,6 +221,21 @@ Content-Type: application/json
     "password": "password"    
 }
 
+###Simple upload
+POST {{host}}/v1/auth/upload
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+hello-buyfrom-2-time-price
+--boundary
+Content-Disposition: form-data; name="description"
+
+Description
+
+--boundary--
+
 ###Test upload without file
 POST {{host}}/v1/auth/upload
 Content-Type: multipart/form-data; boundary=boundary
@@ -228,7 +243,7 @@ Content-Type: multipart/form-data; boundary=boundary
 --boundary
 Content-Disposition: form-data; name="name"
 
-hello-buyfrom-2
+hello-buyfrom-2-time-price
 --boundary
 Content-Disposition: form-data; name="description"
 
@@ -237,4 +252,34 @@ Description
 Content-Disposition: form-data; name="buyFrom"
 
 This is purchase from
+--boundary
+Content-Disposition: form-data; name="buyPrice"
+
+22.89
+--boundary
+Content-Disposition: form-data; name="buyAt"
+
+07/01/2026
+--boundary--
+
+### OCR - extract invoice (image)
+POST {{host}}/v1/auth/ocr
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.png"
+Content-Type: image/png
+
+< ./input/PNG-image.png
+--boundary--
+
+### OCR - extract invoice (PDF)
+POST {{host}}/v1/auth/ocr
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+< ./input/invoice.pdf
 --boundary--

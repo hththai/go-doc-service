@@ -11,6 +11,7 @@ import (
 	rateLimit "2_Go/middleware"
 	"2_Go/middleware/authen"
 	"context"
+	"github.com/hththai/ocr"
 	"net/http"
 	"time"
 
@@ -57,6 +58,8 @@ func main() {
 
 	docRepo := document.NewDocumentRepository(db)
 	docService := document.NewDocumentService(docRepo)
+	ocrService := ocr.NewService(cfg.Anthropic.APIKey)
+
 	// Register service.
 	acctRepo := auth.NewAuthRepoImpl(db)
 	acctSvc := auth.NewAuthService(acctRepo)
@@ -78,6 +81,7 @@ func main() {
 	deps := &v1.Dependencies{
 		AuthSvc: acctSvc,
 		DocSvc:  *docService,
+		OcrSvc:  ocrService,
 		Logger:  log,
 	}
 
