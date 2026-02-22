@@ -11,6 +11,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// OCRResponse is the DTO returned to callers; it exposes only the invoice data.
+type OCRResponse struct {
+	Invoice ocr.Invoice `json:"invoice"`
+}
+
 // Extractor is the interface satisfied by *ocr.Service.
 // It exists so the handler can be tested with a mock.
 type Extractor interface {
@@ -65,5 +70,5 @@ func (h *Handler) HandleOCR(c *gin.Context) {
 
 	h.Logger.Debugf("OCR: processed %s — model: %s, tokens: %d in / %d out",
 		fileHeader.Filename, result.Model, result.InputTokens, result.OutputTokens)
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, OCRResponse{Invoice: result.Invoice})
 }
