@@ -26,12 +26,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Maldet
-# Install Maldet
-RUN wget http://www.rfxn.com/downloads/maldetect-current.tar.gz \
-    && tar -xzf maldetect-current.tar.gz \
-    && cd maldetect-* && ./install.sh \
+RUN wget https://github.com/rfxn/linux-malware-detect/archive/refs/heads/master.tar.gz -O maldetect.tar.gz \
+    && tar -xzf maldetect.tar.gz \
+    && cd linux-malware-detect-master && ./install.sh \
     && cd /app \
-    && rm -rf maldetect-* maldetect-current.tar.gz
+    && rm -rf linux-malware-detect-master maldetect.tar.gz
 
 # Add Maldet to PATH
 ENV PATH="/usr/local/maldetect:${PATH}"
