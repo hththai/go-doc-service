@@ -374,3 +374,8 @@ time="2026-02-22T20:52:02+11:00" level=info msg="******APPLICATION STARTED******
 time="2026-02-22T20:52:02+11:00" level=info msg="Database connection successful"
 time="2026-02-22T20:52:02+11:00" level=info msg="Server starting on :8088"
 time="2026-02-22T20:52:11+11:00" level=debug msg="OCR: processed invoice.png — model: claude-haiku-4-5-20251001, tokens: 1558 in / 101 out"
+time="2026-02-22T21:20:16+11:00" level=info msg="******APPLICATION STARTED*******"
+time="2026-02-22T21:20:16+11:00" level=info msg="Database connection successful"
+time="2026-02-22T21:20:16+11:00" level=info msg="Server starting on :8088"
+time="2026-02-22T21:20:30+11:00" level=debug msg="127.0.0.1 Login success"
+time="2026-02-22T21:20:36+11:00" level=debug msg="OCR: processed invoice.png — model: claude-haiku-4-5-20251001, tokens: 1581 in / 100 out"
