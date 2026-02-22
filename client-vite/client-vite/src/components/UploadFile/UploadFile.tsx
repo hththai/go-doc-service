@@ -1,5 +1,6 @@
 import { uploadFile, type UploadMetadata } from "@/api/upload";
 import { useState, useRef } from "react";
+import PurchaseInfo from "./PurchaseInfo/PurchaseInfo";
 
 // Field configuration - add new fields here to extend the form
 type FieldType = "text" | "textarea";
@@ -19,8 +20,12 @@ const FORM_FIELDS: FieldConfig[] = [
   // { name: 'category', label: 'Category', type: 'text' },
 ];
 
-const getInitialMetadata = (): UploadMetadata =>
-  FORM_FIELDS.reduce((acc, field) => ({ ...acc, [field.name]: "" }), {});
+const getInitialMetadata = (): UploadMetadata => ({
+  ...FORM_FIELDS.reduce((acc, field) => ({ ...acc, [field.name]: "" }), {}),
+  buyAt: "",
+  buyFrom: "",
+  buyPrice: "",
+});
 
 export default function UploadFile() {
   const [metadata, setMetadata] = useState<UploadMetadata>(getInitialMetadata);
@@ -170,6 +175,14 @@ export default function UploadFile() {
                   )}
                 </div>
               </div>
+              <PurchaseInfo
+                values={{
+                  buyAt: metadata.buyAt ?? "",
+                  buyFrom: metadata.buyFrom ?? "",
+                  buyPrice: metadata.buyPrice ?? "",
+                }}
+                onChange={updateField}
+              />
             </div>
           </div>
 

@@ -12,7 +12,13 @@ export async function uploadFile(metadata: UploadMetadata, file?: File | null) {
     if (value) {
       // Map 'title' to 'name' for backend compatibility
       const fieldName = key === "title" ? "name" : key;
-      form.append(fieldName, value);
+      // Convert buyAt from YYYY-MM-DD (date input) to DD/MM/YYYY (Australian format expected by server)
+      if (key === "buyAt") {
+        const [year, month, day] = value.split("-");
+        form.append(fieldName, `${day}/${month}/${year}`);
+      } else {
+        form.append(fieldName, value);
+      }
     }
   }
 

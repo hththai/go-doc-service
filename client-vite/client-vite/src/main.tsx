@@ -13,21 +13,6 @@ import { AuthProvider, useAuth } from "./auth.tsx";
 // Create a new router instance
 const queryClient = new QueryClient();
 
-// const TanStackQueryProviderContext = TanStackQueryProvider.getContext()
-
-// const router = createRouter({
-//   routeTree,
-//   context: {
-//     ...TanStackQueryProviderContext,
-//     queryClient,
-//     auth: undefined!,
-//   },
-//   defaultPreload: 'intent',
-//   scrollRestoration: true,
-//   defaultStructuralSharing: true,
-//   defaultPreloadStaleTime: 0,
-// })
-
 const router = createRouter({
   routeTree,
   context: {

@@ -20,15 +20,17 @@ The cookies themselves were fine — both are **persistent cookies** (`MaxAge` i
 
 ### Why the session should have worked
 
-| Cookie | MaxAge | Survives tab close? |
-|---|---|---|
-| `access_token` | 600s (10 min) | Yes |
-| `refresh_token` | 604800s (1 week) | Yes |
+| Cookie          | MaxAge           | Survives tab close? |
+| --------------- | ---------------- | ------------------- |
+| `access_token`  | 600s (10 min)    | Yes                 |
+| `refresh_token` | 604800s (1 week) | Yes                 |
 
 `getMe()` in [src/api/auth.tsx](src/api/auth.tsx) already handles token refresh:
+
 ```
 GET /users/me → 401 → POST /refresh → retry GET /users/me
 ```
+
 So even an expired access token is handled transparently.
 
 ## Fix
@@ -77,19 +79,19 @@ function InnerApp() {
 
 ### Returning user (valid cookies)
 
-| Step | `isLoading` | `isAuthenticated` | What happens |
-|---|---|---|---|
-| Page loads | `true` | `false` | `beforeLoad` waits, layout renders `null` |
-| `getMe()` resolves (+ refresh if needed) | `false` | `true` | `useEffect` fires → `router.invalidate()` |
-| `beforeLoad` re-runs | `false` | `true` | Passes → protected content renders |
+| Step                                     | `isLoading` | `isAuthenticated` | What happens                              |
+| ---------------------------------------- | ----------- | ----------------- | ----------------------------------------- |
+| Page loads                               | `true`      | `false`           | `beforeLoad` waits, layout renders `null` |
+| `getMe()` resolves (+ refresh if needed) | `false`     | `true`            | `useEffect` fires → `router.invalidate()` |
+| `beforeLoad` re-runs                     | `false`     | `true`            | Passes → protected content renders        |
 
 ### No session (logged out or expired refresh token)
 
-| Step | `isLoading` | `isAuthenticated` | What happens |
-|---|---|---|---|
-| Page loads | `true` | `false` | `beforeLoad` waits, layout renders `null` |
-| `getMe()` returns `null` | `false` | `false` | `useEffect` fires → `router.invalidate()` |
-| `beforeLoad` re-runs | `false` | `false` | Redirects to `/signin` |
+| Step                     | `isLoading` | `isAuthenticated` | What happens                              |
+| ------------------------ | ----------- | ----------------- | ----------------------------------------- |
+| Page loads               | `true`      | `false`           | `beforeLoad` waits, layout renders `null` |
+| `getMe()` returns `null` | `false`     | `false`           | `useEffect` fires → `router.invalidate()` |
+| `beforeLoad` re-runs     | `false`     | `false`           | Redirects to `/signin`                    |
 
 ### Logout
 
