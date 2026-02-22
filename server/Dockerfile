@@ -1,5 +1,5 @@
 ### Build Go application ###
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-bookworm AS builder
 
 WORKDIR /app
 
@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     gosu \
+    libmupdf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Maldet
