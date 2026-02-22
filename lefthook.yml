@@ -15,7 +15,7 @@ pre-commit:
     client-format:
       root: client-vite/client-vite
       glob: "*.{ts,tsx,css,json}"
-      run: npx prettier --check {staged_files}
+      run: npx prettier --write {staged_files} && git add {staged_files}
 
 pre-push:
   parallel: true
