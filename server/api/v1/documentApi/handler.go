@@ -4,6 +4,7 @@ import (
 	"2_Go/internal/document"
 	"mime/multipart"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -32,10 +33,24 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 	}
 	userId := userIdValue.(int)
 
+	// Parse buyAt from DD/MM/YYYY (Australian date format). Optional — nil if not provided.
+	var buyAt *time.Time
+	if raw := c.PostForm("buyAt"); raw != "" {
+		parsed, err := time.Parse("02/01/2006", raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid buyAt, expected DD/MM/YYYY"})
+			return
+		}
+		buyAt = &parsed
+	}
+
 	// Build upload input.
 	input := &document.UploadInput{
 		Title:       c.PostForm("name"),
 		Description: c.PostForm("description"),
+		BuyFrom:     c.PostForm("buyFrom"),
+		BuyAt:       buyAt,
+		BuyPrice:    c.PostForm("buyPrice"),
 		UserId:      userId,
 	}
 

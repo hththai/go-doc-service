@@ -6,6 +6,14 @@ import (
 	"strconv"
 )
 
+// nullableString returns nil for an empty string so numeric DB columns receive NULL instead of "".
+func nullableString(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
 type DocumentRepository interface {
 	SetLatestObjId(tx *sql.Tx, document *Document) (int64, error)
 	SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error)
@@ -29,7 +37,6 @@ func (r *documentRepositoryImpl) BeginTx() (*sql.Tx, error) {
 }
 
 // Resolve objID gapless by table if there is file(s) attachment.
-// TODO: use InnoDB
 func (r *documentRepositoryImpl) SetLatestObjId(tx *sql.Tx, document *Document) (int64, error) {
 
 	var objID int64
@@ -72,9 +79,19 @@ func (r *documentRepositoryImpl) SaveMetadataWithObjId(tx *sql.Tx, objId *int64,
 
 	// result, err := r.db.Exec(
 	result, err := tx.Exec(
-		`INSERT INTO obj_doc (guid, user_id,obj_id, name_or_title, description, file_size, extension, status)
-		VALUES (?,?,?,?,?,?,?,?)`,
-		document.GUID, document.UserId, objId, document.Title, document.Description, document.FileSize, document.Extension, document.Status,
+		`INSERT INTO obj_doc (guid, user_id,obj_id, name_or_title, description, file_size, extension, status, buy_from, buy_price, buy_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		document.GUID,
+		document.UserId,
+		objId,
+		document.Title,
+		document.Description,
+		document.FileSize,
+		document.Extension,
+		document.Status,
+		document.PurchaseInfo.BuyFrom,
+		nullableString(document.PurchaseInfo.BuyPrice),
+		document.PurchaseInfo.BuyAt,
 	)
 
 	if err != nil {

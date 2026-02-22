@@ -1,5 +1,5 @@
-# @host = http://localhost:8088
-@host = https://box.hthai.cloud/go
+@host = http://localhost:8088
+# @host = https://box.hthai.cloud/go
 
 GET http://localhost:8088/ping
 
@@ -174,8 +174,6 @@ Content-Type: application/json
 }
 ###
 GET {{host}}/v1/auth/users/me
-Content-Type: application/json
-
 
 ###
 GET {{host}}/v1/auth/test
@@ -230,9 +228,13 @@ Content-Type: multipart/form-data; boundary=boundary
 --boundary
 Content-Disposition: form-data; name="name"
 
-hello
+hello-buyfrom-2
 --boundary
 Content-Disposition: form-data; name="description"
 
 Description
+--boundary
+Content-Disposition: form-data; name="buyFrom"
+
+This is purchase from
 --boundary--

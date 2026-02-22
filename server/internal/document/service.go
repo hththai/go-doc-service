@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -49,6 +50,9 @@ func (s *DocumentService) SaveFilePath(tx *sql.Tx, document *Document) error {
 type UploadInput struct {
 	Title       string
 	Description string
+	BuyFrom     string
+	BuyAt       *time.Time
+	BuyPrice    string
 	UserId      int
 	File        *multipart.FileHeader // nil if no file attached
 }
@@ -60,12 +64,20 @@ var IndexFolder = 100
 
 // UploadDocument handles the document upload logic.
 func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFunc) error {
+
+	purchaseInfo := PurchaseInfo{
+		BuyFrom:  input.BuyFrom,
+		BuyAt:    input.BuyAt,
+		BuyPrice: input.BuyPrice,
+	}
+
 	doc := Document{
-		GUID:        uuid.New().String(),
-		Title:       input.Title,
-		Description: input.Description,
-		Status:      StatusFailed,
-		UserId:      input.UserId,
+		GUID:         uuid.New().String(),
+		Title:        input.Title,
+		Description:  input.Description,
+		PurchaseInfo: purchaseInfo,
+		Status:       StatusFailed,
+		UserId:       input.UserId,
 	}
 
 	// Begin transaction.

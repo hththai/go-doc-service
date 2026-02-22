@@ -35,9 +35,9 @@ type Document struct {
 }
 
 type PurchaseInfo struct {
-	BuyAt    time.Time `json:"buyAt"`
-	BuyFrom  time.Time `json:"buyFrom"`
-	BuyPrice float64   `json:"buyPrice"`
+	BuyAt    *time.Time `json:"buyAt"`
+	BuyFrom  string     `json:"buyFrom"`
+	BuyPrice string     `json:"buyPrice"`
 }
 
 func PrintHello() {
