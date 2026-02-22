@@ -47,6 +47,10 @@ pipeline {
                 GO_ENV = 'test'
             }
             steps {
+                // go-fitz (used by the ocr package) loads libmupdf.so at init
+                // time via purego. Install it so the shared library is present
+                // on the agent even though the tests themselves use a mock.
+                sh 'apt-get install -y --no-install-recommends libmupdf-dev'
                 dir('server') {
                     sh 'go test -v ./...'
                 }
