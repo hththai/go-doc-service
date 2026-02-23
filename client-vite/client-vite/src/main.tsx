@@ -45,14 +45,11 @@ if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
-      {/* <TanStackQueryProvider.Provider {...TanStackQueryProviderContext}> */}
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          {/* <RouterProvider router={router} /> */}
           <InnerApp />
         </AuthProvider>
       </QueryClientProvider>
-      {/* </TanStackQueryProvider.Provider> */}
     </StrictMode>,
   );
 }

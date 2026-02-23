@@ -34,6 +34,7 @@ export default function UploadFile() {
   const [success, setSuccess] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,14 +66,16 @@ export default function UploadFile() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const ok = await uploadFile(metadata, file);
-
-    // If upload sucecss, clear the form.
-    if (ok) {
-      setSuccess(true);
-      handleClear();
-      // Auto-hide after 3 seconds.
-      setTimeout(() => setSuccess(false), 2000);
+    setUploadError(null);
+    try {
+      const ok = await uploadFile(metadata, file);
+      if (ok) {
+        setSuccess(true);
+        handleClear();
+        setTimeout(() => setSuccess(false), 2000);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
     }
   }
 
@@ -311,6 +314,10 @@ export default function UploadFile() {
               />
             </div>
           </div>
+
+          {uploadError && (
+            <p className="mt-4 text-sm text-red-600">{uploadError}</p>
+          )}
 
           <div className="mt-6 flex items-center justify-end gap-x-6">
             <button

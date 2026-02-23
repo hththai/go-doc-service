@@ -34,28 +34,19 @@ function SigninComponent() {
   const queryClient = useQueryClient();
 
   const [username, setUsername] = useState("");
-  // const { refetch } = useCurrentUser(username);
   const [password, setPassword] = useState("");
-  // const [isSubmitting, setIsSubmitting] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
-    // setIsSubmitting(true)
-    console.log("current auth::: ", auth);
+    e.preventDefault();
+    setLoginError(null);
     try {
-      e.preventDefault();
-      // queryClient.setQueryData(["me"], null);
-      // 1. Perform Login.
       await auth.login(username, password);
-
       await router.invalidate();
-
       await queryClient.invalidateQueries({ queryKey: ["me"] });
-
       await navigate({ to: search.redirect || fallback });
     } catch (err) {
-      console.error(err);
-    } finally {
-      // setIsSubmitting(false)
+      setLoginError(err instanceof Error ? err.message : "Login failed");
     }
   }
 
@@ -111,6 +102,7 @@ function SigninComponent() {
             setUsername={setUsername}
             setPassword={setPassword}
             handleSubmit={handleSubmit}
+            error={loginError}
           />
         </div>
       </div>

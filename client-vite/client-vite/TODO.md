@@ -7,7 +7,7 @@
 ## Code Quality
 
 - [x] Extract `"tokenId"` localStorage key to a constant — `tokenId`/localStorage removed entirely, auth is now cookie-only
-- [ ] Remove commented out code in `src/main.tsx` (lines 48, 51, 55 — TanStackQueryProvider and RouterProvider remnants)
+- [x] Remove commented out code in `src/main.tsx` (lines 48, 51, 55 — TanStackQueryProvider and RouterProvider remnants)
 - [x] Clean up unused imports in `src/routes/signin.tsx` — all current imports are in use
 - [x] Address `src/api/upload.tsx:7` TODO "move this key to env" — key no longer exists
 - [ ] Address `src/auth.tsx:1` TODO "store in api folder" — file still lives at `src/auth.tsx`, not `src/api/`
@@ -17,7 +17,7 @@
 
 - [ ] Add form validation using TanStack Form (already installed)
 - [ ] Implement error boundaries for graceful error handling
-- [ ] Add user-facing error feedback for API failures (signin catches error silently with `console.error`)
+- [x] Add user-facing error feedback for API failures (signin catches error silently with `console.error`)
 - [x] Write tests with Vitest — tests exist: `Login.test.tsx`, `UploadFile.test.tsx`, `PurchaseInfo.test.tsx`, `api/auth.test.ts`
 
 ## Performance

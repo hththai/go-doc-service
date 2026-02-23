@@ -4,6 +4,7 @@ interface LoginFormProps {
   setUsername: (value: string) => void;
   setPassword: (value: string) => void;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  error?: string | null;
 }
 
 export default function LoginForm({
@@ -12,6 +13,7 @@ export default function LoginForm({
   setUsername,
   setPassword,
   handleSubmit,
+  error,
 }: Readonly<LoginFormProps>) {
   return (
     <div>
@@ -70,6 +72,8 @@ export default function LoginForm({
                 />
               </div>
             </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div>
               <button
