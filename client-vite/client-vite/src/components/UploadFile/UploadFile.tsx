@@ -1,6 +1,6 @@
 import { uploadFile, type UploadMetadata } from "@/api/upload";
 import { scanInvoice, parseOcrDate } from "@/api/ocr";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import PurchaseInfo from "./PurchaseInfo/PurchaseInfo";
 
 // Field configuration - add new fields here to extend the form
@@ -34,8 +34,30 @@ export default function UploadFile() {
   const [success, setSuccess] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewDialogRef = useRef<HTMLDialogElement | null>(null);
+
+  useEffect(() => {
+    const dialog = previewDialogRef.current;
+    if (!dialog) return;
+    if (previewOpen) {
+      dialog.showModal();
+    } else {
+      dialog.close();
+    }
+  }, [previewOpen]);
+
+  useEffect(() => {
+    const dialog = previewDialogRef.current;
+    if (!dialog) return;
+    const handleBackdropClick = (e: MouseEvent) => {
+      if (e.target === dialog) setPreviewOpen(false);
+    };
+    dialog.addEventListener("click", handleBackdropClick);
+    return () => dialog.removeEventListener("click", handleBackdropClick);
+  }, []);
 
   const updateField = (name: string, value: string) => {
     setMetadata((prev) => ({ ...prev, [name]: value }));
@@ -146,96 +168,136 @@ export default function UploadFile() {
                     Upload Files
                   </label>
 
-                  <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                    <div className="text-center">
+                  {/* Compact upload row */}
+                  {file ? (
+                    <div className="mt-2 rounded-md border border-gray-200 p-3">
+                      <div className="flex items-center gap-3">
+                        {/* Thumbnail or file icon — click to preview */}
+                        <button
+                          type="button"
+                          onClick={() => setPreviewOpen(true)}
+                          className="shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-sky-500"
+                          title="Preview file"
+                        >
+                          {file.type.startsWith("image/") ? (
+                            <img
+                              src={URL.createObjectURL(file)}
+                              alt="Preview"
+                              className="h-14 w-14 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity"
+                            />
+                          ) : (
+                            <div className="h-14 w-14 flex items-center justify-center rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors">
+                              <svg
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                className="size-7 text-gray-400"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875Zm5.845 17.03a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V12a.75.75 0 0 0-1.5 0v4.19l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3Z"
+                                  clipRule="evenodd"
+                                />
+                                <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                              </svg>
+                            </div>
+                          )}
+                        </button>
+
+                        {/* File info + actions */}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-gray-900">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {(file.size / 1024).toFixed(0)} KB
+                          </p>
+                        </div>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleScan}
+                            disabled={scanning}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {scanning ? (
+                              <>
+                                <svg
+                                  className="animate-spin h-3 w-3"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  />
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8v8H4z"
+                                  />
+                                </svg>
+                                Scanning…
+                              </>
+                            ) : (
+                              "Scan"
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleClear}
+                            className="rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                            title="Remove file"
+                          >
+                            <svg
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="size-4"
+                            >
+                              <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="file"
+                      aria-label="Upload a file"
+                      className="mt-2 flex items-center gap-3 cursor-pointer rounded-md border border-dashed border-gray-300 px-4 py-3 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                    >
                       <svg
                         viewBox="0 0 24 24"
                         fill="currentColor"
-                        className="mx-auto size-12 text-gray-300"
+                        className="size-5 shrink-0 text-gray-400"
                       >
-                        <path d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" />
+                        <path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v6.75a3 3 0 0 1-3 3H6.75a3 3 0 0 1-3-3V10.5a3 3 0 0 1 3-3h4.5Z" />
                       </svg>
-
-                      <div className="mt-4 flex text-sm text-gray-600">
-                        <label
-                          htmlFor="file"
-                          className="relative cursor-pointer rounded-md font-semibold text-slate-900 hover:text-slate-500"
-                        >
-                          <span>Upload a file</span>
-                          <input
-                            id="file"
-                            type="file"
-                            ref={fileInputRef}
-                            className="sr-only"
-                            onChange={(e) =>
-                              setFile(e.target.files?.[0] || null)
-                            }
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-
-                      <p className="text-xs text-gray-600">
-                        PNG, JPG, GIF up to 5MB
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Show selected file + Scan button */}
-                  {file && (
-                    <div className="mt-4 flex items-center gap-3">
-                      <span className="text-sm text-gray-700">
-                        Selected:{" "}
-                        <span className="font-medium">{file.name}</span>
+                      <span className="text-sm text-gray-600">
+                        <span className="font-medium text-slate-900">
+                          Choose file
+                        </span>
+                        <span className="ml-1 text-gray-400">
+                          or drag and drop
+                        </span>
                       </span>
-                      <button
-                        type="button"
-                        onClick={handleScan}
-                        disabled={scanning}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {scanning ? (
-                          <>
-                            <svg
-                              className="animate-spin h-4 w-4"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              />
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8v8H4z"
-                              />
-                            </svg>
-                            Scanning...
-                          </>
-                        ) : (
-                          "Scan"
-                        )}
-                      </button>
-                    </div>
+                      <input
+                        id="file"
+                        type="file"
+                        ref={fileInputRef}
+                        className="sr-only"
+                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
                   )}
 
                   {/* Scan error */}
                   {scanError && (
                     <p className="mt-2 text-sm text-red-600">{scanError}</p>
-                  )}
-
-                  {/* Optional image preview */}
-                  {file && file.type.startsWith("image/") && (
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt="Preview"
-                      className="mt-4 h-32 object-contain rounded-md border"
-                    />
                   )}
                 </div>
               </div>
@@ -275,6 +337,66 @@ export default function UploadFile() {
           </div>
         </form>
       </div>
+
+      {/* Preview modal */}
+      <dialog
+        ref={previewDialogRef}
+        onClose={() => setPreviewOpen(false)}
+        className="m-auto w-full max-w-3xl bg-transparent p-4 backdrop:bg-black/80"
+      >
+        {file && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(false)}
+              className="absolute -top-10 right-0 flex items-center gap-1 text-sm text-white/80 hover:text-white"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" className="size-5">
+                <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+              </svg>
+              Close
+            </button>
+
+            {file.type.startsWith("image/") && (
+              <img
+                src={URL.createObjectURL(file)}
+                alt={file.name}
+                className="max-h-[85vh] w-full rounded object-contain"
+              />
+            )}
+
+            {file.type === "application/pdf" && (
+              <embed
+                src={URL.createObjectURL(file)}
+                type="application/pdf"
+                className="h-[85vh] w-full rounded"
+              />
+            )}
+
+            {!file.type.startsWith("image/") &&
+              file.type !== "application/pdf" && (
+                <div className="flex flex-col items-center gap-3 rounded bg-white px-8 py-12 text-center">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="size-12 text-gray-400"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875Zm5.845 17.03a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V12a.75.75 0 0 0-1.5 0v4.19l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3Z"
+                      clipRule="evenodd"
+                    />
+                    <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                  </svg>
+                  <p className="font-medium text-gray-900">{file.name}</p>
+                  <p className="text-sm text-gray-500">
+                    No preview available for this file type.
+                  </p>
+                </div>
+              )}
+          </div>
+        )}
+      </dialog>
     </div>
   );
 }

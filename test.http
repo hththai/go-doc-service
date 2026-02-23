@@ -1,5 +1,5 @@
-@host = http://localhost:8088
-# @host = https://box.hthai.cloud/go
+# @host = http://localhost:8088
+@host = https://box.hthai.cloud/go
 
 GET http://localhost:8088/ping
 
@@ -281,5 +281,5 @@ Content-Type: multipart/form-data; boundary=boundary
 Content-Disposition: form-data; name="file"; filename="invoice.pdf"
 Content-Type: application/pdf
 
-< ./input/invoice.pdf
+< ./input/Ipafpro-invoice-2024.pdf
 --boundary--

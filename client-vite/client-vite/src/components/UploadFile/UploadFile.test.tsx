@@ -2,12 +2,25 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import UploadFile from "./UploadFile";
 
-// Mock the upload API
 vi.mock("@/api/upload", () => ({
   uploadFile: vi.fn(),
 }));
 
+vi.mock("@/api/ocr", () => ({
+  scanInvoice: vi.fn(),
+  parseOcrDate: vi.fn(),
+}));
+
 import { uploadFile } from "@/api/upload";
+
+const mockImageFile = () =>
+  new File(["content"], "test.jpg", { type: "image/jpeg" });
+
+const mockPdfFile = () =>
+  new File(["content"], "invoice.pdf", { type: "application/pdf" });
+
+const getFileInput = () =>
+  document.querySelector('input[type="file"]') as HTMLInputElement;
 
 describe("UploadFile", () => {
   beforeEach(() => {
@@ -19,7 +32,8 @@ describe("UploadFile", () => {
 
     expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-    expect(screen.getByText(/upload a file/i)).toBeInTheDocument();
+    expect(screen.getByText(/upload files/i)).toBeInTheDocument();
+    expect(screen.getByText(/choose file/i)).toBeInTheDocument();
   });
 
   it("renders purchase info fields", () => {
@@ -33,7 +47,6 @@ describe("UploadFile", () => {
   it("shows required indicator for required fields", () => {
     render(<UploadFile />);
 
-    // Title has required indicator (*)
     const titleLabel = screen.getByText(/title/i).closest("label");
     expect(titleLabel?.textContent).toContain("*");
   });
@@ -61,7 +74,6 @@ describe("UploadFile", () => {
     const buyFromInput = screen.getByLabelText(/purchase from/i);
     const buyPriceInput = screen.getByLabelText(/purchase price/i);
 
-    // Fill in fields
     fireEvent.change(titleInput, { target: { value: "Test Title" } });
     fireEvent.change(descriptionInput, {
       target: { value: "Test Description" },
@@ -69,10 +81,8 @@ describe("UploadFile", () => {
     fireEvent.change(buyFromInput, { target: { value: "Woolworths" } });
     fireEvent.change(buyPriceInput, { target: { value: "12.50" } });
 
-    // Click clear
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
 
-    // All fields should be empty
     expect(titleInput).toHaveValue("");
     expect(descriptionInput).toHaveValue("");
     expect(buyFromInput).toHaveValue("");
@@ -140,9 +150,59 @@ describe("UploadFile", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    // Wait for success message
     expect(
       await screen.findByText(/uploaded successfully/i),
     ).toBeInTheDocument();
+  });
+
+  // File selection and preview tests
+
+  it("shows file card with name and size after selecting a file", () => {
+    render(<UploadFile />);
+
+    fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
+
+    expect(screen.getByText("test.jpg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /scan/i })).toBeInTheDocument();
+    expect(screen.queryByText(/choose file/i)).not.toBeInTheDocument();
+  });
+
+  it("shows file card for a pdf file", () => {
+    render(<UploadFile />);
+
+    fireEvent.change(getFileInput(), { target: { files: [mockPdfFile()] } });
+
+    expect(screen.getByText("invoice.pdf")).toBeInTheDocument();
+  });
+
+  it("opens preview dialog when thumbnail button is clicked", () => {
+    render(<UploadFile />);
+
+    fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
+    fireEvent.click(screen.getByTitle(/preview file/i));
+
+    expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalled();
+  });
+
+  it("closes preview dialog when close button is clicked", () => {
+    render(<UploadFile />);
+
+    fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
+    fireEvent.click(screen.getByTitle(/preview file/i));
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+
+    expect(HTMLDialogElement.prototype.close).toHaveBeenCalled();
+  });
+
+  it("removes file and restores upload input when × is clicked", () => {
+    render(<UploadFile />);
+
+    fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
+    expect(screen.getByText("test.jpg")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle(/remove file/i));
+
+    expect(screen.queryByText("test.jpg")).not.toBeInTheDocument();
+    expect(screen.getByText(/choose file/i)).toBeInTheDocument();
   });
 });

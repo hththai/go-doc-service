@@ -12,4 +12,5 @@
 **/key.pem
 **/dynamic/config.yml
 **/filedata
-**/app
+**/app/**
+**/input/**
