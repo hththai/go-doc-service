@@ -36,6 +36,17 @@ export default function UploadFile() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewDialogRef = useRef<HTMLDialogElement | null>(null);
@@ -203,7 +214,7 @@ export default function UploadFile() {
                         >
                           {file.type.startsWith("image/") ? (
                             <img
-                              src={URL.createObjectURL(file)}
+                              src={previewUrl ?? ""}
                               alt="Preview"
                               className="h-14 w-14 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity"
                             />
@@ -385,7 +396,7 @@ export default function UploadFile() {
 
             {file.type.startsWith("image/") && (
               <img
-                src={URL.createObjectURL(file)}
+                src={previewUrl ?? ""}
                 alt={file.name}
                 className="max-h-[85vh] w-full rounded object-contain"
               />
@@ -393,7 +404,7 @@ export default function UploadFile() {
 
             {file.type === "application/pdf" && (
               <embed
-                src={URL.createObjectURL(file)}
+                src={previewUrl ?? ""}
                 type="application/pdf"
                 className="h-[85vh] w-full rounded"
               />

@@ -22,7 +22,7 @@
 
 ## Performance
 
-- [ ] Add cleanup for `URL.createObjectURL()` in image preview to prevent memory leaks (`UploadFile.tsx` lines 184, 362, 370 — no `revokeObjectURL` calls)
+- [x] Add cleanup for `URL.createObjectURL()` in image preview to prevent memory leaks (`UploadFile.tsx` lines 184, 362, 370 — no `revokeObjectURL` calls)
 - [ ] Implement request cancellation for pending operations
 
 ## Authentication
