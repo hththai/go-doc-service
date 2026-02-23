@@ -1,83 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import LoginForm from "./Login";
 
-const defaultProps = {
-  username: "",
-  password: "",
-  setUsername: vi.fn(),
-  setPassword: vi.fn(),
-  handleSubmit: vi.fn(),
-};
+const noop = vi.fn().mockResolvedValue(undefined);
 
 describe("LoginForm", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("renders username and password inputs", () => {
-    render(<LoginForm {...defaultProps} />);
+    render(<LoginForm onSubmit={noop} />);
 
-    expect(screen.getByRole("textbox")).toBeInTheDocument(); // username
+    expect(screen.getByRole("textbox")).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
   it("renders sign-in button", () => {
-    render(<LoginForm {...defaultProps} />);
+    render(<LoginForm onSubmit={noop} />);
 
     expect(
       screen.getByRole("button", { name: /sign in/i }),
     ).toBeInTheDocument();
   });
 
-  it("reflects controlled username value", () => {
-    render(<LoginForm {...defaultProps} username="alice" />);
+  it("username input is required", () => {
+    render(<LoginForm onSubmit={noop} />);
 
-    expect(screen.getByRole("textbox")).toHaveValue("alice");
+    expect(screen.getByRole("textbox")).toBeRequired();
   });
 
-  it("reflects controlled password value", () => {
-    render(<LoginForm {...defaultProps} password="secret" />);
+  it("password input is required", () => {
+    render(<LoginForm onSubmit={noop} />);
 
-    expect(screen.getByLabelText(/password/i)).toHaveValue("secret");
-  });
-
-  it("calls setUsername when username input changes", () => {
-    const setUsername = vi.fn();
-    render(<LoginForm {...defaultProps} setUsername={setUsername} />);
-
-    fireEvent.change(screen.getByRole("textbox"), {
-      target: { value: "alice" },
-    });
-
-    expect(setUsername).toHaveBeenCalledWith("alice");
-  });
-
-  it("calls setPassword when password input changes", () => {
-    const setPassword = vi.fn();
-    render(<LoginForm {...defaultProps} setPassword={setPassword} />);
-
-    fireEvent.change(screen.getByLabelText(/password/i), {
-      target: { value: "mypass" },
-    });
-
-    expect(setPassword).toHaveBeenCalledWith("mypass");
-  });
-
-  it("calls handleSubmit when form is submitted", () => {
-    const handleSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
-    render(<LoginForm {...defaultProps} handleSubmit={handleSubmit} />);
-
-    const form = screen
-      .getByRole("button", { name: /sign in/i })
-      .closest("form")!;
-    fireEvent.submit(form);
-
-    expect(handleSubmit).toHaveBeenCalledOnce();
+    expect(screen.getByLabelText(/password/i)).toBeRequired();
   });
 
   it("password input has type password", () => {
-    render(<LoginForm {...defaultProps} />);
+    render(<LoginForm onSubmit={noop} />);
 
     expect(screen.getByLabelText(/password/i)).toHaveAttribute(
       "type",
@@ -85,15 +41,52 @@ describe("LoginForm", () => {
     );
   });
 
-  it("username input is required", () => {
-    render(<LoginForm {...defaultProps} />);
+  it("calls onSubmit with username and password on submit", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<LoginForm onSubmit={onSubmit} />);
 
-    expect(screen.getByRole("textbox")).toBeRequired();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "alice" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "secret123" },
+    });
+
+    fireEvent.submit(
+      screen.getByRole("button", { name: /sign in/i }).closest("form")!,
+    );
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith("alice", "secret123");
+    });
   });
 
-  it("password input is required", () => {
-    render(<LoginForm {...defaultProps} />);
+  it("shows server error when error prop is set", () => {
+    render(<LoginForm onSubmit={noop} error="Invalid credentials" />);
 
-    expect(screen.getByLabelText(/password/i)).toBeRequired();
+    expect(screen.getByText("Invalid credentials")).toBeInTheDocument();
+  });
+
+  it("shows username validation error after blur when empty", async () => {
+    render(<LoginForm onSubmit={noop} />);
+
+    fireEvent.blur(screen.getByRole("textbox"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Username is required")).toBeInTheDocument();
+    });
+  });
+
+  it("shows password validation error after blur when too short", async () => {
+    render(<LoginForm onSubmit={noop} />);
+
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "abc" },
+    });
+    fireEvent.blur(screen.getByLabelText(/password/i));
+
+    await waitFor(() => {
+      expect(screen.getByText(/at least 6 characters/i)).toBeInTheDocument();
+    });
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import UploadFile from "./UploadFile";
 
 vi.mock("@/api/upload", () => ({
@@ -128,16 +128,18 @@ describe("UploadFile", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /save/i }));
 
-    expect(uploadFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "My Title",
-        description: "My Description",
-        buyFrom: "Woolworths",
-        buyPrice: "12.50",
-        buyAt: "2026-02-22",
-      }),
-      null,
-    );
+    await waitFor(() => {
+      expect(uploadFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "My Title",
+          description: "My Description",
+          buyFrom: "Woolworths",
+          buyPrice: "12.50",
+          buyAt: "2026-02-22",
+        }),
+        null,
+      );
+    });
   });
 
   it("shows success message after successful upload", async () => {

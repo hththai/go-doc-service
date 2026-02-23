@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { redirect, useRouter } from "@tanstack/react-router";
-import * as React from "react";
 import { useAuth } from "../auth";
 import { z } from "zod";
 import { useState } from "react";
@@ -23,22 +22,14 @@ export const Route = createFileRoute("/signin")({
 
 function SigninComponent() {
   const auth = useAuth();
-
-  // const login = useLogin();
-  // const refresh = useRefresh();
   const navigate = Route.useNavigate();
   const search = Route.useSearch();
-
   const router = useRouter();
-  // const { redirect: redirectTarget } = useSearch({ from: '/signin' })
   const queryClient = useQueryClient();
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(username: string, password: string) {
     setLoginError(null);
     try {
       await auth.login(username, password);
@@ -50,18 +41,6 @@ function SigninComponent() {
     }
   }
 
-  // async function handleRefresh() {
-  //     // refresh.mutate();
-  //     // const result = await queryClient.fetchQuery({ queryKey: ["login", username] })
-  //     const result2 = await queryClient.fetchQuery({ queryKey: ["me"] })
-  //     console.log(`result of testing::: ${result2}`)
-
-  // }
-
-  // function handlePing() {
-  //     // refetch();
-  // }
-
   return (
     <>
       <div className="relative w-full h-full flex items-center justify-center">
@@ -72,7 +51,6 @@ function SigninComponent() {
             viewBox="0 0 1200 120"
             preserveAspectRatio="none"
           >
-            {/* Simple wave track */}
             <path
               id="wave-track"
               d="M-50,60 Q150,20 300,60 T600,60 T900,60 T1250,60"
@@ -80,7 +58,6 @@ function SigninComponent() {
               stroke="#cbd5e1"
               strokeWidth="3"
             />
-            {/* Small roller coaster cart */}
             <g className="animate-cart">
               <rect
                 x="-12"
@@ -96,14 +73,7 @@ function SigninComponent() {
           </svg>
         </div>
         <div className="backdrop-blur-md bg-white/30 p-6 rounded-xl w-full max-w-md sm:max-w-lg md:max-w-xl">
-          <LoginForm
-            username={username}
-            password={password}
-            setUsername={setUsername}
-            setPassword={setPassword}
-            handleSubmit={handleSubmit}
-            error={loginError}
-          />
+          <LoginForm onSubmit={handleSubmit} error={loginError} />
         </div>
       </div>
     </>

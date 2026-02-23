@@ -1,35 +1,18 @@
-import { uploadFile, type UploadMetadata } from "@/api/upload";
+import { uploadFile } from "@/api/upload";
 import { scanInvoice, parseOcrDate } from "@/api/ocr";
 import { useState, useRef, useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import PurchaseInfo from "./PurchaseInfo/PurchaseInfo";
 
-// Field configuration - add new fields here to extend the form
-type FieldType = "text" | "textarea";
-
-interface FieldConfig {
-  name: keyof UploadMetadata;
-  label: string;
-  type: FieldType;
-  required?: boolean;
-}
-
-const FORM_FIELDS: FieldConfig[] = [
-  { name: "title", label: "Title", type: "text", required: true },
-  { name: "description", label: "Description", type: "textarea" },
-  // Add new fields here, e.g.:
-  // { name: 'tags', label: 'Tags', type: 'text' },
-  // { name: 'category', label: 'Category', type: 'text' },
-];
-
-const getInitialMetadata = (): UploadMetadata => ({
-  ...FORM_FIELDS.reduce((acc, field) => ({ ...acc, [field.name]: "" }), {}),
+const defaultValues = {
+  title: "",
+  description: "",
   buyAt: "",
   buyFrom: "",
   buyPrice: "",
-});
+};
 
 export default function UploadFile() {
-  const [metadata, setMetadata] = useState<UploadMetadata>(getInitialMetadata);
   const [file, setFile] = useState<File | null>(null);
   const [success, setSuccess] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -37,6 +20,26 @@ export default function UploadFile() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previewDialogRef = useRef<HTMLDialogElement | null>(null);
+
+  const form = useForm({
+    defaultValues,
+    onSubmit: async ({ value }) => {
+      setUploadError(null);
+      try {
+        const ok = await uploadFile(value, file);
+        if (ok) {
+          setSuccess(true);
+          handleClear();
+          setTimeout(() => setSuccess(false), 2000);
+        }
+      } catch (err) {
+        setUploadError(err instanceof Error ? err.message : "Upload failed");
+      }
+    },
+  });
 
   useEffect(() => {
     if (!file) {
@@ -47,9 +50,6 @@ export default function UploadFile() {
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
-
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const previewDialogRef = useRef<HTMLDialogElement | null>(null);
 
   useEffect(() => {
     const dialog = previewDialogRef.current;
@@ -71,32 +71,10 @@ export default function UploadFile() {
     return () => dialog.removeEventListener("click", handleBackdropClick);
   }, []);
 
-  const updateField = (name: string, value: string) => {
-    setMetadata((prev) => ({ ...prev, [name]: value }));
-  };
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setUploadError(null);
-    try {
-      const ok = await uploadFile(metadata, file);
-      if (ok) {
-        setSuccess(true);
-        handleClear();
-        setTimeout(() => setSuccess(false), 2000);
-      }
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed");
-    }
-  }
-
-  // handle cancel.
   function handleClear() {
-    setMetadata(getInitialMetadata());
+    form.reset();
     setFile(null);
     setScanError(null);
-
-    // Reset the file input visually.
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -109,12 +87,15 @@ export default function UploadFile() {
     try {
       const { invoice } = await scanInvoice(file);
       // Pre-fill only empty fields so user input is not overridden.
-      setMetadata((prev) => ({
-        ...prev,
-        buyFrom: prev.buyFrom || invoice.seller || "",
-        buyPrice: prev.buyPrice || invoice.total || "",
-        buyAt: prev.buyAt || parseOcrDate(invoice.document_date) || "",
-      }));
+      if (!form.getFieldValue("buyFrom")) {
+        form.setFieldValue("buyFrom", invoice.seller ?? "");
+      }
+      if (!form.getFieldValue("buyPrice")) {
+        form.setFieldValue("buyPrice", invoice.total ?? "");
+      }
+      if (!form.getFieldValue("buyAt")) {
+        form.setFieldValue("buyAt", parseOcrDate(invoice.document_date) ?? "");
+      }
     } catch {
       setScanError("Could not extract invoice data. Please fill in manually.");
     } finally {
@@ -149,49 +130,89 @@ export default function UploadFile() {
         </div>
       )}
       <div>
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            form.handleSubmit();
+          }}
+        >
           <div className="space-y-12">
             <div className="border-b border-gray-900/10 pb-12">
               <div className="mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-                {FORM_FIELDS.map((field) => (
-                  <div key={field.name} className="col-span-full">
-                    <label
-                      htmlFor={field.name}
-                      className="block text-sm/6 font-medium text-gray-900"
-                    >
-                      {field.label}
-                      {field.required && (
-                        <span className="text-red-500">*</span>
-                      )}
-                    </label>
-                    <div className="mt-2">
-                      {field.type === "text" ? (
+                {/* Title */}
+                <form.Field
+                  name="title"
+                  validators={{
+                    onBlur: ({ value }) =>
+                      value.trim() ? undefined : "Title is required",
+                  }}
+                >
+                  {(field) => (
+                    <div className="col-span-full">
+                      <label
+                        htmlFor="title"
+                        className="block text-sm/6 font-medium text-gray-900"
+                      >
+                        Title<span className="text-red-500">*</span>
+                      </label>
+                      <div className="mt-2">
                         <div className="flex items-center rounded-md bg-white pl-3 outline-1 -outline-offset-1 outline-gray-300 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
                           <input
-                            id={field.name}
-                            name={field.name}
+                            id="title"
+                            name="title"
                             type="text"
-                            value={metadata[field.name] ?? ""}
-                            onChange={(e) =>
-                              updateField(field.name, e.target.value)
-                            }
+                            value={field.state.value}
+                            onBlur={field.handleBlur}
+                            onChange={(e) => field.handleChange(e.target.value)}
                             className="block min-w-0 grow bg-white py-1.5 pr-3 pl-1 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
                           />
                         </div>
-                      ) : (
-                        <textarea
-                          id={field.name}
-                          name={field.name}
-                          value={metadata[field.name] ?? ""}
-                          onChange={(e) =>
-                            updateField(field.name, e.target.value)
-                          }
-                          className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                        />
+                      </div>
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {field.state.meta.errors.join(", ")}
+                        </p>
                       )}
                     </div>
-                  </div>
-                ))}
+                  )}
+                </form.Field>
+
+                {/* Description */}
+                <form.Field
+                  name="description"
+                  validators={{
+                    onBlur: ({ value }) =>
+                      value.length <= 500
+                        ? undefined
+                        : "Description must be 500 characters or fewer",
+                  }}
+                >
+                  {(field) => (
+                    <div className="col-span-full">
+                      <label
+                        htmlFor="description"
+                        className="block text-sm/6 font-medium text-gray-900"
+                      >
+                        Description
+                      </label>
+                      <div className="mt-2">
+                        <textarea
+                          id="description"
+                          name="description"
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
+                          className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                        />
+                      </div>
+                      {field.state.meta.errors.length > 0 && (
+                        <p className="mt-1 text-xs text-red-600">
+                          {field.state.meta.errors.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </form.Field>
 
                 <div className="col-span-full">
                   <label
@@ -334,14 +355,24 @@ export default function UploadFile() {
                   )}
                 </div>
               </div>
-              <PurchaseInfo
-                values={{
-                  buyAt: metadata.buyAt ?? "",
-                  buyFrom: metadata.buyFrom ?? "",
-                  buyPrice: metadata.buyPrice ?? "",
-                }}
-                onChange={updateField}
-              />
+
+              <form.Subscribe selector={(state) => state.values}>
+                {(values) => (
+                  <PurchaseInfo
+                    values={{
+                      buyAt: values.buyAt,
+                      buyFrom: values.buyFrom,
+                      buyPrice: values.buyPrice,
+                    }}
+                    onChange={(name, value) =>
+                      form.setFieldValue(
+                        name as keyof typeof defaultValues,
+                        value,
+                      )
+                    }
+                  />
+                )}
+              </form.Subscribe>
             </div>
           </div>
 
@@ -353,20 +384,20 @@ export default function UploadFile() {
             <button
               type="button"
               onClick={handleClear}
-              className="text-sm font-semibold text-gray-900 px-3 py-2 rounded-md 
-                    hover:bg-gray-200 
-                    focus-visible:outline-2 
-                    focus-visible:outline-offset-2 
+              className="text-sm font-semibold text-gray-900 px-3 py-2 rounded-md
+                    hover:bg-gray-200
+                    focus-visible:outline-2
+                    focus-visible:outline-offset-2
                     focus-visible:outline-indigo-600"
             >
               Clear
             </button>
             <button
               type="submit"
-              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-xs 
-                    hover:bg-slate-600 
-                    focus-visible:outline-2 
-                    focus-visible:outline-offset-2 
+              className="rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-xs
+                    hover:bg-slate-600
+                    focus-visible:outline-2
+                    focus-visible:outline-offset-2
                     focus-visible:outline-indigo-600"
             >
               Save

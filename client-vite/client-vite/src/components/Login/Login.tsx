@@ -1,20 +1,21 @@
+import { useForm } from "@tanstack/react-form";
+
 interface LoginFormProps {
-  username: string;
-  password: string;
-  setUsername: (value: string) => void;
-  setPassword: (value: string) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (username: string, password: string) => Promise<void>;
   error?: string | null;
 }
 
 export default function LoginForm({
-  username,
-  password,
-  setUsername,
-  setPassword,
-  handleSubmit,
+  onSubmit,
   error,
 }: Readonly<LoginFormProps>) {
+  const form = useForm({
+    defaultValues: { username: "", password: "" },
+    onSubmit: async ({ value }) => {
+      await onSubmit(value.username, value.password);
+    },
+  });
+
   return (
     <div>
       <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
@@ -30,58 +31,98 @@ export default function LoginForm({
         </div>
 
         <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form onSubmit={handleSubmit} method="POST" className="space-y-6">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm/6 font-medium text-gray-900"
-              >
-                Username
-              </label>
-              <div className="mt-2">
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              form.handleSubmit();
+            }}
+            className="space-y-6"
+          >
+            <form.Field
+              name="username"
+              validators={{
+                onBlur: ({ value }) =>
+                  value.trim() ? undefined : "Username is required",
+              }}
+            >
+              {(field) => (
+                <div>
+                  <label
+                    htmlFor="username"
+                    className="block text-sm/6 font-medium text-gray-900"
+                  >
+                    Username
+                  </label>
+                  <div className="mt-2">
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      required
+                      className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                    />
+                  </div>
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {field.state.meta.errors.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </form.Field>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="block text-sm/6 font-medium text-gray-900"
-                >
-                  Password
-                </label>
-              </div>
-              <div className="mt-2">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-                />
-              </div>
-            </div>
+            <form.Field
+              name="password"
+              validators={{
+                onBlur: ({ value }) => {
+                  if (!value) return "Password is required";
+                  if (value.length < 6)
+                    return "Password must be at least 6 characters";
+                  return undefined;
+                },
+              }}
+            >
+              {(field) => (
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-sm/6 font-medium text-gray-900"
+                  >
+                    Password
+                  </label>
+                  <div className="mt-2">
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      required
+                      className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+                    />
+                  </div>
+                  {field.state.meta.errors.length > 0 && (
+                    <p className="mt-1 text-xs text-red-600">
+                      {field.state.meta.errors.join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+            </form.Field>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
 
             <div>
               <button
                 type="submit"
-                className="flex w-full justify-center rounded-md bg-slate-900 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs 
-                                hover:bg-slate-700 
-                                focus-visible:outline-2 
-                                focus-visible:outline-offset-2 
+                className="flex w-full justify-center rounded-md bg-slate-900 px-3 py-1.5 text-sm/6 font-semibold text-white shadow-xs
+                                hover:bg-slate-700
+                                focus-visible:outline-2
+                                focus-visible:outline-offset-2
                                 focus-visible:outline-indigo-600
                                 "
               >

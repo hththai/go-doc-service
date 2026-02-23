@@ -15,7 +15,7 @@
 
 ## Missing Features
 
-- [ ] Add form validation using TanStack Form (already installed)
+- [x] Add form validation using TanStack Form (already installed)
 - [ ] Implement error boundaries for graceful error handling
 - [x] Add user-facing error feedback for API failures (signin catches error silently with `console.error`)
 - [x] Write tests with Vitest — tests exist: `Login.test.tsx`, `UploadFile.test.tsx`, `PurchaseInfo.test.tsx`, `api/auth.test.ts`
