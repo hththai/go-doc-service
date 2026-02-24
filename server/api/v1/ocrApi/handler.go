@@ -6,14 +6,17 @@ import (
 	"io"
 	"net/http"
 
+	"2_Go/internal/document"
+
 	"github.com/gin-gonic/gin"
 	"github.com/hththai/ocr"
 	"github.com/sirupsen/logrus"
 )
 
-// OCRResponse is the DTO returned to callers; it exposes only the invoice data.
+// OCRResponse is the DTO returned to callers.
 type OCRResponse struct {
-	Invoice ocr.Invoice `json:"invoice"`
+	Invoice      ocr.Invoice           `json:"invoice"`
+	PurchaseInfo document.PurchaseInfo `json:"purchaseInfo"`
 }
 
 // Extractor is the interface satisfied by *ocr.Service.
@@ -70,5 +73,8 @@ func (h *Handler) HandleOCR(c *gin.Context) {
 
 	h.Logger.Debugf("OCR: processed %s — model: %s, tokens: %d in / %d out",
 		fileHeader.Filename, result.Model, result.InputTokens, result.OutputTokens)
-	c.JSON(http.StatusOK, OCRResponse{Invoice: result.Invoice})
+	c.JSON(http.StatusOK, OCRResponse{
+		Invoice:      result.Invoice,
+		PurchaseInfo: InvoiceToPurchaseInfo(result.Invoice),
+	})
 }

@@ -13,7 +13,9 @@ var dateFormats = []string{
 	"02.01.2006", // DD.MM.YYYY  — e.g. Amazon EU "27.11.2025"
 	"02/01/2006", // DD/MM/YYYY
 	"01/02/2006", // MM/DD/YYYY  — US format
+	"02-01-2006", // DD-MM-YYYY  — e.g. "10-11-2025"
 	"2006-01-02", // ISO 8601
+	"02/01/06",   // DD/MM/YY  — e.g. "17/08/24"
 }
 
 // InvoiceToPurchaseInfo maps an OCR-extracted Invoice to a document.PurchaseInfo.
