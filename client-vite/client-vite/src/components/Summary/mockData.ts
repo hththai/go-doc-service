@@ -32,15 +32,25 @@ export const MONTH_NAMES = [
 ];
 
 export function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-AU", {
+  if (!dateStr) return "—";
+  // Append time component to avoid UTC-midnight timezone shift for date-only strings
+  const normalized = dateStr.includes("T") ? dateStr : `${dateStr}T00:00:00`;
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-AU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 }
 
-export function formatCurrency(amount: string | number) {
-  return `$${Number.parseFloat(amount.toString()).toFixed(2)}`;
+export function formatCurrency(amount: string | number | null | undefined) {
+  const num = Number.parseFloat((amount ?? "").toString());
+  if (Number.isNaN(num)) return "—";
+  return `$${num.toLocaleString("en-AU", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 export const MOCK_PURCHASES: Purchase[] = [
