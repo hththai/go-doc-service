@@ -32,12 +32,20 @@ type Document struct {
 	ModifiedAt   time.Time    `json:"modifiedAt"`
 	Status       Status       `json:"status"`
 	PurchaseInfo PurchaseInfo `json:"purchaseInfo"`
+	Items        []Item       `json:"items"`
 }
 
 type PurchaseInfo struct {
 	BuyAt    *time.Time `json:"buyAt"`
 	BuyFrom  string     `json:"buyFrom"`
 	BuyPrice string     `json:"buyPrice"`
+}
+
+type Item struct {
+	Description string `json:"itemDescription"`
+	Quantity    string `json:"itemQty"`
+	UnitPrice   string `json:"unitPrice"`
+	SubTotal    string `json:"subTotal"`
 }
 
 func PrintHello() {
