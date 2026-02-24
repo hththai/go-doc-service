@@ -35,14 +35,15 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 	userId := userIdValue.(int)
 
 	// Parse buyAt from DD/MM/YYYY (Australian date format). Optional — nil if not provided.
-	var buyAt *time.Time
+	var buyAt *document.Date
 	if raw := c.PostForm("buyAt"); raw != "" {
 		parsed, err := time.Parse("02/01/2006", raw)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid buyAt, expected DD/MM/YYYY"})
 			return
 		}
-		buyAt = &parsed
+		d := document.Date{Time: parsed}
+		buyAt = &d
 	}
 
 	// Parse items from JSON field.

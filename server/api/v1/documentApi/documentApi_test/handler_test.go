@@ -72,13 +72,13 @@ func TestHandleUploadPurchaseInfoBuyAt(t *testing.T) {
 		buyAt          string
 		expectedStatus int
 		// checkBuyAt is called with the BuyAt stored in the captured Document (nil for error cases).
-		checkBuyAt func(t *testing.T, buyAt *time.Time)
+		checkBuyAt func(t *testing.T, buyAt *document.Date)
 	}{
 		{
 			name:           "valid Australian date DD/MM/YYYY",
 			buyAt:          "22/02/2026",
 			expectedStatus: http.StatusOK,
-			checkBuyAt: func(t *testing.T, buyAt *time.Time) {
+			checkBuyAt: func(t *testing.T, buyAt *document.Date) {
 				assert.NotNil(t, buyAt)
 				assert.Equal(t, 22, buyAt.Day())
 				assert.Equal(t, time.February, buyAt.Month())
@@ -89,7 +89,7 @@ func TestHandleUploadPurchaseInfoBuyAt(t *testing.T) {
 			name:           "empty buyAt is optional (nil)",
 			buyAt:          "",
 			expectedStatus: http.StatusOK,
-			checkBuyAt: func(t *testing.T, buyAt *time.Time) {
+			checkBuyAt: func(t *testing.T, buyAt *document.Date) {
 				assert.Nil(t, buyAt)
 			},
 		},

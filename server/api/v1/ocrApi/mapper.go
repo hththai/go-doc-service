@@ -26,7 +26,8 @@ func InvoiceToPurchaseInfo(inv ocr.Invoice) document.PurchaseInfo {
 
 	for _, layout := range dateFormats {
 		if t, err := time.Parse(layout, inv.DocumentDate); err == nil {
-			info.BuyAt = &t
+			d := document.Date{Time: t}
+			info.BuyAt = &d
 			break
 		}
 	}

@@ -1,9 +1,36 @@
 package document
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"time"
 )
+
+// Date wraps time.Time and marshals to/from "DD/MM/YYYY" in JSON.
+type Date struct{ time.Time }
+
+func (d Date) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + d.Format("02/01/2006") + `"`), nil
+}
+
+func (d Date) Value() (driver.Value, error) {
+	return d.Format("2006-01-02"), nil
+}
+
+func (d *Date) UnmarshalJSON(b []byte) error {
+	s := string(b)
+	if s == "null" {
+		return nil
+	}
+	// strip surrounding quotes
+	s = s[1 : len(s)-1]
+	t, err := time.Parse("02/01/2006", s)
+	if err != nil {
+		return err
+	}
+	d.Time = t
+	return nil
+}
 
 type Status int
 
@@ -36,9 +63,9 @@ type Document struct {
 }
 
 type PurchaseInfo struct {
-	BuyAt    *time.Time `json:"buyAt"`
-	BuyFrom  string     `json:"buyFrom"`
-	BuyPrice string     `json:"buyPrice"`
+	BuyAt    *Date  `json:"buyAt"`
+	BuyFrom  string `json:"buyFrom"`
+	BuyPrice string `json:"buyPrice"`
 }
 
 type Item struct {

@@ -21,6 +21,8 @@ func MigrateAll(db *sql.DB) error {
 		{4, createFilePathTable},
 		{5, createObjIdTable},
 		{6, createItemTable},
+		{7, alterDocumentPriceAndDateColumns},
+		{8, alterBuyAtToDate},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -129,6 +131,26 @@ func createObjIdTable(db *sql.DB) error {
 	}
 	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES (0, 'document') ON DUPLICATE KEY UPDATE obj_id = obj_id`)
 	return err
+}
+
+func alterBuyAtToDate(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_doc MODIFY COLUMN buy_at DATE`)
+	if err != nil {
+		return fmt.Errorf("failed to alter buy_at to DATE: %w", err)
+	}
+	return nil
+}
+
+func alterDocumentPriceAndDateColumns(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_doc
+		MODIFY COLUMN buy_at     DATETIME,
+		MODIFY COLUMN sold_at    DATETIME,
+		MODIFY COLUMN buy_price  DECIMAL(10, 2),
+		MODIFY COLUMN sold_price DECIMAL(10, 2)`)
+	if err != nil {
+		return fmt.Errorf("failed to alter obj_doc columns: %w", err)
+	}
+	return nil
 }
 
 func createItemTable(db *sql.DB) error {

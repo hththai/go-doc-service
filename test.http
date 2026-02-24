@@ -196,6 +196,32 @@ Content-Disposition: form-data; name="buyAt"
 07/01/2026
 --boundary--
 
+###Test upload with items
+POST {{host}}/v1/auth/upload
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+Invoice with items
+--boundary
+Content-Disposition: form-data; name="buyFrom"
+
+Supplier Co.
+--boundary
+Content-Disposition: form-data; name="buyAt"
+
+07/01/2026
+--boundary
+Content-Disposition: form-data; name="buyPrice"
+
+99.99
+--boundary
+Content-Disposition: form-data; name="items"
+
+[{"itemName":"Widget A","itemQty":"2","unitPrice":"25.00","subTotal":"50.00"},{"itemName":"Widget B","itemQty":"1","unitPrice":"49.99","subTotal":"49.99"}]
+--boundary--
+
 ### OCR - extract invoice (image)
 POST {{host}}/v1/auth/ocr
 Content-Type: multipart/form-data; boundary=boundary

@@ -5,15 +5,13 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 type DocumentService struct {
@@ -52,7 +50,7 @@ type UploadInput struct {
 	Title       string
 	Description string
 	BuyFrom     string
-	BuyAt       *time.Time
+	BuyAt       *Date
 	BuyPrice    string
 	Items       []Item
 	UserId      int
