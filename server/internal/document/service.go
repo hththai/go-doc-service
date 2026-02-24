@@ -47,6 +47,7 @@ func (s *DocumentService) SaveFilePath(tx *sql.Tx, document *Document) error {
 }
 
 // UploadInput contains the data needed for document upload (decoupled from HTTP layer).
+// Modifying when model change to get input
 type UploadInput struct {
 	Title       string
 	Description string
@@ -63,6 +64,7 @@ type FileSaveFunc func(file *multipart.FileHeader, dst string) error
 var IndexFolder = 100
 
 // UploadDocument handles the document upload logic.
+// Modify when model change to get input
 func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFunc) error {
 
 	purchaseInfo := PurchaseInfo{
