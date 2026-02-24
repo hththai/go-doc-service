@@ -1,5 +1,5 @@
-@host = http://localhost:8088
-# @host = https://box.hthai.cloud/go
+# @host = http://localhost:8088
+@host = https://box.hthai.cloud/go
 
 GET http://localhost:8088/ping
 
@@ -284,7 +284,7 @@ Content-Disposition: form-data; name="buyPrice"
 --boundary
 Content-Disposition: form-data; name="items"
 
-[{"itemName":"APPLE IPAD PRO 13 MAGIC KEYBOARD","itemQty":1,"unitPrice":"579.00","subTotal":"579.00"},{"itemName":"IPAD PRO 13 WIFI 256GB SP BLK","itemQty":1,"unitPrice":"2197.00","subTotal":"2197.00"},{"itemName":"APPLE PENCIL PRO","itemQty":1,"unitPrice":"219.00","subTotal":"219.00"}]
+[{"itemName":"APPLE IPAD PRO 13 MAGIC KEYBOARD","itemQty":"1","unitPrice":"579.00","subTotal":"579.00"},{"itemName":"IPAD PRO 13 WIFI 256GB SP BLK","itemQty":"1","unitPrice":"2197.00","subTotal":"2197.00"},{"itemName":"APPLE PENCIL PRO","itemQty":"1","unitPrice":"219.00","subTotal":"219.00"}]
 
 --boundary
 Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"

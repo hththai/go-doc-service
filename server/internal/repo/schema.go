@@ -24,6 +24,7 @@ func MigrateAll(db *sql.DB) error {
 		{7, alterDocumentPriceAndDateColumns},
 		{8, alterBuyAtToDate},
 		{9, addFileNameColumn},
+		{10, ensureItemTable},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -152,6 +153,29 @@ func alterDocumentPriceAndDateColumns(db *sql.DB) error {
 		return fmt.Errorf("failed to alter obj_doc columns: %w", err)
 	}
 	return nil
+}
+
+// ensureItemTable re-creates obj_item if it was skipped due to a migration version
+// collision (createItemTable was renumbered from v7 to v6, so production databases
+// that had the old v6 recorded in schema_migrations never ran createItemTable).
+func ensureItemTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_item (
+		id          INT AUTO_INCREMENT PRIMARY KEY,
+		obj_id      BIGINT NOT NULL,
+		doc_id      INT NOT NULL,
+		name        VARCHAR(255) NOT NULL,
+		quantity    DECIMAL(10, 2) NOT NULL DEFAULT 0,
+		price       DECIMAL(10, 2) NOT NULL DEFAULT 0,
+		total       DECIMAL(10, 2) NOT NULL DEFAULT 0,
+		created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		CONSTRAINT fk_item_doc FOREIGN KEY (doc_id) REFERENCES obj_doc(id)
+	) ENGINE=InnoDB`)
+	if err != nil {
+		return fmt.Errorf("failed to ensure obj_item: %w", err)
+	}
+	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES (0, 'item') ON DUPLICATE KEY UPDATE obj_id = obj_id`)
+	return err
 }
 
 func addFileNameColumn(db *sql.DB) error {
