@@ -1,10 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import {
-  MOCK_PURCHASES,
-  MONTH_NAMES,
-  formatCurrency,
-  type Purchase,
-} from "./mockData";
+import { useQuery } from "@tanstack/react-query";
+import { MONTH_NAMES, formatCurrency, type Purchase } from "./mockData";
+import { getPurchases } from "../../api/upload";
 import PurchaseRow from "./PurchaseRow";
 import PurchaseDetail from "./PurchaseDetail";
 import FilePreviewModal from "./FilePreviewModal";
@@ -22,10 +19,19 @@ export default function Summary() {
   } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
+  const {
+    data: purchases = [],
+    isLoading,
+    isError,
+  } = useQuery<Purchase[]>({
+    queryKey: ["purchases"],
+    queryFn: getPurchases,
+  });
+
   const availableYears = useMemo(() => {
-    const years = new Set(MOCK_PURCHASES.map((p) => p.buyAt.slice(0, 4)));
+    const years = new Set(purchases.map((p) => p.buyAt.slice(0, 4)));
     return Array.from(years).sort((a, b) => b.localeCompare(a));
-  }, []);
+  }, [purchases]);
 
   function handleYearChange(year: string) {
     setSelectedYear(year);
@@ -35,16 +41,16 @@ export default function Summary() {
   const availableMonths = useMemo(() => {
     const source =
       selectedYear === "all"
-        ? MOCK_PURCHASES
-        : MOCK_PURCHASES.filter((p) => p.buyAt.startsWith(selectedYear));
+        ? purchases
+        : purchases.filter((p) => p.buyAt.startsWith(selectedYear));
     const months = new Set(
       source.map((p) => Number.parseInt(p.buyAt.slice(5, 7), 10)),
     );
     return Array.from(months).sort((a, b) => a - b);
-  }, [selectedYear]);
+  }, [selectedYear, purchases]);
 
   const filtered = useMemo(() => {
-    return MOCK_PURCHASES.filter((p) => {
+    return purchases.filter((p) => {
       const yearMatch =
         selectedYear === "all" || p.buyAt.startsWith(selectedYear);
       const monthMatch =
@@ -53,7 +59,7 @@ export default function Summary() {
           Number.parseInt(selectedMonth, 10);
       return yearMatch && monthMatch;
     });
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, purchases]);
 
   const total = filtered.reduce(
     (sum, p) => sum + Number.parseFloat(p.buyPrice),
@@ -164,11 +170,22 @@ export default function Summary() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          {filtered.length === 0 ? (
+          {isLoading && (
+            <p className="px-4 py-8 text-center text-sm text-gray-400">
+              Loading purchases…
+            </p>
+          )}
+          {isError && (
+            <p className="px-4 py-8 text-center text-sm text-red-400">
+              Failed to load purchases. Please try again.
+            </p>
+          )}
+          {!isLoading && !isError && filtered.length === 0 && (
             <p className="px-4 py-8 text-center text-sm text-gray-400">
               No purchases found for the selected period.
             </p>
-          ) : (
+          )}
+          {!isLoading && !isError && filtered.length > 0 && (
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
                 <tr>

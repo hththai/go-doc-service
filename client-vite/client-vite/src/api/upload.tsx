@@ -1,5 +1,19 @@
 export type UploadMetadata = Record<string, string>;
 
+export async function getPurchases() {
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/purchases`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch purchases");
+  const data = await res.json();
+  // fileUrl from server is a relative path like /v1/auth/file/:id — make it absolute
+  return data.map((p: { fileUrl?: string }) =>
+    p.fileUrl
+      ? { ...p, fileUrl: `${import.meta.env.VITE_API_URL}${p.fileUrl}` }
+      : p,
+  );
+}
+
 export type UploadItem = {
   itemName: string;
   itemQty: string;

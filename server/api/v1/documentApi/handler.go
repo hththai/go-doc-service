@@ -5,8 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -199,5 +203,25 @@ func (h *DocumentHandler) HandleServeFile(c *gin.Context) {
 		return
 	}
 
-	c.FileAttachment(filePath, fileName)
+	f, err := os.Open(filePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to open file"})
+		return
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		return
+	}
+
+	mimeType := mime.TypeByExtension(filepath.Ext(fileName))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	c.DataFromReader(http.StatusOK, stat.Size(), mimeType, f, map[string]string{
+		"Content-Disposition": fmt.Sprintf(`inline; filename="%s"`, fileName),
+	})
 }
