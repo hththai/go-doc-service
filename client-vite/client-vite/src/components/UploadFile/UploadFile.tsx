@@ -14,6 +14,14 @@ const defaultValues = {
 
 export default function UploadFile() {
   const [file, setFile] = useState<File | null>(null);
+  const [items, setItems] = useState<
+    {
+      itemDescription: string;
+      itemQty: string;
+      unitPrice: string;
+      subTotal: string;
+    }[]
+  >([]);
   const [success, setSuccess] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -29,7 +37,7 @@ export default function UploadFile() {
     onSubmit: async ({ value }) => {
       setUploadError(null);
       try {
-        const ok = await uploadFile(value, file);
+        const ok = await uploadFile(value, items, file);
         if (ok) {
           setSuccess(true);
           handleClear();
@@ -74,6 +82,7 @@ export default function UploadFile() {
   function handleClear() {
     form.reset();
     setFile(null);
+    setItems([]);
     setScanError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -95,6 +104,16 @@ export default function UploadFile() {
       }
       if (!form.getFieldValue("buyAt")) {
         form.setFieldValue("buyAt", parseOcrDate(invoice.document_date) ?? "");
+      }
+      if (items.length === 0 && invoice.items?.length > 0) {
+        setItems(
+          invoice.items.map((i) => ({
+            itemDescription: i.description,
+            itemQty: i.qty,
+            unitPrice: i.unit_price,
+            subTotal: i.subtotal,
+          })),
+        );
       }
     } catch {
       setScanError("Could not extract invoice data. Please fill in manually.");
@@ -364,12 +383,14 @@ export default function UploadFile() {
                       buyFrom: values.buyFrom,
                       buyPrice: values.buyPrice,
                     }}
+                    items={items}
                     onChange={(name, value) =>
                       form.setFieldValue(
                         name as keyof typeof defaultValues,
                         value,
                       )
                     }
+                    onItemsChange={setItems}
                   />
                 )}
               </form.Subscribe>

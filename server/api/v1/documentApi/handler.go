@@ -2,6 +2,7 @@ package documentApi
 
 import (
 	"2_Go/internal/document"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"time"
@@ -44,6 +45,15 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 		buyAt = &parsed
 	}
 
+	// Parse items from JSON field.
+	var items []document.Item
+	if rawItems := c.PostForm("items"); rawItems != "" {
+		if err := json.Unmarshal([]byte(rawItems), &items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid items format"})
+			return
+		}
+	}
+
 	// Build upload input.
 	input := &document.UploadInput{
 		Title:       c.PostForm("name"),
@@ -51,6 +61,7 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 		BuyFrom:     c.PostForm("buyFrom"),
 		BuyAt:       buyAt,
 		BuyPrice:    c.PostForm("buyPrice"),
+		Items:       items,
 		UserId:      userId,
 	}
 

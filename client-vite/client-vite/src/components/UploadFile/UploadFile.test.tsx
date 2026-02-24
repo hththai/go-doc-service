@@ -137,6 +137,7 @@ describe("UploadFile", () => {
           buyPrice: "12.50",
           buyAt: "2026-02-22",
         }),
+        [],
         null,
       );
     });

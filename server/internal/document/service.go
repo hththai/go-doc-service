@@ -54,6 +54,7 @@ type UploadInput struct {
 	BuyFrom     string
 	BuyAt       *time.Time
 	BuyPrice    string
+	Items       []Item
 	UserId      int
 	File        *multipart.FileHeader // nil if no file attached
 }
@@ -78,6 +79,7 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 		Title:        input.Title,
 		Description:  input.Description,
 		PurchaseInfo: purchaseInfo,
+		Items:        input.Items,
 		Status:       StatusFailed,
 		UserId:       input.UserId,
 	}

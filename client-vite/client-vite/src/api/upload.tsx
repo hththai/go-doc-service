@@ -1,6 +1,17 @@
 export type UploadMetadata = Record<string, string>;
 
-export async function uploadFile(metadata: UploadMetadata, file?: File | null) {
+export type UploadItem = {
+  itemDescription: string;
+  itemQty: string;
+  unitPrice: string;
+  subTotal: string;
+};
+
+export async function uploadFile(
+  metadata: UploadMetadata,
+  items: UploadItem[],
+  file?: File | null,
+) {
   if (!metadata.title) {
     throw new Error("Title is required.");
   }
@@ -20,6 +31,10 @@ export async function uploadFile(metadata: UploadMetadata, file?: File | null) {
         form.append(fieldName, value);
       }
     }
+  }
+
+  if (items.length > 0) {
+    form.append("items", JSON.stringify(items));
   }
 
   if (file) {

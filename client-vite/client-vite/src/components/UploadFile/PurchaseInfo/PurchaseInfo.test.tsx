@@ -6,7 +6,14 @@ const defaultValues = { buyAt: "", buyFrom: "", buyPrice: "" };
 
 describe("PurchaseInfo", () => {
   it("renders all three purchase fields", () => {
-    render(<PurchaseInfo values={defaultValues} onChange={vi.fn()} />);
+    render(
+      <PurchaseInfo
+        values={defaultValues}
+        items={[]}
+        onChange={vi.fn()}
+        onItemsChange={vi.fn()}
+      />,
+    );
 
     expect(screen.getByLabelText(/purchase price/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/purchase from/i)).toBeInTheDocument();
@@ -21,7 +28,9 @@ describe("PurchaseInfo", () => {
           buyFrom: "Woolworths",
           buyPrice: "12.50",
         }}
+        items={[]}
         onChange={vi.fn()}
+        onItemsChange={vi.fn()}
       />,
     );
 
@@ -32,7 +41,14 @@ describe("PurchaseInfo", () => {
 
   it("calls onChange with 'buyPrice' when purchase price changes", () => {
     const onChange = vi.fn();
-    render(<PurchaseInfo values={defaultValues} onChange={onChange} />);
+    render(
+      <PurchaseInfo
+        values={defaultValues}
+        items={[]}
+        onChange={onChange}
+        onItemsChange={vi.fn()}
+      />,
+    );
 
     fireEvent.change(screen.getByLabelText(/purchase price/i), {
       target: { value: "25.99" },
@@ -43,7 +59,14 @@ describe("PurchaseInfo", () => {
 
   it("calls onChange with 'buyFrom' when purchase from changes", () => {
     const onChange = vi.fn();
-    render(<PurchaseInfo values={defaultValues} onChange={onChange} />);
+    render(
+      <PurchaseInfo
+        values={defaultValues}
+        items={[]}
+        onChange={onChange}
+        onItemsChange={vi.fn()}
+      />,
+    );
 
     fireEvent.change(screen.getByLabelText(/purchase from/i), {
       target: { value: "Coles" },
@@ -54,7 +77,14 @@ describe("PurchaseInfo", () => {
 
   it("calls onChange with 'buyAt' when purchase date changes", () => {
     const onChange = vi.fn();
-    render(<PurchaseInfo values={defaultValues} onChange={onChange} />);
+    render(
+      <PurchaseInfo
+        values={defaultValues}
+        items={[]}
+        onChange={onChange}
+        onItemsChange={vi.fn()}
+      />,
+    );
 
     fireEvent.change(screen.getByLabelText(/purchase date/i), {
       target: { value: "2026-02-22" },

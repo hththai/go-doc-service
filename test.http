@@ -1,5 +1,5 @@
-# @host = http://localhost:8088
-@host = https://box.hthai.cloud/go
+@host = http://localhost:8088
+# @host = https://box.hthai.cloud/go
 
 GET http://localhost:8088/ping
 
@@ -22,48 +22,9 @@ Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 
 --WebBoundary--
 
-###
-GET http://localhost:8088/preview?id=001&token=abc123
-###
-GET http://localhost:8088/testers
-###
-POST http://localhost:8088/testers
-Content-Type: application/json
 
-{
-    "name":"Hello"
-}
-###
-POST http://localhost:8088/register
-Content-Type: application/json
-
-{
-    "username": "tim5890",
-    "password": "password2"    
-}
 
 ###
-POST http://localhost:8088/login
-Content-Type: application/json
-
-{
-    "username": "tim589",
-    "password": "password2"    
-}
-
-###
-###
-POST http://localhost:8088/login
-Content-Type: application/json
-
-{
-    "username": "tim234",
-    "password": "password2"    
-}
-
-###
-
-
 POST http://localhost:8088/users/tim234/changepassword
 Content-Type: application/json
 
@@ -82,36 +43,9 @@ Content-Type: application/json
     "password": "helasdasda12346"    
 }
 
-###
-POST http://localhost:8088/v1/auth/users/tim5/changepassword
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Njc3NjA2MTgsInR5cGUiOiJyZWZyZXNoIiwidXNlcm5hbWUiOiJ0aW01In0.ZucVaT6ZIrqXaGA-APZ_Kzas15bY4zxqnILTZQ3MCug
-Content-Type: application/json
-
-{
-    "username": "tim5",
-    "password": "hello",
-    "newpassword": "hello"     
-}
-
-### test auth
-GET http://localhost:8088/v1/auth/test
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjcwNTQwNDcsImlhdCI6MTc2NzA1MDQ0NywidXNlcm5hbWUiOiJ0aW01In0.r9Hq1GbLWd3ECEdIKZ_rfPdpD7bj615MVFmN3mFcSyc
-
-
-###
-POST http://localhost:8088/loginjwt
-Content-Type: application/json
-
-{
-   "username": "tim5",
-    "password": "hello"      
-}
 
 ###
 POST http://localhost:8088/v1/auth/refresh
-
-###
-GET http://localhost:8088/v1/auth/me
 
 ###
 GET http://localhost:8088/v1/auth/users/me
