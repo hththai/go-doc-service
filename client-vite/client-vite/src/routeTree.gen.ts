@@ -13,6 +13,7 @@ import { Route as SigninRouteImport } from './routes/signin'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthUploadRouteImport } from './routes/_auth.upload'
+import { Route as AuthSummaryRouteImport } from './routes/_auth.summary'
 
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
@@ -33,15 +34,22 @@ const AuthUploadRoute = AuthUploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthSummaryRoute = AuthSummaryRouteImport.update({
+  id: '/summary',
+  path: '/summary',
+  getParentRoute: () => AuthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
+  '/summary': typeof AuthSummaryRoute
   '/upload': typeof AuthUploadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
+  '/summary': typeof AuthSummaryRoute
   '/upload': typeof AuthUploadRoute
 }
 export interface FileRoutesById {
@@ -49,14 +57,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteWithChildren
   '/signin': typeof SigninRoute
+  '/_auth/summary': typeof AuthSummaryRoute
   '/_auth/upload': typeof AuthUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/signin' | '/upload'
+  fullPaths: '/' | '/signin' | '/summary' | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/signin' | '/upload'
-  id: '__root__' | '/' | '/_auth' | '/signin' | '/_auth/upload'
+  to: '/' | '/signin' | '/summary' | '/upload'
+  id:
+    | '__root__'
+    | '/'
+    | '/_auth'
+    | '/signin'
+    | '/_auth/summary'
+    | '/_auth/upload'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -95,14 +110,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthUploadRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/summary': {
+      id: '/_auth/summary'
+      path: '/summary'
+      fullPath: '/summary'
+      preLoaderRoute: typeof AuthSummaryRouteImport
+      parentRoute: typeof AuthRoute
+    }
   }
 }
 
 interface AuthRouteChildren {
+  AuthSummaryRoute: typeof AuthSummaryRoute
   AuthUploadRoute: typeof AuthUploadRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthSummaryRoute: AuthSummaryRoute,
   AuthUploadRoute: AuthUploadRoute,
 }
 
