@@ -2,7 +2,7 @@ package ocr
 
 type Item struct {
 	Description string `json:"description"`
-	Qty         int    `json:"qty"`
+	Qty         string `json:"qty"`
 	UnitPrice   string `json:"unit_price"`
 	GSTRate     string `json:"gst_rate"`
 	Subtotal    string `json:"subtotal"`

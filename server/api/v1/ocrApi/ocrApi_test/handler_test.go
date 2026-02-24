@@ -50,7 +50,7 @@ func TestHandleOCR(t *testing.T) {
 			ABN:    "12 345 678 901",
 			Total:  "$1,234.00",
 			Items: []ocr.Item{
-				{Description: "Widget", Qty: 2, UnitPrice: "$500.00", GSTRate: "10%", Subtotal: "$1,000.00"},
+				{Description: "Widget", Qty: "2", UnitPrice: "$500.00", GSTRate: "10%", Subtotal: "$1,000.00"},
 			},
 		},
 		Model:        "claude-haiku-4-5",

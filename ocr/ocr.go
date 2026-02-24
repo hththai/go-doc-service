@@ -22,7 +22,7 @@ const invoicePrompt = `Extract the invoice data from this image and return ONLY 
   "document_date": "date",
   "order_no": "order number",
   "order_date": "date",
-  "items": [{"description": "item name", "qty": 1, "unit_price": "price", "gst_rate": "rate", "subtotal": "total"}],
+  "items": [{"description": "item name", "qty": "1", "unit_price": "price", "gst_rate": "rate", "subtotal": "total"}],
   "total": "numeric amount only, no currency symbol or code (e.g. 456.02 not AUD456.02)"
 }`
 
