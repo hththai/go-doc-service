@@ -203,6 +203,7 @@ func (row *purchaseRow) toItem() (Item, bool) {
 }
 
 // buildPurchaseQuery constructs the SELECT query with optional year/month filters.
+// TODO: check the status -1 or 1 for active.
 func buildPurchaseQuery(userID int, year, month string) (string, []interface{}) {
 	query := `
 		SELECT
@@ -212,7 +213,7 @@ func buildPurchaseQuery(userID int, year, month string) (string, []interface{}) 
 		FROM obj_doc d
 		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
 		LEFT JOIN obj_item i ON i.doc_id = d.id
-		WHERE d.user_id = ? AND d.status = 1`
+		WHERE d.user_id = ? AND d.status = -1`
 
 	args := []interface{}{userID}
 	if year != "" && year != "all" {
