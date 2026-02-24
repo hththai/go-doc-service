@@ -270,13 +270,14 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 }
 
 // GetFilePathByObjId retrieves the file path and name for a document owned by the given user.
+// TODO: check the status -1 or 1. Currently default is -1 for active.
 func (r *documentRepositoryImpl) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
 	var filePath, fileName sql.NullString
 	err := r.db.QueryRow(`
 		SELECT p.file_path, d.file_name
 		FROM obj_doc d
 		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
-		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = 1
+		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = -1
 		LIMIT 1
 	`, objId, userID).Scan(&filePath, &fileName)
 	if err != nil {
