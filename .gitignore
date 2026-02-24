@@ -12,6 +12,6 @@
 **/key.pem
 **/dynamic/config.yml
 **/filedata
-**/app/**
+**/myapp.log
 **/input/**
 .DS_Store 
