@@ -20,11 +20,8 @@ func MigrateAll(db *sql.DB) error {
 		{3, createDocumentTable},
 		{4, createFilePathTable},
 		{5, createObjIdTable},
+		{6, createItemTable},
 		// Add new migrations here — never edit existing ones above.
-		// {6, func(db *sql.DB) error {
-		// 	_, err := db.Exec(`ALTER TABLE obj_doc ADD COLUMN buy_from VARCHAR(1000)`)
-		// 	return err
-		// }},
 	}
 
 	for _, m := range migrations {
@@ -131,5 +128,25 @@ func createObjIdTable(db *sql.DB) error {
 		return fmt.Errorf("failed to create obj_id_counter: %w", err)
 	}
 	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES (0, 'document') ON DUPLICATE KEY UPDATE obj_id = obj_id`)
+	return err
+}
+
+func createItemTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_item (
+		id          INT AUTO_INCREMENT PRIMARY KEY,
+		obj_id      BIGINT NOT NULL,
+		doc_id      INT NOT NULL,
+		name        VARCHAR(255) NOT NULL,
+		quantity    DECIMAL(10, 2) NOT NULL DEFAULT 0,
+		price       DECIMAL(10, 2) NOT NULL DEFAULT 0,
+		total       DECIMAL(10, 2) NOT NULL DEFAULT 0,
+		created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		CONSTRAINT fk_item_doc FOREIGN KEY (doc_id) REFERENCES obj_doc(id)
+	) ENGINE=InnoDB`)
+	if err != nil {
+		return fmt.Errorf("failed to create obj_item: %w", err)
+	}
+	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES (0, 'item') ON DUPLICATE KEY UPDATE obj_id = obj_id`)
 	return err
 }
