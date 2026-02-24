@@ -16,7 +16,7 @@ export default function UploadFile() {
   const [file, setFile] = useState<File | null>(null);
   const [items, setItems] = useState<
     {
-      itemDescription: string;
+      itemName: string;
       itemQty: string;
       unitPrice: string;
       subTotal: string;
@@ -108,7 +108,7 @@ export default function UploadFile() {
       if (items.length === 0 && invoice.items?.length > 0) {
         setItems(
           invoice.items.map((i) => ({
-            itemDescription: i.description,
+            itemName: i.description,
             itemQty: i.qty,
             unitPrice: i.unit_price,
             subTotal: i.subtotal,

@@ -1,5 +1,5 @@
 type Item = {
-  itemDescription: string;
+  itemName: string;
   itemQty: string;
   unitPrice: string;
   subTotal: string;
@@ -25,7 +25,7 @@ const labelClass = "block text-sm/6 font-medium text-gray-900";
 import { useRef } from "react";
 
 const emptyItem = (): Item => ({
-  itemDescription: "",
+  itemName: "",
   itemQty: "",
   unitPrice: "",
   subTotal: "",
@@ -161,9 +161,9 @@ export default function PurchaseInfo({
                       <td className="px-3 py-1.5">
                         <input
                           type="text"
-                          value={item.itemDescription}
+                          value={item.itemName}
                           onChange={(e) =>
-                            updateItem(i, "itemDescription", e.target.value)
+                            updateItem(i, "itemName", e.target.value)
                           }
                           placeholder="Item description"
                           className="w-full bg-transparent focus:outline-none text-gray-900 placeholder:text-gray-400"

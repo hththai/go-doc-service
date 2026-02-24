@@ -1,7 +1,7 @@
 export type UploadMetadata = Record<string, string>;
 
 export type UploadItem = {
-  itemDescription: string;
+  itemName: string;
   itemQty: string;
   unitPrice: string;
   subTotal: string;

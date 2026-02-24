@@ -42,10 +42,10 @@ type PurchaseInfo struct {
 }
 
 type Item struct {
-	Description string `json:"itemDescription"`
-	Quantity    string `json:"itemQty"`
-	UnitPrice   string `json:"unitPrice"`
-	SubTotal    string `json:"subTotal"`
+	Name      string `json:"itemName"`
+	Quantity  string `json:"itemQty"`
+	UnitPrice string `json:"unitPrice"`
+	SubTotal  string `json:"subTotal"`
 }
 
 func PrintHello() {
