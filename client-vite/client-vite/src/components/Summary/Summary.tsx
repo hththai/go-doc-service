@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { ChevronRight, X } from "lucide-react";
 
 type Item = {
   itemName: string;
@@ -371,13 +372,14 @@ const selectClass =
 export default function Summary() {
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [activePurchase, setActivePurchase] = useState<Purchase | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   const availableYears = useMemo(() => {
     const years = new Set(MOCK_PURCHASES.map((p) => p.buyAt.slice(0, 4)));
     return Array.from(years).sort((a, b) => b.localeCompare(a));
   }, []);
 
-  // Reset month when year changes
   function handleYearChange(year: string) {
     setSelectedYear(year);
     setSelectedMonth("all");
@@ -411,6 +413,26 @@ export default function Summary() {
     0,
   );
 
+  // 640px matches Tailwind's `sm` breakpoint
+  function openDetail(purchase: Purchase) {
+    if (window.innerWidth < 640) setActivePurchase(purchase);
+  }
+
+  function closeDetail() {
+    setActivePurchase(null);
+  }
+
+  // Sync dialog open/close with activePurchase state
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (activePurchase) {
+      if (!el.open) el.showModal();
+    } else if (el.open) {
+      el.close();
+    }
+  }, [activePurchase]);
+
   return (
     <div className="mt-6">
       <div className="bg-sky-500 text-white px-3 py-1 rounded-t-md">
@@ -420,7 +442,6 @@ export default function Summary() {
       <div className="border border-gray-200 rounded-b-md overflow-hidden">
         {/* Filters + stats bar */}
         <div className="bg-gray-50 px-4 py-3 flex flex-wrap items-center gap-4 border-b border-gray-200">
-          {/* Year selector */}
           <div className="flex items-center gap-2">
             <label htmlFor="year-filter" className="text-sm text-gray-500">
               Year
@@ -440,7 +461,6 @@ export default function Summary() {
             </select>
           </div>
 
-          {/* Month selector */}
           <div className="flex items-center gap-2">
             <label htmlFor="month-filter" className="text-sm text-gray-500">
               Month
@@ -460,7 +480,6 @@ export default function Summary() {
             </select>
           </div>
 
-          {/* Stats */}
           <div className="ml-auto flex gap-6 text-sm text-gray-600">
             <span>
               <span className="font-medium text-gray-900">
@@ -488,70 +507,113 @@ export default function Summary() {
               <thead className="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">Title</th>
-                  <th className="px-4 py-2 text-left font-medium">File</th>
-                  <th className="px-4 py-2 text-left font-medium w-32">Date</th>
-                  <th className="px-4 py-2 text-left font-medium w-40">
+                  <th className="hidden sm:table-cell px-4 py-2 text-left font-medium">
+                    File
+                  </th>
+                  <th className="hidden sm:table-cell px-4 py-2 text-left font-medium w-32">
+                    Date
+                  </th>
+                  <th className="hidden sm:table-cell px-4 py-2 text-left font-medium w-40">
                     Store
                   </th>
                   <th className="px-4 py-2 text-right font-medium w-28">
                     Total
                   </th>
-                  <th className="px-4 py-2 text-center font-medium w-20">
+                  <th className="hidden sm:table-cell px-4 py-2 text-center font-medium w-20">
                     Items
                   </th>
+                  {/* Mobile-only tap indicator */}
+                  <th className="sm:hidden w-8" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map((purchase) => (
-                  <PurchaseRow key={purchase.id} purchase={purchase} />
+                  <PurchaseRow
+                    key={purchase.id}
+                    purchase={purchase}
+                    onSelect={openDetail}
+                  />
                 ))}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 border-t border-gray-200">
                   <td
-                    colSpan={4}
+                    colSpan={2}
                     className="px-4 py-2 text-sm font-semibold text-gray-700"
                   >
                     Grand Total
                   </td>
+                  <td className="hidden sm:table-cell" colSpan={2} />
                   <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
                     {formatCurrency(total)}
                   </td>
-                  <td />
+                  <td className="hidden sm:table-cell" />
+                  <td className="sm:hidden" />
                 </tr>
               </tfoot>
             </table>
           )}
         </div>
       </div>
+
+      {/* Detail modal (mobile) */}
+      <dialog
+        ref={dialogRef}
+        onMouseDown={(e) => {
+          if (e.target === dialogRef.current) closeDetail();
+        }}
+        className="w-full max-w-sm rounded-xl shadow-2xl p-0 backdrop:bg-black/40 mt-16 mb-auto mx-auto"
+      >
+        {activePurchase && (
+          <PurchaseDetail purchase={activePurchase} onClose={closeDetail} />
+        )}
+      </dialog>
     </div>
   );
 }
 
-function PurchaseRow({ purchase }: Readonly<{ purchase: Purchase }>) {
+function PurchaseRow({
+  purchase,
+  onSelect,
+}: Readonly<{ purchase: Purchase; onSelect: (p: Purchase) => void }>) {
   return (
     <>
-      <tr className="hover:bg-gray-50 transition-colors">
+      {/* Main row — tappable on mobile */}
+      <tr
+        tabIndex={0}
+        onClick={() => onSelect(purchase)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") onSelect(purchase);
+        }}
+        className="hover:bg-gray-50 transition-colors cursor-pointer sm:cursor-default"
+      >
         <td className="px-4 py-2.5 text-gray-900 font-medium">
           {purchase.title}
         </td>
-        <td className="px-4 py-2.5 text-gray-500 text-xs truncate max-w-36">
+        <td className="hidden sm:table-cell px-4 py-2.5 text-gray-500 text-xs truncate max-w-36">
           {purchase.filename}
         </td>
-        <td className="px-4 py-2.5 text-gray-600">
+        <td className="hidden sm:table-cell px-4 py-2.5 text-gray-600">
           {formatDate(purchase.buyAt)}
         </td>
-        <td className="px-4 py-2.5 text-gray-600">{purchase.buyFrom}</td>
+        <td className="hidden sm:table-cell px-4 py-2.5 text-gray-600">
+          {purchase.buyFrom}
+        </td>
         <td className="px-4 py-2.5 text-right text-gray-900 font-medium">
           {formatCurrency(purchase.buyPrice)}
         </td>
-        <td className="px-4 py-2.5 text-center text-gray-500">
+        <td className="hidden sm:table-cell px-4 py-2.5 text-center text-gray-500">
           {purchase.items.length}
+        </td>
+        {/* Chevron visible only on mobile */}
+        <td className="sm:hidden px-2 py-2.5 text-gray-400">
+          <ChevronRight size={16} />
         </td>
       </tr>
 
+      {/* Inline sub-table — desktop only */}
       {purchase.items.length > 0 && (
-        <tr className="bg-gray-50/60">
+        <tr className="hidden sm:table-row bg-gray-50/60">
           <td colSpan={6} className="px-4 pb-3 pt-0">
             <div className="ml-4 overflow-x-auto rounded border border-gray-100">
               <table className="min-w-full text-xs">
@@ -572,8 +634,8 @@ function PurchaseRow({ purchase }: Readonly<{ purchase: Purchase }>) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {purchase.items.map((item, i) => (
-                    <tr key={i} className="text-gray-600">
+                  {purchase.items.map((item) => (
+                    <tr key={item.itemName} className="text-gray-600">
                       <td className="px-3 py-1.5">{item.itemName}</td>
                       <td className="px-3 py-1.5">{item.itemQty}</td>
                       <td className="px-3 py-1.5 text-right">
@@ -591,5 +653,106 @@ function PurchaseRow({ purchase }: Readonly<{ purchase: Purchase }>) {
         </tr>
       )}
     </>
+  );
+}
+
+function PurchaseDetail({
+  purchase,
+  onClose,
+}: Readonly<{ purchase: Purchase; onClose: () => void }>) {
+  const itemTotal = purchase.items.reduce(
+    (sum, item) => sum + Number.parseFloat(item.subTotal),
+    0,
+  );
+
+  return (
+    <div className="flex flex-col max-h-[85vh]">
+      {/* Modal header */}
+      <div className="flex items-center justify-between bg-sky-500 text-white px-4 py-3 rounded-t-xl">
+        <h2 className="font-semibold text-base truncate pr-2">
+          {purchase.title}
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 p-1 rounded-lg hover:bg-sky-600 transition-colors"
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      {/* Meta info */}
+      <div className="px-4 py-3 space-y-1.5 border-b border-gray-100 text-sm">
+        <div className="flex justify-between text-gray-600">
+          <span className="text-gray-400">Store</span>
+          <span>{purchase.buyFrom}</span>
+        </div>
+        <div className="flex justify-between text-gray-600">
+          <span className="text-gray-400">Date</span>
+          <span>{formatDate(purchase.buyAt)}</span>
+        </div>
+        <div className="flex justify-between text-gray-600">
+          <span className="text-gray-400">File</span>
+          <span className="truncate max-w-48 text-right">
+            {purchase.filename}
+          </span>
+        </div>
+        <div className="flex justify-between font-semibold text-gray-900">
+          <span>Total</span>
+          <span>{formatCurrency(purchase.buyPrice)}</span>
+        </div>
+      </div>
+
+      {/* Line items */}
+      {purchase.items.length > 0 && (
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          <p className="text-xs text-gray-400 uppercase font-medium mb-2">
+            Line Items
+          </p>
+          <div className="rounded-md border border-gray-200 overflow-hidden">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50 text-gray-500 uppercase">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-medium">
+                    Description
+                  </th>
+                  <th className="px-3 py-1.5 text-center font-medium w-10">
+                    Qty
+                  </th>
+                  <th className="px-3 py-1.5 text-right font-medium w-20">
+                    Subtotal
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {purchase.items.map((item) => (
+                  <tr key={item.itemName} className="text-gray-600">
+                    <td className="px-3 py-2">{item.itemName}</td>
+                    <td className="px-3 py-2 text-center">{item.itemQty}</td>
+                    <td className="px-3 py-2 text-right font-medium text-gray-700">
+                      {formatCurrency(item.subTotal)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 border-t border-gray-200">
+                  <td
+                    colSpan={2}
+                    className="px-3 py-1.5 text-xs font-semibold text-gray-600"
+                  >
+                    Items Total
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-xs font-semibold text-gray-900">
+                    {formatCurrency(itemTotal)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
