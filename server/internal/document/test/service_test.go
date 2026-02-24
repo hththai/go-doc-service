@@ -11,14 +11,18 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+// mockInt64Result extracts (int64, error) from a testify mock call result.
+func mockInt64Result(args mock.Arguments) (int64, error) {
+	return args.Get(0).(int64), args.Error(1)
+}
+
 // mockRepo implements document.DocumentRepository for service-level tests.
 type mockRepo struct {
 	mock.Mock
 }
 
-func (m *mockRepo) SetLatestObjId(tx *sql.Tx, doc *document.Document) (int64, error) {
-	args := m.Called(tx, doc)
-	return args.Get(0).(int64), args.Error(1)
+func (m *mockRepo) SetLatestObjId(tx *sql.Tx, doc *document.Document) (int64, error) { //NOSONAR
+	return mockInt64Result(m.Called(tx, doc))
 }
 
 func (m *mockRepo) SaveMetadataWithObjId(tx *sql.Tx, objId *int64, doc *document.Document) (int64, error) {
@@ -27,8 +31,7 @@ func (m *mockRepo) SaveMetadataWithObjId(tx *sql.Tx, objId *int64, doc *document
 }
 
 func (m *mockRepo) SaveMetadata(tx *sql.Tx, doc *document.Document) (int64, error) {
-	args := m.Called(tx, doc)
-	return args.Get(0).(int64), args.Error(1)
+	return mockInt64Result(m.Called(tx, doc))
 }
 
 func (m *mockRepo) InsertFilePath(tx *sql.Tx, doc *document.Document) error {
@@ -58,8 +61,8 @@ func setupTx(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *sql.Tx) {
 	return db, dbMock, tx
 }
 
-// TestSaveItems_WithItems verifies items are persisted under the correct objId and docId.
-func TestSaveItems_WithItems(t *testing.T) {
+// TestSaveItemsWithItems verifies items are persisted under the correct objId and docId.
+func TestSaveItemsWithItems(t *testing.T) {
 	items := []document.Item{
 		{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
 		{Name: "Bread", Quantity: "1", UnitPrice: "3.00", SubTotal: "3.00"},
@@ -87,8 +90,8 @@ func TestSaveItems_WithItems(t *testing.T) {
 	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
-// TestSaveItems_NilItems verifies SaveItems is still called when no items are provided.
-func TestSaveItems_NilItems(t *testing.T) {
+// TestSaveItemsNilItems verifies SaveItems is still called when no items are provided.
+func TestSaveItemsNilItems(t *testing.T) {
 	db, dbMock, tx := setupTx(t)
 	defer db.Close()
 	dbMock.ExpectCommit()
@@ -110,8 +113,8 @@ func TestSaveItems_NilItems(t *testing.T) {
 	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
-// TestSaveItems_Error verifies that a SaveItems failure causes an error and rolls back.
-func TestSaveItems_Error(t *testing.T) {
+// TestSaveItemsError verifies that a SaveItems failure causes an error and rolls back.
+func TestSaveItemsError(t *testing.T) {
 	db, dbMock, tx := setupTx(t)
 	defer db.Close()
 	dbMock.ExpectRollback()
@@ -135,8 +138,8 @@ func TestSaveItems_Error(t *testing.T) {
 	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
-// TestSaveItems_MetadataError verifies that a metadata failure prevents SaveItems from being called.
-func TestSaveItems_MetadataError(t *testing.T) {
+// TestSaveItemsMetadataError verifies that a metadata failure prevents SaveItems from being called.
+func TestSaveItemsMetadataError(t *testing.T) {
 	db, dbMock, tx := setupTx(t)
 	defer db.Close()
 	dbMock.ExpectRollback()
