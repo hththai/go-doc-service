@@ -213,7 +213,7 @@ func buildPurchaseQuery(userID int, year, month string) (string, []interface{}) 
 		FROM obj_doc d
 		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
 		LEFT JOIN obj_item i ON i.doc_id = d.id
-		WHERE d.user_id = ? AND d.status = -1`
+		WHERE d.user_id = ? AND d.status = 1`
 
 	args := []interface{}{userID}
 	if year != "" && year != "all" {
@@ -277,7 +277,7 @@ func (r *documentRepositoryImpl) GetFilePathByObjId(objId int64, userID int) (st
 		SELECT p.file_path, d.file_name
 		FROM obj_doc d
 		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
-		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = -1
+		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = 1
 		LIMIT 1
 	`, objId, userID).Scan(&filePath, &fileName)
 	if err != nil {

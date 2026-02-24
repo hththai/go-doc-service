@@ -94,7 +94,7 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 		Description:  input.Description,
 		PurchaseInfo: purchaseInfo,
 		Items:        input.Items,
-		Status:       StatusFailed,
+		Status:       StatusActive,
 		UserId:       input.UserId,
 	}
 

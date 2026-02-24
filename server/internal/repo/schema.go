@@ -25,6 +25,7 @@ func MigrateAll(db *sql.DB) error {
 		{8, alterBuyAtToDate},
 		{9, addFileNameColumn},
 		{10, ensureItemTable},
+		{11, fixStatusFailedToActive},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -204,4 +205,14 @@ func createItemTable(db *sql.DB) error {
 	}
 	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES (0, 'item') ON DUPLICATE KEY UPDATE obj_id = obj_id`)
 	return err
+}
+
+// fixStatusFailedToActive corrects records that were saved with status = -1 (StatusFailed)
+// due to a bug where UploadDocument defaulted to StatusFailed instead of StatusActive.
+func fixStatusFailedToActive(db *sql.DB) error {
+	_, err := db.Exec(`UPDATE obj_doc SET status = 1 WHERE status = -1`)
+	if err != nil {
+		return fmt.Errorf("failed to fix status -1 to 1: %w", err)
+	}
+	return nil
 }

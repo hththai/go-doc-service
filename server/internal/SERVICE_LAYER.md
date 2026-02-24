@@ -67,6 +67,8 @@ tx.Commit()
 | Category | Methods | Description |
 |----------|---------|-------------|
 | **Document Upload** | `UploadDocument()` | Full upload flow with file handling, metadata, and line items |
+| **Read** | `GetPurchases()` | Fetch all active purchases for a user, with optional year/month filter |
+| **Read** | `GetFilePath()` | Fetch the disk path and file name for a user-owned document |
 | **Transaction** | `BeginTx()` | Start database transactions |
 | **Metadata** | `SetLatestObjID()`, `SaveMetadataWithObjId()`, `SaveDocumentMetadata()` | Store document metadata |
 | **File Storage** | `SaveFilePath()` | Persist file paths to database |
@@ -89,10 +91,12 @@ tx.Commit()
 - **Automatic cleanup** - Temp files removed via `defer`
 - **Environment-aware** - Virus scanning only in production
 - **Transaction safety** - Rollback on panic/error
+- **Read methods are transaction-free** - `GetPurchases` and `GetFilePath` query directly on `*sql.DB`
 
 ### Example Usage
 
 ```go
+// Upload a document
 input := &UploadInput{
     Title:       "Report",
     Description: "Annual report",
@@ -102,11 +106,58 @@ input := &UploadInput{
         {Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
     },
 }
-
 err := documentService.UploadDocument(input, func(file *multipart.FileHeader, dst string) error {
     return c.SaveUploadedFile(file, dst) // gin context method
 })
+
+// Fetch purchases (pass "" or "all" to skip a filter)
+docs, err := documentService.GetPurchases(userID, "2024", "03")
+
+// Fetch the file path for a specific document
+filePath, fileName, err := documentService.GetFilePath(objId, userID)
 ```
+
+---
+
+## Document Repository
+
+**Location:** `internal/document/repository.go`
+
+### Interface
+
+| Category | Methods | Description |
+|----------|---------|-------------|
+| **Write** | `SetLatestObjId()` | Increment and return the next obj_id from `obj_id_counter` (row-locked) |
+| **Write** | `SaveMetadataWithObjId()` | Insert a document row into `obj_doc` with a pre-assigned obj_id |
+| **Write** | `SaveMetadata()` | Insert a document row without a pre-assigned obj_id |
+| **Write** | `InsertFilePath()` | Insert the file path into `obj_doc_path` |
+| **Write** | `SaveItems()` | Bulk-insert line items into `obj_item` |
+| **Read** | `GetPurchasesByUser()` | Query purchases with optional year/month filter; assembles items per document |
+| **Read** | `GetFilePathByObjId()` | Ownership-checked lookup of file path and name by obj_id |
+| **Tx** | `BeginTx()` | Begin a database transaction |
+
+### Read Query Details
+
+**`GetPurchasesByUser(userID, year, month)`**
+- JOINs: `obj_doc` → `obj_item` (LEFT, by `doc_id`) → `obj_doc_path` (LEFT, by `obj_id`)
+- Filter: `status = 1` (active only), optional `YEAR(buy_at)` / `MONTH(buy_at)`
+- Order: `buy_at DESC, obj_id` (newest first)
+- Groups item rows per document in Go using `docMap` + `docOrder` to preserve order
+
+**`GetFilePathByObjId(objId, userID)`**
+- Verifies ownership (`user_id = ?`) and active status (`status = 1`) in the same query
+- Returns empty strings if no file is attached (LEFT JOIN on `obj_doc_path`)
+- Returns `sql.ErrNoRows` (wrapped) if the document does not exist or belongs to another user
+
+### Internal Helpers
+
+| Type / Function | Description |
+|-----------------|-------------|
+| `purchaseRow` struct | Holds raw scanned values from a single JOIN row; avoids long `Scan()` argument lists |
+| `purchaseRow.toDocument()` | Converts a scanned row into a `*Document`, parsing the nullable `buy_at` date |
+| `purchaseRow.toItem()` | Extracts an `Item` from the row; returns `false` when the LEFT JOIN produced no item |
+| `buildPurchaseQuery()` | Builds the base SELECT and appends year/month predicates dynamically |
+| `nullableString()` | Converts an empty Go string to `nil` so numeric DB columns receive `NULL` instead of `""` |
 
 ---
 
