@@ -9,6 +9,7 @@ export type Purchase = {
   id: string;
   title: string;
   filename: string;
+  fileUrl?: string;
   buyAt: string;
   buyFrom: string;
   buyPrice: string;
@@ -48,6 +49,7 @@ export const MOCK_PURCHASES: Purchase[] = [
     id: "2024-03-1",
     title: "Monthly Groceries",
     filename: "coles_mar2024.pdf",
+    fileUrl: "https://www.africau.edu/images/general/sample.pdf",
     buyAt: "2024-03-05",
     buyFrom: "Coles",
     buyPrice: "112.30",
@@ -122,6 +124,7 @@ export const MOCK_PURCHASES: Purchase[] = [
     id: "2024-06-2",
     title: "Team Building Dinner",
     filename: "italian_bistro_jun24.jpg",
+    fileUrl: "https://picsum.photos/seed/bistro/800/1060",
     buyAt: "2024-06-28",
     buyFrom: "Italian Bistro",
     buyPrice: "345.00",
@@ -152,6 +155,7 @@ export const MOCK_PURCHASES: Purchase[] = [
     id: "2024-09-1",
     title: "Home Office Upgrade",
     filename: "jbhifi_sep24.pdf",
+    fileUrl: "https://www.africau.edu/images/general/sample.pdf",
     buyAt: "2024-09-10",
     buyFrom: "JB Hi-Fi",
     buyPrice: "499.00",
@@ -262,6 +266,7 @@ export const MOCK_PURCHASES: Purchase[] = [
     id: "2025-01-1",
     title: "Weekly Groceries",
     filename: "invoice_woolworths_jan.pdf",
+    fileUrl: "https://www.africau.edu/images/general/sample.pdf",
     buyAt: "2025-01-15",
     buyFrom: "Woolworths",
     buyPrice: "87.45",
@@ -321,6 +326,7 @@ export const MOCK_PURCHASES: Purchase[] = [
     id: "2025-02-1",
     title: "Team Lunch",
     filename: "thai_garden_receipt.jpg",
+    fileUrl: "https://picsum.photos/seed/thaireceipt/800/1060",
     buyAt: "2025-02-03",
     buyFrom: "Thai Garden Restaurant",
     buyPrice: "210.00",

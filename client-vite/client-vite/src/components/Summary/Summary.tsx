@@ -7,6 +7,7 @@ import {
 } from "./mockData";
 import PurchaseRow from "./PurchaseRow";
 import PurchaseDetail from "./PurchaseDetail";
+import FilePreviewModal from "./FilePreviewModal";
 
 const selectClass =
   "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-xs focus:outline-none focus:ring-2 focus:ring-indigo-500";
@@ -15,6 +16,10 @@ export default function Summary() {
   const [selectedYear, setSelectedYear] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [activePurchase, setActivePurchase] = useState<Purchase | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    filename: string;
+  } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const availableYears = useMemo(() => {
@@ -62,6 +67,15 @@ export default function Summary() {
 
   function closeDetail() {
     setActivePurchase(null);
+  }
+
+  function openPreview(url: string, filename: string) {
+    setActivePurchase(null); // ensure detail modal is closed first
+    setPreviewFile({ url, filename });
+  }
+
+  function closePreview() {
+    setPreviewFile(null);
   }
 
   useEffect(() => {
@@ -183,6 +197,7 @@ export default function Summary() {
                     key={purchase.id}
                     purchase={purchase}
                     onSelect={openDetail}
+                    onPreview={openPreview}
                   />
                 ))}
               </tbody>
@@ -213,9 +228,22 @@ export default function Summary() {
         className="w-full max-w-sm rounded-xl shadow-2xl p-0 backdrop:bg-black/40 mt-16 mb-auto mx-auto"
       >
         {activePurchase && (
-          <PurchaseDetail purchase={activePurchase} onClose={closeDetail} />
+          <PurchaseDetail
+            purchase={activePurchase}
+            onClose={closeDetail}
+            onPreview={openPreview}
+          />
         )}
       </dialog>
+
+      {/* File preview modal */}
+      {previewFile && (
+        <FilePreviewModal
+          url={previewFile.url}
+          filename={previewFile.filename}
+          onClose={closePreview}
+        />
+      )}
     </div>
   );
 }

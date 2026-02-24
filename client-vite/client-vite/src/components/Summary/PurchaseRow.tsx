@@ -4,11 +4,13 @@ import { type Purchase, formatDate, formatCurrency } from "./mockData";
 interface PurchaseRowProps {
   purchase: Purchase;
   onSelect: (p: Purchase) => void;
+  onPreview: (url: string, filename: string) => void;
 }
 
 export default function PurchaseRow({
   purchase,
   onSelect,
+  onPreview,
 }: Readonly<PurchaseRowProps>) {
   return (
     <>
@@ -24,8 +26,21 @@ export default function PurchaseRow({
         <td className="px-4 py-2.5 text-gray-900 font-medium">
           {purchase.title}
         </td>
-        <td className="hidden sm:table-cell px-4 py-2.5 text-gray-500 text-xs truncate max-w-36">
-          {purchase.filename}
+        <td className="hidden sm:table-cell px-4 py-2.5 text-xs max-w-36">
+          {purchase.fileUrl ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview(purchase.fileUrl!, purchase.filename);
+              }}
+              className="truncate text-sky-600 hover:text-sky-800 hover:underline text-left"
+            >
+              {purchase.filename}
+            </button>
+          ) : (
+            <span className="truncate text-gray-500">{purchase.filename}</span>
+          )}
         </td>
         <td className="hidden sm:table-cell px-4 py-2.5 text-gray-600">
           {formatDate(purchase.buyAt)}

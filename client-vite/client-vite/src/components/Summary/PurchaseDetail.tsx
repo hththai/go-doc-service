@@ -4,11 +4,13 @@ import { type Purchase, formatDate, formatCurrency } from "./mockData";
 interface PurchaseDetailProps {
   purchase: Purchase;
   onClose: () => void;
+  onPreview: (url: string, filename: string) => void;
 }
 
 export default function PurchaseDetail({
   purchase,
   onClose,
+  onPreview,
 }: Readonly<PurchaseDetailProps>) {
   const itemTotal = purchase.items.reduce(
     (sum, item) => sum + Number.parseFloat(item.subTotal),
@@ -44,9 +46,19 @@ export default function PurchaseDetail({
         </div>
         <div className="flex justify-between text-gray-600">
           <span className="text-gray-400">File</span>
-          <span className="truncate max-w-48 text-right">
-            {purchase.filename}
-          </span>
+          {purchase.fileUrl ? (
+            <button
+              type="button"
+              onClick={() => onPreview(purchase.fileUrl!, purchase.filename)}
+              className="truncate max-w-48 text-sky-600 hover:text-sky-800 hover:underline text-right"
+            >
+              {purchase.filename}
+            </button>
+          ) : (
+            <span className="truncate max-w-48 text-right">
+              {purchase.filename}
+            </span>
+          )}
         </div>
         <div className="flex justify-between font-semibold text-gray-900">
           <span>Total</span>
