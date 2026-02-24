@@ -17,50 +17,15 @@ export interface OcrInvoice {
   total: string;
 }
 
-export interface OcrResponse {
-  invoice: OcrInvoice;
+export interface OcrPurchaseInfo {
+  buyAt: string | null;
+  buyFrom: string;
+  buyPrice: string;
 }
 
-/** Converts OCR date string to YYYY-MM-DD for <input type="date"> */
-export function parseOcrDate(dateStr: string): string {
-  if (!dateStr) return "";
-
-  // DD.MM.YYYY (e.g. Amazon EU format)
-  const dotMatch = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(dateStr);
-  if (dotMatch) {
-    const [, d, m, y] = dotMatch;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-
-  // DD/MM/YYYY (Australian format)
-  const slashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(dateStr);
-  if (slashMatch) {
-    const [, d, m, y] = slashMatch;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-
-  // DD-MM-YYYY (e.g. "10-11-2025")
-  const dashMatch = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(dateStr);
-  if (dashMatch) {
-    const [, d, m, y] = dashMatch;
-    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-
-  // DD/MM/YY (e.g. "17/08/24" → 2024)
-  const shortSlashMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/.exec(dateStr);
-  if (shortSlashMatch) {
-    const [, d, m, y] = shortSlashMatch;
-    const fullYear = `20${y}`;
-    return `${fullYear}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-
-  // ISO 8601: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS...
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
-  if (isoMatch) {
-    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-  }
-
-  return "";
+export interface OcrResponse {
+  invoice: OcrInvoice;
+  purchaseInfo: OcrPurchaseInfo;
 }
 
 export async function scanInvoice(file: File): Promise<OcrResponse> {

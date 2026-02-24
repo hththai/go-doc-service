@@ -1,5 +1,5 @@
 import { uploadFile } from "@/api/upload";
-import { scanInvoice, parseOcrDate } from "@/api/ocr";
+import { scanInvoice } from "@/api/ocr";
 import { useState, useRef, useEffect } from "react";
 import { useForm } from "@tanstack/react-form";
 import PurchaseInfo from "./PurchaseInfo/PurchaseInfo";
@@ -94,7 +94,7 @@ export default function UploadFile() {
     setScanning(true);
     setScanError(null);
     try {
-      const { invoice } = await scanInvoice(file);
+      const { invoice, purchaseInfo } = await scanInvoice(file);
       // Pre-fill only empty fields so user input is not overridden.
       if (!form.getFieldValue("buyFrom")) {
         form.setFieldValue("buyFrom", invoice.seller ?? "");
@@ -102,8 +102,10 @@ export default function UploadFile() {
       if (!form.getFieldValue("buyPrice")) {
         form.setFieldValue("buyPrice", invoice.total ?? "");
       }
-      if (!form.getFieldValue("buyAt")) {
-        form.setFieldValue("buyAt", parseOcrDate(invoice.document_date) ?? "");
+      if (!form.getFieldValue("buyAt") && purchaseInfo.buyAt) {
+        // purchaseInfo.buyAt is DD/MM/YYYY — convert to YYYY-MM-DD for <input type="date">
+        const [d, m, y] = purchaseInfo.buyAt.split("/");
+        form.setFieldValue("buyAt", `${y}-${m}-${d}`);
       }
       if (items.length === 0 && invoice.items?.length > 0) {
         setItems(
