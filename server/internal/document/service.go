@@ -48,6 +48,18 @@ func (s *DocumentService) SaveItems(tx *sql.Tx, objId int64, docId int64, items 
 	return s.repo.SaveItems(tx, objId, docId, items)
 }
 
+// GetPurchases returns all active purchases for a user, optionally filtered by year and month.
+// Pass empty string or "all" to skip a filter.
+func (s *DocumentService) GetPurchases(userID int, year, month string) ([]Document, error) {
+	return s.repo.GetPurchasesByUser(userID, year, month)
+}
+
+// GetFilePath returns the disk path and file name for a document owned by the given user.
+// Returns sql.ErrNoRows (wrapped) if the document does not exist or belongs to another user.
+func (s *DocumentService) GetFilePath(objId int64, userID int) (string, string, error) {
+	return s.repo.GetFilePathByObjId(objId, userID)
+}
+
 // UploadInput contains the data needed for document upload (decoupled from HTTP layer).
 // Modifying when model change to get input
 type UploadInput struct {

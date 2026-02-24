@@ -133,7 +133,7 @@ POST {{host}}/v1/auth/user/changepassword
 Content-Type: application/json
 
 {    
-    "password": "password",
+    "password": "hello",
     "newpassword": "password"    
 }
 

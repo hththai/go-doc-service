@@ -50,6 +50,16 @@ func (m *mockRepo) BeginTx() (*sql.Tx, error) {
 	return args.Get(0).(*sql.Tx), args.Error(1)
 }
 
+func (m *mockRepo) GetPurchasesByUser(userID int, year, month string) ([]document.Document, error) {
+	args := m.Called(userID, year, month)
+	return args.Get(0).([]document.Document), args.Error(1)
+}
+
+func (m *mockRepo) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
+	args := m.Called(objId, userID)
+	return args.String(0), args.String(1), args.Error(2)
+}
+
 // setupTx creates a sqlmock DB and begins a transaction.
 func setupTx(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *sql.Tx) {
 	t.Helper()
@@ -161,4 +171,92 @@ func TestSaveItemsMetadataError(t *testing.T) {
 	repo.AssertNotCalled(t, "SaveItems")
 	repo.AssertExpectations(t)
 	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// --- GetPurchases ---
+
+// TestGetPurchasesSuccess verifies that GetPurchases returns the documents from the repository.
+func TestGetPurchasesSuccess(t *testing.T) {
+	expected := []document.Document{
+		{Id: "1", Title: "Woolworths", Items: []document.Item{}},
+		{Id: "2", Title: "Coles", Items: []document.Item{}},
+	}
+
+	repo := new(mockRepo)
+	repo.On("GetPurchasesByUser", 1, "", "").Return(expected, nil)
+
+	svc := document.NewDocumentService(repo)
+	got, err := svc.GetPurchases(1, "", "")
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, got)
+	repo.AssertExpectations(t)
+}
+
+// TestGetPurchasesWithFilters verifies that year and month are forwarded to the repository.
+func TestGetPurchasesWithFilters(t *testing.T) {
+	tests := []struct {
+		name  string
+		year  string
+		month string
+	}{
+		{"year only", "2024", ""},
+		{"month only", "", "03"},
+		{"year and month", "2024", "03"},
+		{"all wildcard", "all", "all"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := new(mockRepo)
+			repo.On("GetPurchasesByUser", 1, tt.year, tt.month).Return([]document.Document{}, nil)
+
+			svc := document.NewDocumentService(repo)
+			_, err := svc.GetPurchases(1, tt.year, tt.month)
+
+			assert.NoError(t, err)
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+// TestGetPurchasesError verifies that a repository error is propagated.
+func TestGetPurchasesError(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetPurchasesByUser", 1, "", "").Return([]document.Document{}, errors.New("db error"))
+
+	svc := document.NewDocumentService(repo)
+	_, err := svc.GetPurchases(1, "", "")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "db error")
+	repo.AssertExpectations(t)
+}
+
+// --- GetFilePath ---
+
+// TestGetFilePathSuccess verifies that file path and name are returned for a valid document.
+func TestGetFilePathSuccess(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetFilePathByObjId", int64(5), 1).Return("./filedata/0/0/5.pdf", "receipt.pdf", nil)
+
+	svc := document.NewDocumentService(repo)
+	path, name, err := svc.GetFilePath(5, 1)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "./filedata/0/0/5.pdf", path)
+	assert.Equal(t, "receipt.pdf", name)
+	repo.AssertExpectations(t)
+}
+
+// TestGetFilePathError verifies that a repository error is propagated.
+func TestGetFilePathError(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetFilePathByObjId", int64(99), 1).Return("", "", errors.New("not found"))
+
+	svc := document.NewDocumentService(repo)
+	_, _, err := svc.GetFilePath(99, 1)
+
+	assert.Error(t, err)
+	repo.AssertExpectations(t)
 }

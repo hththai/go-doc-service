@@ -2,14 +2,67 @@ package documentApi
 
 import (
 	"2_Go/internal/document"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
+
+// PurchaseResponse is the JSON shape returned by GET /purchases.
+// Fields are intentionally flat to match the client-side Purchase type.
+type PurchaseResponse struct {
+	ID       string         `json:"id"`
+	Title    string         `json:"title"`
+	Filename string         `json:"filename"`
+	FileURL  string         `json:"fileUrl,omitempty"`
+	BuyAt    string         `json:"buyAt"`
+	BuyFrom  string         `json:"buyFrom"`
+	BuyPrice string         `json:"buyPrice"`
+	Items    []ItemResponse `json:"items"`
+}
+
+// ItemResponse mirrors the client-side Item type.
+type ItemResponse struct {
+	ItemName  string `json:"itemName"`
+	ItemQty   string `json:"itemQty"`
+	UnitPrice string `json:"unitPrice"`
+	SubTotal  string `json:"subTotal"`
+}
+
+// toPurchaseResponse maps a domain Document to the API response shape.
+func toPurchaseResponse(doc document.Document) PurchaseResponse {
+	r := PurchaseResponse{
+		ID:       doc.Id,
+		Title:    doc.Title,
+		Filename: doc.FileName,
+		BuyFrom:  doc.PurchaseInfo.BuyFrom,
+		BuyPrice: doc.PurchaseInfo.BuyPrice,
+		Items:    []ItemResponse{},
+	}
+	if doc.PurchaseInfo.BuyAt != nil {
+		r.BuyAt = doc.PurchaseInfo.BuyAt.Format("2006-01-02")
+	}
+	if doc.FilePath != "" {
+		r.FileURL = "/v1/auth/file/" + doc.Id
+	}
+	for _, item := range doc.Items {
+		r.Items = append(r.Items, ItemResponse{
+			ItemName:  item.Name,
+			ItemQty:   item.Quantity,
+			UnitPrice: item.UnitPrice,
+			SubTotal:  item.SubTotal,
+		})
+	}
+	return r
+}
+
+const msgNotAuthenticated = "user not authenticated"
 
 type DocumentHandler struct {
 	DocSvc document.DocumentService
@@ -29,7 +82,7 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 	// Get user ID from context (set by JWTAuthByCookies middleware).
 	userIdValue, exists := c.Get("userId")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"message": "user not authenticated"})
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
 		return
 	}
 	userId := userIdValue.(int)
@@ -84,4 +137,67 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 
 	h.Logger.Debugf("%s Upload Success", c.ClientIP())
 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
+// GET /purchases?year=2024&month=03
+// Returns all active purchases for the authenticated user.
+// year and month are optional; pass "all" or omit to return everything.
+func (h *DocumentHandler) HandleGetPurchases(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	year := c.Query("year")
+	month := c.Query("month")
+
+	docs, err := h.DocSvc.GetPurchases(userId, year, month)
+	if err != nil {
+		h.Logger.Errorf("%s Error GetPurchases: %s", c.ClientIP(), err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch purchases"})
+		return
+	}
+
+	resp := make([]PurchaseResponse, 0, len(docs))
+	for _, doc := range docs {
+		resp = append(resp, toPurchaseResponse(doc))
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// GET /file/:id
+// Serves the receipt file attached to a purchase. The :id is the document's obj_id.
+// Only the owning user may access the file.
+func (h *DocumentHandler) HandleServeFile(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	objId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	filePath, fileName, err := h.DocSvc.GetFilePath(objId, userId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		} else {
+			h.Logger.Errorf("%s Error GetFilePath id=%d: %s", c.ClientIP(), objId, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve file"})
+		}
+		return
+	}
+	if filePath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no file attached"})
+		return
+	}
+
+	c.FileAttachment(filePath, fileName)
 }

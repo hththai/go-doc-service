@@ -20,6 +20,9 @@ type DocumentRepository interface {
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
 	SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error
+	// Read operations
+	GetPurchasesByUser(userID int, year, month string) ([]Document, error)
+	GetFilePathByObjId(objId int64, userID int) (string, string, error)
 	// Transaction support
 	BeginTx() (*sql.Tx, error)
 }
@@ -150,6 +153,135 @@ func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, objId int64, docId int64,
 		}
 	}
 	return nil
+}
+
+// purchaseRow holds raw scanned values from a single query row.
+type purchaseRow struct {
+	objId     int64
+	title     string
+	fileName  sql.NullString
+	buyAt     sql.NullTime
+	buyFrom   sql.NullString
+	buyPrice  sql.NullString
+	filePath  sql.NullString
+	itemName  sql.NullString
+	itemQty   sql.NullString
+	itemPrice sql.NullString
+	itemTotal sql.NullString
+}
+
+func (row *purchaseRow) toDocument() *Document {
+	var buyAtPtr *Date
+	if row.buyAt.Valid {
+		d := Date{Time: row.buyAt.Time}
+		buyAtPtr = &d
+	}
+	return &Document{
+		Id:       strconv.FormatInt(row.objId, 10),
+		Title:    row.title,
+		FileName: row.fileName.String,
+		FilePath: row.filePath.String,
+		PurchaseInfo: PurchaseInfo{
+			BuyAt:    buyAtPtr,
+			BuyFrom:  row.buyFrom.String,
+			BuyPrice: row.buyPrice.String,
+		},
+		Items: []Item{},
+	}
+}
+
+func (row *purchaseRow) toItem() (Item, bool) {
+	if !row.itemName.Valid || row.itemName.String == "" {
+		return Item{}, false
+	}
+	return Item{
+		Name:      row.itemName.String,
+		Quantity:  row.itemQty.String,
+		UnitPrice: row.itemPrice.String,
+		SubTotal:  row.itemTotal.String,
+	}, true
+}
+
+// buildPurchaseQuery constructs the SELECT query with optional year/month filters.
+func buildPurchaseQuery(userID int, year, month string) (string, []interface{}) {
+	query := `
+		SELECT
+			d.obj_id, d.name_or_title, d.file_name, d.buy_at,
+			d.buy_from, d.buy_price, p.file_path,
+			i.name, i.quantity, i.price, i.total
+		FROM obj_doc d
+		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
+		LEFT JOIN obj_item i ON i.doc_id = d.id
+		WHERE d.user_id = ? AND d.status = 1`
+
+	args := []interface{}{userID}
+	if year != "" && year != "all" {
+		query += " AND YEAR(d.buy_at) = ?"
+		args = append(args, year)
+	}
+	if month != "" && month != "all" {
+		query += " AND MONTH(d.buy_at) = ?"
+		args = append(args, month)
+	}
+	return query + " ORDER BY d.buy_at DESC, d.obj_id", args
+}
+
+// GetPurchasesByUser returns all active purchases for a user, optionally filtered by year and month.
+func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month string) ([]Document, error) {
+	query, args := buildPurchaseQuery(userID, year, month)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query purchases: %w", err)
+	}
+	defer rows.Close()
+
+	// docOrder preserves DESC ordering; docMap avoids duplicate doc entries from the item JOIN.
+	docMap := make(map[int64]*Document)
+	docOrder := []int64{}
+
+	for rows.Next() {
+		var row purchaseRow
+		if err := rows.Scan(&row.objId, &row.title, &row.fileName, &row.buyAt,
+			&row.buyFrom, &row.buyPrice, &row.filePath,
+			&row.itemName, &row.itemQty, &row.itemPrice, &row.itemTotal); err != nil {
+			return nil, fmt.Errorf("scan purchase row: %w", err)
+		}
+
+		if _, exists := docMap[row.objId]; !exists {
+			docMap[row.objId] = row.toDocument()
+			docOrder = append(docOrder, row.objId)
+		}
+
+		if item, ok := row.toItem(); ok {
+			docMap[row.objId].Items = append(docMap[row.objId].Items, item)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	result := make([]Document, 0, len(docOrder))
+	for _, id := range docOrder {
+		result = append(result, *docMap[id])
+	}
+	return result, nil
+}
+
+// GetFilePathByObjId retrieves the file path and name for a document owned by the given user.
+func (r *documentRepositoryImpl) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
+	var filePath, fileName sql.NullString
+	err := r.db.QueryRow(`
+		SELECT p.file_path, d.file_name
+		FROM obj_doc d
+		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
+		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = 1
+		LIMIT 1
+	`, objId, userID).Scan(&filePath, &fileName)
+	if err != nil {
+		return "", "", fmt.Errorf("get file path: %w", err)
+	}
+	return filePath.String, fileName.String, nil
 }
 
 // Insert file path.

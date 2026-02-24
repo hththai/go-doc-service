@@ -60,6 +60,16 @@ func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
 	return args.Get(0).(*sql.Tx), args.Error(1)
 }
 
+func (m *MockDocumentRepository) GetPurchasesByUser(userID int, year, month string) ([]document.Document, error) {
+	args := m.Called(userID, year, month)
+	return args.Get(0).([]document.Document), args.Error(1)
+}
+
+func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
+	args := m.Called(objId, userID)
+	return args.String(0), args.String(1), args.Error(2)
+}
+
 // Helper function to create multipart request
 func createMultipartRequest(formData map[string]string, includeFile bool, fileName, fileContent string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
