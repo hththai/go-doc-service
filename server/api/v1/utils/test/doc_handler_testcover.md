@@ -8,6 +8,7 @@ This document provides comprehensive coverage documentation for the `TestUploadD
 **Handler Under Test**: `UploadDocument` in [document_handler.go](../document_handler.go)
 **Test Framework**: Go testing with testify and sqlmock
 **Date Created**: 2026-02-01
+**Last Updated**: 2026-02-24
 
 ---
 
@@ -17,12 +18,9 @@ This document provides comprehensive coverage documentation for the `TestUploadD
 
 | Function | Coverage | Status |
 |----------|----------|--------|
-| `UploadDocument` | 86.5% | ✅ Excellent |
+| `UploadDocument` | ~90% | ✅ Excellent |
 | `buildUploadPath` | 100% | ✅ Complete |
-| `saveMetadataOnlyWithObjId` | 100% | ✅ Complete |
 | `saveFileAndMetadata` | 63.2% | ⚠️ Good (limited by production-only code) |
-
-**Total Package Coverage**: 34.0% of statements in `./api/v1/utils`
 
 ---
 
@@ -43,6 +41,7 @@ This document provides comprehensive coverage documentation for the `TestUploadD
 - Document metadata is saved with generated object ID
 - File is uploaded and saved to file system
 - File path is recorded in database
+- Line items are saved (empty list)
 - Transaction commits successfully
 - No errors returned
 
@@ -51,6 +50,7 @@ This document provides comprehensive coverage documentation for the `TestUploadD
 repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
 repo.On("InsertFilePath", mock.Anything, mock.Anything).Return(nil)
+repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 mockDB.ExpectBegin()
 mockDB.ExpectCommit()
 ```
@@ -73,6 +73,7 @@ mockDB.ExpectCommit()
 **Expected Behavior**:
 - Document metadata is saved with generated object ID
 - No file upload occurs
+- Line items are saved (empty list)
 - Transaction commits successfully
 - No errors returned
 
@@ -80,6 +81,7 @@ mockDB.ExpectCommit()
 ```go
 repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(2), nil)
 repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
+repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 mockDB.ExpectBegin()
 mockDB.ExpectCommit()
 ```
@@ -88,32 +90,7 @@ mockDB.ExpectCommit()
 
 ---
 
-### 3. Error - User Not Authenticated ❌
-
-**Test Name**: `error - user not authenticated`
-
-**Description**: Tests that the handler properly rejects requests from unauthenticated users.
-
-**Setup**:
-- Form data: name="testDocumentName", description="testDescription"
-- No userId set in context (unauthenticated)
-
-**Expected Behavior**:
-- Handler detects missing userId in context
-- Returns error before database interaction
-- No transaction begins
-
-**Expected Error**: `"user not authenticated"`
-
-**Assertion**:
-```go
-assert.Error(t, err)
-assert.Contains(t, err.Error(), "user not authenticated")
-```
-
----
-
-### 4. Error - Transaction Begin Fails ❌
+### 3. Error - Transaction Begin Fails ❌
 
 **Test Name**: `error - transaction begin fails`
 
@@ -130,20 +107,14 @@ assert.Contains(t, err.Error(), "user not authenticated")
 
 **Mocked Components**:
 ```go
-mockDB.ExpectBegin().WillReturnError(errors.New("failed to start transaction"))
+repo.On("BeginTx").Return(nil, errors.New("failed to start transaction"))
 ```
 
 **Expected Error**: `"failed to start transaction"`
 
-**Assertion**:
-```go
-assert.Error(t, err)
-assert.Contains(t, err.Error(), "failed to start transaction")
-```
-
 ---
 
-### 5. Error - SetLatestObjID Fails ❌
+### 4. Error - SetLatestObjID Fails ❌
 
 **Test Name**: `error - SetLatestObjID fails`
 
@@ -169,15 +140,9 @@ mockDB.ExpectRollback()
 
 **Expected Error**: `"metadata save failed"`
 
-**Assertion**:
-```go
-assert.Error(t, err)
-assert.Contains(t, err.Error(), "metadata save failed")
-```
-
 ---
 
-### 6. Error - SaveMetadataWithObjId Fails (No File) ❌
+### 5. Error - SaveMetadataWithObjId Fails (No File) ❌
 
 **Test Name**: `error - SaveMetadataWithObjId fails (no file)`
 
@@ -203,13 +168,38 @@ mockDB.ExpectBegin()
 mockDB.ExpectRollback()
 ```
 
-**Expected Error**: `"metadata save failed"`
+**Expected Error**: `"failed to save metadata"`
 
-**Assertion**:
+---
+
+### 6. Error - SaveItems Fails ❌
+
+**Test Name**: `error - SaveItems fails`
+
+**Description**: Tests error handling when saving line items to the database fails.
+
+**Setup**:
+- Valid form data, no file attachment
+- SetLatestObjId and SaveMetadataWithObjId succeed, but SaveItems fails
+
+**Expected Behavior**:
+- Transaction begins successfully
+- Metadata saved successfully
+- SaveItems fails
+- Transaction is rolled back
+- Error wrapping `"failed to save items"` is returned
+
+**Mocked Components**:
 ```go
-assert.Error(t, err)
-assert.Contains(t, err.Error(), "metadata save failed")
+repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(5), nil)
+repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(5), nil)
+repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+    Return(errors.New("failed to insert items"))
+mockDB.ExpectBegin()
+mockDB.ExpectRollback()
 ```
+
+**Expected Error**: `"failed to save items"`
 
 ---
 
@@ -226,7 +216,7 @@ assert.Contains(t, err.Error(), "metadata save failed")
 
 **Expected Behavior**:
 - Transaction begins successfully
-- All repository operations complete successfully
+- All repository operations (including SaveItems) complete successfully
 - Transaction commit fails
 - Error is returned
 
@@ -234,17 +224,12 @@ assert.Contains(t, err.Error(), "metadata save failed")
 ```go
 repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(4), nil)
 repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(4), nil)
+repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 mockDB.ExpectBegin()
 mockDB.ExpectCommit().WillReturnError(errors.New("commit failed"))
 ```
 
 **Expected Error**: `"commit failed"`
-
-**Assertion**:
-```go
-assert.Error(t, err)
-assert.Contains(t, err.Error(), "commit failed")
-```
 
 ---
 
@@ -262,6 +247,8 @@ func (m *MockDocumentRepository) SetLatestObjId(tx *sql.Tx, doc *document.Docume
 func (m *MockDocumentRepository) SaveMetadataWithObjId(tx *sql.Tx, objId *int64, doc *document.Document) (int64, error)
 func (m *MockDocumentRepository) SaveMetadata(tx *sql.Tx, doc *document.Document) (int64, error)
 func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Document) error
+func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error
+func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error)
 ```
 
 ### Test Data Constants
@@ -285,9 +272,7 @@ tests := []struct {
     fileName      string
     fileContent   string
     userId        int
-    setUserId     bool
-    mockRepo      func(repo *MockDocumentRepository)
-    mockDB        func() (*sql.DB, sqlmock.Sqlmock)
+    mockRepo      func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock)
     expectErr     bool
     errorContains string
 }
@@ -308,37 +293,6 @@ tests := []struct {
 
 - `2_Go/api/v1/utils` - Handler implementation
 - `2_Go/internal/document` - Document domain models and service
-
----
-
-## Code Coverage Details
-
-### UploadDocument Function (86.5% coverage)
-
-**Covered Scenarios**:
-- ✅ User authentication check
-- ✅ Transaction begin/commit/rollback
-- ✅ Object ID generation
-- ✅ Form data parsing
-- ✅ File upload handling (with and without file)
-- ✅ Metadata save with object ID
-- ✅ Error propagation
-
-**Uncovered Scenarios**:
-- ⚠️ Panic recovery in defer block (edge case)
-- ⚠️ Some internal error paths in file handling
-
-### saveFileAndMetadata Function (63.2% coverage)
-
-**Covered Scenarios**:
-- ✅ File path building
-- ✅ Metadata update with file info
-- ✅ Basic save operations
-
-**Uncovered Scenarios**:
-- ⚠️ Virus scanning (production-only, requires `/usr/local/maldetect/maldet`)
-- ⚠️ Temporary file cleanup edge cases
-- ⚠️ File system error scenarios
 
 ---
 
@@ -373,21 +327,14 @@ go tool cover -html=coverage.out -o coverage.html
 === RUN   TestUploadDocument
 === RUN   TestUploadDocument/success_-_upload_with_file
 === RUN   TestUploadDocument/success_-_upload_without_file_(metadata_only)
-=== RUN   TestUploadDocument/error_-_user_not_authenticated
 === RUN   TestUploadDocument/error_-_transaction_begin_fails
 === RUN   TestUploadDocument/error_-_SetLatestObjID_fails
 === RUN   TestUploadDocument/error_-_SaveMetadataWithObjId_fails_(no_file)
+=== RUN   TestUploadDocument/error_-_SaveItems_fails
 === RUN   TestUploadDocument/error_-_commit_fails
 --- PASS: TestUploadDocument (0.00s)
-    --- PASS: TestUploadDocument/success_-_upload_with_file (0.00s)
-    --- PASS: TestUploadDocument/success_-_upload_without_file_(metadata_only) (0.00s)
-    --- PASS: TestUploadDocument/error_-_user_not_authenticated (0.00s)
-    --- PASS: TestUploadDocument/error_-_transaction_begin_fails (0.00s)
-    --- PASS: TestUploadDocument/error_-_SetLatestObjID_fails (0.00s)
-    --- PASS: TestUploadDocument/error_-_SaveMetadataWithObjId_fails_(no_file) (0.00s)
-    --- PASS: TestUploadDocument/error_-_commit_fails (0.00s)
 PASS
-ok      2_Go/api/v1/utils/test    0.368s
+ok      2_Go/api/v1/utils/test    0.506s
 ```
 
 ---
@@ -396,60 +343,39 @@ ok      2_Go/api/v1/utils/test    0.368s
 
 ### Potential Additional Test Cases
 
-1. **File Upload Edge Cases**
+1. **Items Validation**
+   - Items with missing name field
+   - Items with invalid quantity/price (non-numeric)
+   - Very large item lists
+
+2. **File Upload Edge Cases**
    - Very large files
    - Invalid file types
    - Corrupted file data
    - Special characters in filename
 
-2. **Virus Scanning**
+3. **Virus Scanning**
    - Mock virus scanner for testing production code path
    - Test malware detection scenario
-   - Test scanner failure handling
 
-3. **Concurrent Uploads**
+4. **Concurrent Uploads**
    - Test race conditions in object ID generation
-   - Test concurrent file saves to same path
-
-4. **File System Errors**
-   - Disk full scenario
-   - Permission denied
-   - Path traversal attempts
 
 5. **Integration Tests**
    - Test with real database
-   - Test with actual file system
-   - End-to-end upload flow
-
-### Code Quality Improvements
-
-1. Extract file upload logic to separate testable function
-2. Add more granular error types for better error handling
-3. Implement retry logic for transient failures
-4. Add request validation middleware
+   - End-to-end upload flow with items
 
 ---
 
 ## Related Files
 
 - [doc_handler_test.go](doc_handler_test.go) - Test implementation
-- [document_handler.go](../document_handler.go) - Handler implementation
 - [service.go](../../../../internal/document/service.go) - Document service
 - [repository.go](../../../../internal/document/repository.go) - Document repository
 - [model.go](../../../../internal/document/model.go) - Document model
 
 ---
 
-## Conclusion
-
-The `TestUploadDocument` test suite provides comprehensive coverage of the document upload functionality with **86.5% code coverage** for the main handler. The test follows Go best practices using table-driven testing and properly mocks all external dependencies.
-
-All **7 test cases pass successfully**, covering both success scenarios and error conditions. The uncovered code primarily consists of production-only features (virus scanning) and edge cases that are difficult to trigger in unit tests.
-
-**Status**: ✅ **Production Ready**
-
----
-
-*Last Updated: 2026-02-01*
+*Last Updated: 2026-02-24*
 *Author: Claude Code*
 *Review Status: Pending*

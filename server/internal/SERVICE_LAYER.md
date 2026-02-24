@@ -1,6 +1,6 @@
 # Service Layer Responsibilities
 
-**Last Updated:** 2026-02-08
+**Last Updated:** 2026-02-24
 
 ---
 
@@ -66,10 +66,11 @@ tx.Commit()
 
 | Category | Methods | Description |
 |----------|---------|-------------|
-| **Document Upload** | `UploadDocument()` | Full upload flow with file handling and metadata |
+| **Document Upload** | `UploadDocument()` | Full upload flow with file handling, metadata, and line items |
 | **Transaction** | `BeginTx()` | Start database transactions |
 | **Metadata** | `SetLatestObjID()`, `SaveMetadataWithObjId()`, `SaveDocumentMetadata()` | Store document metadata |
 | **File Storage** | `SaveFilePath()` | Persist file paths to database |
+| **Line Items** | `SaveItems()` | Persist purchase line items to `obj_item` table |
 
 ### Internal Helpers
 
@@ -97,6 +98,9 @@ input := &UploadInput{
     Description: "Annual report",
     UserId:      123,
     File:        fileHeader,
+    Items: []Item{
+        {Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+    },
 }
 
 err := documentService.UploadDocument(input, func(file *multipart.FileHeader, dst string) error {

@@ -45,6 +45,10 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
+func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error {
+	return m.Called(tx, objId, docId, items).Error(0)
+}
+
 func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
@@ -154,6 +158,7 @@ func TestHandleUploadPurchaseInfoBuyAt(t *testing.T) {
 						return true
 					}),
 				).Return(int64(1), nil)
+				mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 				defer func() {
 					assert.NoError(t, mockDB.ExpectationsWereMet())

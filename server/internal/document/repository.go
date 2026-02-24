@@ -19,6 +19,7 @@ type DocumentRepository interface {
 	SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error)
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
+	SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error
 	// Transaction support
 	BeginTx() (*sql.Tx, error)
 }
@@ -129,6 +130,25 @@ func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (i
 	}
 
 	return id, nil
+}
+
+// SaveItems inserts all line items for a document into obj_item.
+func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {
+	for _, item := range items {
+		_, err := tx.Exec(
+			`INSERT INTO obj_item (obj_id, doc_id, name, quantity, price, total) VALUES (?,?,?,?,?,?)`,
+			objId,
+			docId,
+			item.Name,
+			nullableString(item.Quantity),
+			nullableString(item.UnitPrice),
+			nullableString(item.SubTotal),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save item %q: %w", item.Name, err)
+		}
+	}
+	return nil
 }
 
 // Insert file path.

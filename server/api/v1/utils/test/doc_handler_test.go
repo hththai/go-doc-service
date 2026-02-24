@@ -48,6 +48,10 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
+func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error {
+	return m.Called(tx, objId, docId, items).Error(0)
+}
+
 func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
@@ -141,6 +145,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
 				repo.On("InsertFilePath", mock.Anything, mock.Anything).Return(nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectErr: false,
 		},
@@ -159,6 +164,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(2), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectErr: false,
 		},
@@ -216,6 +222,27 @@ func TestUploadDocument(t *testing.T) {
 			errorContains: "failed to save metadata",
 		},
 		{
+			name: "error - SaveItems fails",
+			formData: map[string]string{
+				"name":        "testDocumentName",
+				"description": "testDescription",
+			},
+			includeFile: false,
+			userId:      123,
+			mockRepo: func(repo *MockDocumentRepository, db *sql.DB, mockDB sqlmock.Sqlmock) {
+				mockDB.ExpectBegin()
+				mockDB.ExpectRollback()
+				tx, _ := db.Begin()
+				repo.On("BeginTx").Return(tx, nil)
+				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(5), nil)
+				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(5), nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(errors.New("failed to insert items"))
+			},
+			expectErr:     true,
+			errorContains: "failed to save items",
+		},
+		{
 			name: "error - commit fails",
 			formData: map[string]string{
 				"name":        "testDocumentName",
@@ -230,6 +257,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(4), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(4), nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectErr:     true,
 			errorContains: "commit failed",

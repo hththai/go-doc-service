@@ -243,3 +243,14 @@ Content-Type: application/pdf
 
 < ./input/Ipafpro-invoice-2024.pdf
 --boundary--
+
+### OCR - extract invoice (PDF)
+POST {{host}}/v1/auth/ocr
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+< ./input/invoice_3600919.pdf
+--boundary--

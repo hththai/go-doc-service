@@ -44,6 +44,10 @@ func (s *DocumentService) SaveFilePath(tx *sql.Tx, document *Document) error {
 	return s.repo.InsertFilePath(tx, document)
 }
 
+func (s *DocumentService) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {
+	return s.repo.SaveItems(tx, objId, docId, items)
+}
+
 // UploadInput contains the data needed for document upload (decoupled from HTTP layer).
 // Modifying when model change to get input
 type UploadInput struct {
@@ -107,9 +111,14 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 
 	// Handle when there is no attached file.
 	if input.File == nil {
-		if _, err := s.SaveMetadataWithObjId(tx, &objId, &doc); err != nil {
+		docId, err := s.SaveMetadataWithObjId(tx, &objId, &doc)
+		if err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to save metadata: %w", err)
+		}
+		if err := s.SaveItems(tx, objId, docId, doc.Items); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("failed to save items: %w", err)
 		}
 		return tx.Commit()
 	}
@@ -126,10 +135,15 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 	}
 
 	// Save the doc metadata.
-	_, err = s.SaveMetadataWithObjId(tx, &objId, &doc)
+	docId, err := s.SaveMetadataWithObjId(tx, &objId, &doc)
 	if err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("failed to save metadata: %w", err)
+	}
+
+	if err := s.SaveItems(tx, objId, docId, doc.Items); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("failed to save items: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
