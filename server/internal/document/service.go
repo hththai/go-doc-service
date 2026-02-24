@@ -124,7 +124,7 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 	}
 
 	// Update file-related fields.
-	doc.Title = input.File.Filename
+	doc.FileName = input.File.Filename
 	doc.FileSize = float64(input.File.Size)
 	doc.Extension = filepath.Ext(input.File.Filename)
 	doc.Id = strconv.FormatInt(objId, 10)

@@ -51,6 +51,7 @@ type Document struct {
 	Id           string       `json:"id"`
 	UserId       int          `json:"userId"`
 	Title        string       `json:"title"`
+	FileName     string       `json:"fileName"`
 	Description  string       `json:"description"`
 	Extension    string       `json:"extension"`
 	FilePath     string       `json:"filepath"`

@@ -220,6 +220,11 @@ Content-Disposition: form-data; name="buyPrice"
 Content-Disposition: form-data; name="items"
 
 [{"itemName":"Widget A","itemQty":"2","unitPrice":"25.00","subTotal":"50.00"},{"itemName":"Widget B","itemQty":"1","unitPrice":"49.99","subTotal":"49.99"}]
+
+--boundary
+Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
+
+< .input/Hayden Thai_Resume-2.pdf
 --boundary--
 
 ### OCR - extract invoice (image)
@@ -253,4 +258,36 @@ Content-Disposition: form-data; name="file"; filename="invoice.pdf"
 Content-Type: application/pdf
 
 < ./input/invoice_3600919.pdf
+--boundary--
+
+
+###Test upload with items
+POST {{host}}/v1/auth/upload
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+Invoice with items
+--boundary
+Content-Disposition: form-data; name="buyFrom"
+
+Supplier Co.
+--boundary
+Content-Disposition: form-data; name="buyAt"
+
+07/01/2026
+--boundary
+Content-Disposition: form-data; name="buyPrice"
+
+99.99
+--boundary
+Content-Disposition: form-data; name="items"
+
+[{"itemName":"APPLE IPAD PRO 13 MAGIC KEYBOARD","itemQty":1,"unitPrice":"579.00","subTotal":"579.00"},{"itemName":"IPAD PRO 13 WIFI 256GB SP BLK","itemQty":1,"unitPrice":"2197.00","subTotal":"2197.00"},{"itemName":"APPLE PENCIL PRO","itemQty":1,"unitPrice":"219.00","subTotal":"219.00"}]
+
+--boundary
+Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
+
+< .input/Hayden Thai_Resume-2.pdf
 --boundary--

@@ -23,6 +23,7 @@ func MigrateAll(db *sql.DB) error {
 		{6, createItemTable},
 		{7, alterDocumentPriceAndDateColumns},
 		{8, alterBuyAtToDate},
+		{9, addFileNameColumn},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -149,6 +150,14 @@ func alterDocumentPriceAndDateColumns(db *sql.DB) error {
 		MODIFY COLUMN sold_price DECIMAL(10, 2)`)
 	if err != nil {
 		return fmt.Errorf("failed to alter obj_doc columns: %w", err)
+	}
+	return nil
+}
+
+func addFileNameColumn(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_doc ADD COLUMN file_name varchar(500) NULL AFTER name_or_title`)
+	if err != nil {
+		return fmt.Errorf("failed to add file_name column: %w", err)
 	}
 	return nil
 }

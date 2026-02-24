@@ -80,12 +80,13 @@ func (r *documentRepositoryImpl) SaveMetadataWithObjId(tx *sql.Tx, objId *int64,
 
 	// result, err := r.db.Exec(
 	result, err := tx.Exec(
-		`INSERT INTO obj_doc (guid, user_id,obj_id, name_or_title, description, file_size, extension, status, buy_from, buy_price, buy_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		`INSERT INTO obj_doc (guid, user_id, obj_id, name_or_title, file_name, description, file_size, extension, status, buy_from, buy_price, buy_at)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
 		document.GUID,
 		document.UserId,
 		objId,
 		document.Title,
+		nullableString(document.FileName),
 		document.Description,
 		document.FileSize,
 		document.Extension,
@@ -114,9 +115,9 @@ func (r *documentRepositoryImpl) SaveMetadataWithObjId(tx *sql.Tx, objId *int64,
 func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (int64, error) {
 
 	result, err := tx.Exec(
-		`INSERT INTO obj_doc (guid, name_or_title, description, file_size, extension, status)
-		VALUES (?,?,?,?,?,?)`,
-		document.GUID, document.Title, document.Description, document.FileSize, document.Extension, document.Status,
+		`INSERT INTO obj_doc (guid, name_or_title, file_name, description, file_size, extension, status)
+		VALUES (?,?,?,?,?,?,?)`,
+		document.GUID, document.Title, nullableString(document.FileName), document.Description, document.FileSize, document.Extension, document.Status,
 	)
 
 	if err != nil {
