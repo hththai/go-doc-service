@@ -1,5 +1,4 @@
-# @host = http://localhost:8088
-@host = https://box.hthai.cloud/go
+@host=YOUR
 
 GET http://localhost:8088/ping
 
@@ -298,3 +297,38 @@ GET {{host}}/v1/auth/purchases
 
 ###Get file path
 GET {{host}}/v1/auth/file/57
+
+### Create purchase (no file)
+POST {{host}}/v1/auth/purchases
+Content-Type: application/json
+
+{
+    "name": "Woolworths Weekly Shop",
+    "buyFrom": "Woolworths",
+    "buyAt": "2026-02-25",
+    "buyPrice": "95.40",
+    "items": [
+        { "itemName": "Milk 2L", "itemQty": "2", "unitPrice": "3.20", "subTotal": "6.40" },
+        { "itemName": "Bread", "itemQty": "1", "unitPrice": "4.50", "subTotal": "4.50" },
+        { "itemName": "Eggs 12pk", "itemQty": "1", "unitPrice": "6.90", "subTotal": "6.90" }
+    ]
+}
+
+### Update purchase (replace metadata + items)
+PATCH {{host}}/v1/auth/purchases/57
+Content-Type: application/json
+
+{
+    "name": "Woolworths Weekly Shop (corrected)",
+    "buyFrom": "Woolworths",
+    "buyAt": "2026-02-25",
+    "buyPrice": "97.80",
+    "items": [
+        { "itemName": "Milk 2L", "itemQty": "2", "unitPrice": "3.20", "subTotal": "6.40" },
+        { "itemName": "Bread", "itemQty": "1", "unitPrice": "4.50", "subTotal": "4.50" },
+        { "itemName": "Eggs 12pk", "itemQty": "2", "unitPrice": "6.90", "subTotal": "13.80" }
+    ]
+}
+
+### Delete purchase (soft-delete)
+DELETE {{host}}/v1/auth/purchases/57
