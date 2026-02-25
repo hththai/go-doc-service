@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { useState } from "react";
-import { Home, LayoutList, Menu, X } from "lucide-react";
+import { Home, LayoutList, Menu, TableProperties, X } from "lucide-react";
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -64,6 +64,19 @@ export default function Header() {
           >
             <LayoutList size={20} />
             <span className="font-medium">Summary</span>
+          </Link>
+
+          <Link
+            to="/edit-table"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-800 transition-colors mb-2"
+            activeProps={{
+              className:
+                "flex items-center gap-3 p-3 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors mb-2",
+            }}
+          >
+            <TableProperties size={20} />
+            <span className="font-medium">Manage</span>
           </Link>
 
           {/* Demo Links Start */}

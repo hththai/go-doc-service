@@ -67,3 +67,59 @@ export async function uploadFile(
 
   return await res.json();
 }
+
+export type PurchasePayload = {
+  title: string;
+  buyFrom: string;
+  buyAt: string;
+  buyPrice: string;
+  items: UploadItem[];
+};
+
+export async function createPurchase(data: PurchasePayload) {
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/auth/purchases`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: data.title,
+      buyFrom: data.buyFrom,
+      buyAt: data.buyAt,
+      buyPrice: data.buyPrice,
+      items: data.items,
+    }),
+  });
+  if (!res.ok) throw new Error("Failed to create purchase");
+  return res.json();
+}
+
+export async function updatePurchase(id: string, data: PurchasePayload) {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/v1/auth/purchases/${id}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: data.title,
+        buyFrom: data.buyFrom,
+        buyAt: data.buyAt,
+        buyPrice: data.buyPrice,
+        items: data.items,
+      }),
+    },
+  );
+  if (!res.ok) throw new Error("Failed to update purchase");
+  return res.json();
+}
+
+export async function deletePurchase(id: string): Promise<void> {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/v1/auth/purchases/${id}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+  if (!res.ok) throw new Error("Failed to delete purchase");
+}
