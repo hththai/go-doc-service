@@ -323,12 +323,14 @@ func (r *documentRepositoryImpl) GetDocIdByObjId(tx *sql.Tx, objId int64, userID
 // Returns sql.ErrNoRows if the document does not exist or belongs to another user.
 func (r *documentRepositoryImpl) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error {
 	result, err := tx.Exec(
-		`UPDATE obj_doc SET name_or_title=?, buy_from=?, buy_price=?, buy_at=?
+		`UPDATE obj_doc SET name_or_title=?, buy_from=?, buy_price=?, buy_at=?,
+		 file_name=COALESCE(NULLIF(?, ''), file_name)
 		 WHERE obj_id=? AND user_id=? AND status=1`,
 		doc.Title,
 		doc.PurchaseInfo.BuyFrom,
 		nullableString(doc.PurchaseInfo.BuyPrice),
 		doc.PurchaseInfo.BuyAt,
+		doc.FileName,
 		objId,
 		userID,
 	)

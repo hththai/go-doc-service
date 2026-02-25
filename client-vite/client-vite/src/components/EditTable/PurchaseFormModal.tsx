@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Plus, Trash2 } from "lucide-react";
+import { X, Plus, Trash2, Paperclip, ExternalLink } from "lucide-react";
 import { type Purchase, formatCurrency } from "../Summary/mockData";
 
 export type PurchaseFormData = {
@@ -7,6 +7,7 @@ export type PurchaseFormData = {
   buyFrom: string;
   buyAt: string;
   buyPrice: string;
+  filename: string;
   items: Array<{
     itemName: string;
     itemQty: string;
@@ -43,10 +44,18 @@ export default function PurchaseFormModal({
         buyFrom: purchase.buyFrom,
         buyAt: purchase.buyAt,
         buyPrice: purchase.buyPrice,
+        filename: purchase.filename ?? "",
         items: purchase.items.map((i) => ({ ...i })),
       };
     }
-    return { title: "", buyFrom: "", buyAt: "", buyPrice: "", items: [] };
+    return {
+      title: "",
+      buyFrom: "",
+      buyAt: "",
+      buyPrice: "",
+      filename: "",
+      items: [],
+    };
   });
 
   useEffect(() => {
@@ -132,6 +141,8 @@ export default function PurchaseFormModal({
     e.preventDefault();
     onSave(form);
   }
+
+  const hasAttachment = mode === "edit" && purchase?.filename;
 
   return (
     <dialog
@@ -229,6 +240,39 @@ export default function PurchaseFormModal({
               className={inputClass}
             />
           </div>
+
+          {/* Attached Document */}
+          {hasAttachment && (
+            <div>
+              <label htmlFor="form-filename" className={labelClass}>
+                Attached Document
+              </label>
+              <div className="flex items-center gap-2">
+                <Paperclip size={14} className="shrink-0 text-gray-400" />
+                <input
+                  id="form-filename"
+                  type="text"
+                  value={form.filename}
+                  onChange={(e) => updateField("filename", e.target.value)}
+                  required
+                  placeholder="File name"
+                  className={inputClass}
+                />
+                {purchase?.fileUrl && (
+                  <a
+                    href={purchase.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 text-gray-500 hover:text-sky-600 hover:border-sky-300 transition-colors"
+                    title="Open attached file"
+                  >
+                    <ExternalLink size={13} />
+                    View
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Line Items */}
           <div>

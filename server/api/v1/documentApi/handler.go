@@ -78,6 +78,7 @@ type purchaseJSONRequest struct {
 	BuyFrom  string          `json:"buyFrom"`
 	BuyAt    string          `json:"buyAt"` // YYYY-MM-DD from a date input
 	BuyPrice string          `json:"buyPrice"`
+	FileName string          `json:"filename"` // optional rename for the attached file
 	Items    []document.Item `json:"items"`
 }
 
@@ -316,6 +317,7 @@ func (h *DocumentHandler) HandleUpdatePurchase(c *gin.Context) {
 		BuyFrom:  req.BuyFrom,
 		BuyAt:    buyAt,
 		BuyPrice: req.BuyPrice,
+		FileName: req.FileName,
 		Items:    req.Items,
 		UserId:   userId,
 	}

@@ -73,6 +73,7 @@ export type PurchasePayload = {
   buyFrom: string;
   buyAt: string;
   buyPrice: string;
+  filename: string;
   items: UploadItem[];
 };
 
@@ -105,6 +106,7 @@ export async function updatePurchase(id: string, data: PurchasePayload) {
         buyFrom: data.buyFrom,
         buyAt: data.buyAt,
         buyPrice: data.buyPrice,
+        filename: data.filename,
         items: data.items,
       }),
     },

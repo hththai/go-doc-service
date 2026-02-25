@@ -18,7 +18,8 @@ import (
 // Returns sql.ErrNoRows (wrapped) if the document does not exist or belongs to another user.
 func (s *DocumentService) UpdatePurchase(objId int64, userID int, input *UploadInput) error {
 	doc := Document{
-		Title: input.Title,
+		Title:    input.Title,
+		FileName: input.FileName,
 		PurchaseInfo: PurchaseInfo{
 			BuyFrom:  input.BuyFrom,
 			BuyAt:    input.BuyAt,
@@ -124,6 +125,7 @@ type UploadInput struct {
 	BuyFrom     string
 	BuyAt       *Date
 	BuyPrice    string
+	FileName    string // display name override for rename
 	Items       []Item
 	UserId      int
 	File        *multipart.FileHeader // nil if no file attached
