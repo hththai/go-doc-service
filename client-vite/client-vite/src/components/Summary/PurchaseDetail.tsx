@@ -12,10 +12,10 @@ export default function PurchaseDetail({
   onClose,
   onPreview,
 }: Readonly<PurchaseDetailProps>) {
-  const itemTotal = purchase.items.reduce(
-    (sum, item) => sum + Number.parseFloat(item.subTotal),
-    0,
-  );
+  const itemTotal = purchase.items.reduce((sum, item) => {
+    const sub = Number.parseFloat(item.subTotal);
+    return sum + (Number.isNaN(sub) ? 0 : sub);
+  }, 0);
 
   return (
     <div className="flex flex-col max-h-[85vh]">

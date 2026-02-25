@@ -61,10 +61,10 @@ export default function Summary() {
     });
   }, [selectedYear, selectedMonth, purchases]);
 
-  const total = filtered.reduce(
-    (sum, p) => sum + Number.parseFloat(p.buyPrice),
-    0,
-  );
+  const total = filtered.reduce((sum, p) => {
+    const price = Number.parseFloat(p.buyPrice);
+    return sum + (Number.isNaN(price) ? 0 : price);
+  }, 0);
 
   // 640px matches Tailwind's `sm` breakpoint
   function openDetail(purchase: Purchase) {
