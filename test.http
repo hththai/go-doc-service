@@ -1,4 +1,5 @@
-@host=YOUR
+@host = http://localhost:8088
+# @host = https://box.hthai.cloud/go
 
 GET http://localhost:8088/ping
 
