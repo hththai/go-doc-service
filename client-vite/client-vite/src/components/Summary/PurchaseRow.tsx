@@ -26,7 +26,7 @@ export default function PurchaseRow({
         <td className="px-4 py-2.5 text-gray-900 font-medium">
           {purchase.title}
         </td>
-        <td className="hidden sm:table-cell px-4 py-2.5 text-xs max-w-36">
+        <td className="hidden sm:table-cell px-4 py-2.5 text-xs w-36 max-w-36 overflow-hidden">
           {purchase.fileUrl ? (
             <button
               type="button"
@@ -34,12 +34,14 @@ export default function PurchaseRow({
                 e.stopPropagation();
                 onPreview(purchase.fileUrl!, purchase.filename);
               }}
-              className="truncate text-sky-600 hover:text-sky-800 hover:underline text-left"
+              className="block w-full truncate text-sky-600 hover:text-sky-800 hover:underline text-left"
             >
               {purchase.filename}
             </button>
           ) : (
-            <span className="truncate text-gray-500">{purchase.filename}</span>
+            <span className="block w-full truncate text-gray-500">
+              {purchase.filename}
+            </span>
           )}
         </td>
         <td className="hidden sm:table-cell px-4 py-2.5 text-gray-600">

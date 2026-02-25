@@ -50,12 +50,12 @@ export default function PurchaseDetail({
             <button
               type="button"
               onClick={() => onPreview(purchase.fileUrl!, purchase.filename)}
-              className="truncate max-w-48 text-sky-600 hover:text-sky-800 hover:underline text-right"
+              className="block truncate max-w-48 text-sky-600 hover:text-sky-800 hover:underline text-right"
             >
               {purchase.filename}
             </button>
           ) : (
-            <span className="truncate max-w-48 text-right">
+            <span className="block truncate max-w-48 text-right">
               {purchase.filename}
             </span>
           )}
