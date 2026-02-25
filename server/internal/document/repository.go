@@ -23,6 +23,11 @@ type DocumentRepository interface {
 	// Read operations
 	GetPurchasesByUser(userID int, year, month string) ([]Document, error)
 	GetFilePathByObjId(objId int64, userID int) (string, string, error)
+	GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error)
+	// Write operations
+	UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error
+	DeleteItemsByObjId(tx *sql.Tx, objId int64) error
+	SoftDeletePurchase(objId int64, userID int) error
 	// Transaction support
 	BeginTx() (*sql.Tx, error)
 }
@@ -203,7 +208,6 @@ func (row *purchaseRow) toItem() (Item, bool) {
 }
 
 // buildPurchaseQuery constructs the SELECT query with optional year/month filters.
-// TODO: check the status -1 or 1 for active.
 func buildPurchaseQuery(userID int, year, month string) (string, []interface{}) {
 	query := `
 		SELECT
@@ -270,7 +274,6 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 }
 
 // GetFilePathByObjId retrieves the file path and name for a document owned by the given user.
-// TODO: check the status -1 or 1. Currently default is -1 for active.
 func (r *documentRepositoryImpl) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
 	var filePath, fileName sql.NullString
 	err := r.db.QueryRow(`
@@ -299,6 +302,71 @@ func (r *documentRepositoryImpl) InsertFilePath(tx *sql.Tx, document *Document) 
 	)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// GetDocIdByObjId returns the auto-increment primary key (id) of obj_doc for a given obj_id.
+func (r *documentRepositoryImpl) GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error) {
+	var docId int64
+	err := tx.QueryRow(
+		`SELECT id FROM obj_doc WHERE obj_id=? AND user_id=? AND status=1`,
+		objId, userID,
+	).Scan(&docId)
+	if err != nil {
+		return 0, fmt.Errorf("get doc id: %w", err)
+	}
+	return docId, nil
+}
+
+// UpdatePurchaseMetadata updates the editable fields of a purchase owned by the user.
+// Returns sql.ErrNoRows if the document does not exist or belongs to another user.
+func (r *documentRepositoryImpl) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error {
+	result, err := tx.Exec(
+		`UPDATE obj_doc SET name_or_title=?, buy_from=?, buy_price=?, buy_at=?
+		 WHERE obj_id=? AND user_id=? AND status=1`,
+		doc.Title,
+		doc.PurchaseInfo.BuyFrom,
+		nullableString(doc.PurchaseInfo.BuyPrice),
+		doc.PurchaseInfo.BuyAt,
+		objId,
+		userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// DeleteItemsByObjId removes all line items for the given obj_id.
+func (r *documentRepositoryImpl) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
+	_, err := tx.Exec(`DELETE FROM obj_item WHERE obj_id=?`, objId)
+	return err
+}
+
+// SoftDeletePurchase sets status=-1 on a purchase owned by the user.
+// Returns sql.ErrNoRows if the document does not exist or belongs to another user.
+func (r *documentRepositoryImpl) SoftDeletePurchase(objId int64, userID int) error {
+	result, err := r.db.Exec(
+		`UPDATE obj_doc SET status=-1 WHERE obj_id=? AND user_id=? AND status=1`,
+		objId, userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }

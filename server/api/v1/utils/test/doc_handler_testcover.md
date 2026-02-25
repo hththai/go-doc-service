@@ -249,6 +249,12 @@ func (m *MockDocumentRepository) SaveMetadata(tx *sql.Tx, doc *document.Document
 func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Document) error
 func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error
 func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error)
+func (m *MockDocumentRepository) GetPurchasesByUser(userID int, year, month string) ([]document.Document, error)
+func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (string, string, error)
+func (m *MockDocumentRepository) GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error)
+func (m *MockDocumentRepository) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error
+func (m *MockDocumentRepository) DeleteItemsByObjId(tx *sql.Tx, objId int64) error
+func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) error
 ```
 
 ### Test Data Constants
@@ -376,6 +382,6 @@ ok      2_Go/api/v1/utils/test    0.506s
 
 ---
 
-*Last Updated: 2026-02-24*
+*Last Updated: 2026-02-25*
 *Author: Claude Code*
 *Review Status: Pending*

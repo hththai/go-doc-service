@@ -60,6 +60,22 @@ func (m *mockRepo) GetFilePathByObjId(objId int64, userID int) (string, string, 
 	return args.String(0), args.String(1), args.Error(2)
 }
 
+func (m *mockRepo) GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error) {
+	return mockInt64Result(m.Called(tx, objId, userID))
+}
+
+func (m *mockRepo) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error {
+	return m.Called(tx, objId, userID, doc).Error(0)
+}
+
+func (m *mockRepo) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
+	return m.Called(tx, objId).Error(0)
+}
+
+func (m *mockRepo) SoftDeletePurchase(objId int64, userID int) error {
+	return m.Called(objId, userID).Error(0)
+}
+
 // setupTx creates a sqlmock DB and begins a transaction.
 func setupTx(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *sql.Tx) {
 	t.Helper()
@@ -258,5 +274,104 @@ func TestGetFilePathError(t *testing.T) {
 	_, _, err := svc.GetFilePath(99, 1)
 
 	assert.Error(t, err)
+	repo.AssertExpectations(t)
+}
+
+// --- UpdatePurchase ---
+
+// TestUpdatePurchaseSuccess verifies that UpdatePurchase commits all steps successfully.
+func TestUpdatePurchaseSuccess(t *testing.T) {
+	items := []document.Item{
+		{Name: "Milk", Quantity: "2", UnitPrice: "2.00", SubTotal: "4.00"},
+	}
+
+	db, dbMock, tx := setupTx(t)
+	defer db.Close()
+	dbMock.ExpectCommit()
+
+	repo := new(mockRepo)
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
+	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
+	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(nil)
+	repo.On("SaveItems", mock.Anything, int64(5), int64(10), items).Return(nil)
+
+	svc := document.NewDocumentService(repo)
+	err := svc.UpdatePurchase(5, 1, &document.UploadInput{
+		Title:   "Updated Receipt",
+		BuyFrom: "Coles",
+		Items:   items,
+		UserId:  1,
+	})
+
+	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestUpdatePurchaseNotFound verifies that sql.ErrNoRows is propagated when the document is not found.
+func TestUpdatePurchaseNotFound(t *testing.T) {
+	db, dbMock, tx := setupTx(t)
+	defer db.Close()
+	dbMock.ExpectRollback()
+
+	repo := new(mockRepo)
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
+
+	svc := document.NewDocumentService(repo)
+	err := svc.UpdatePurchase(99, 1, &document.UploadInput{Title: "Ghost", UserId: 1})
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	repo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestUpdatePurchaseDeleteItemsError verifies that a DeleteItems failure rolls back the transaction.
+func TestUpdatePurchaseDeleteItemsError(t *testing.T) {
+	db, dbMock, tx := setupTx(t)
+	defer db.Close()
+	dbMock.ExpectRollback()
+
+	repo := new(mockRepo)
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
+	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
+	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(errors.New("db delete failed"))
+
+	svc := document.NewDocumentService(repo)
+	err := svc.UpdatePurchase(5, 1, &document.UploadInput{Title: "Receipt", UserId: 1})
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "delete items")
+	repo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// --- DeletePurchase ---
+
+// TestDeletePurchaseSuccess verifies that DeletePurchase delegates to SoftDeletePurchase.
+func TestDeletePurchaseSuccess(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("SoftDeletePurchase", int64(5), 1).Return(nil)
+
+	svc := document.NewDocumentService(repo)
+	err := svc.DeletePurchase(5, 1)
+
+	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+// TestDeletePurchaseNotFound verifies that sql.ErrNoRows is returned when the document is not found.
+func TestDeletePurchaseNotFound(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("SoftDeletePurchase", int64(99), 1).Return(sql.ErrNoRows)
+
+	svc := document.NewDocumentService(repo)
+	err := svc.DeletePurchase(99, 1)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	repo.AssertExpectations(t)
 }

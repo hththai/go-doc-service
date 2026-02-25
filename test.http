@@ -94,8 +94,8 @@ POST {{host}}/register
 Content-Type: application/json
 
 {
-    "username": "hthai23",
-    "password": "hello"    
+    "username": "user",
+    "password": "password"    
 }
 
 ### 
@@ -291,3 +291,10 @@ Content-Disposition: form-data; name="file";filename="Hayden Thai_Resume-2.pdf"
 
 < .input/Hayden Thai_Resume-2.pdf
 --boundary--
+
+
+###Get Purchases
+GET {{host}}/v1/auth/purchases
+
+###Get file path
+GET {{host}}/v1/auth/file/57

@@ -14,6 +14,62 @@ import (
 	"strconv"
 )
 
+// UpdatePurchase replaces the metadata and line items of an existing purchase.
+// Returns sql.ErrNoRows (wrapped) if the document does not exist or belongs to another user.
+func (s *DocumentService) UpdatePurchase(objId int64, userID int, input *UploadInput) error {
+	doc := Document{
+		Title: input.Title,
+		PurchaseInfo: PurchaseInfo{
+			BuyFrom:  input.BuyFrom,
+			BuyAt:    input.BuyAt,
+			BuyPrice: input.BuyPrice,
+		},
+		Items: input.Items,
+	}
+
+	tx, err := s.BeginTx()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err = s.repo.UpdatePurchaseMetadata(tx, objId, userID, &doc); err != nil {
+		return fmt.Errorf("update metadata: %w", err)
+	}
+
+	var docId int64
+	docId, err = s.repo.GetDocIdByObjId(tx, objId, userID)
+	if err != nil {
+		return fmt.Errorf("get doc id: %w", err)
+	}
+
+	if err = s.repo.DeleteItemsByObjId(tx, objId); err != nil {
+		return fmt.Errorf("delete items: %w", err)
+	}
+
+	if err = s.repo.SaveItems(tx, objId, docId, doc.Items); err != nil {
+		return fmt.Errorf("save items: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil
+}
+
+// DeletePurchase soft-deletes a purchase owned by the user (sets status=-1).
+// Returns sql.ErrNoRows if the document does not exist or belongs to another user.
+func (s *DocumentService) DeletePurchase(objId int64, userID int) error {
+	return s.repo.SoftDeletePurchase(objId, userID)
+}
+
 type DocumentService struct {
 	repo DocumentRepository
 }

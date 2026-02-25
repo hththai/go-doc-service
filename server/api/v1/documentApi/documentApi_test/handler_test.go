@@ -70,6 +70,22 @@ func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (st
 	return args.String(0), args.String(1), args.Error(2)
 }
 
+func (m *MockDocumentRepository) GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error) {
+	return mockInt64Result(m.Called(tx, objId, userID))
+}
+
+func (m *MockDocumentRepository) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error {
+	return m.Called(tx, objId, userID, doc).Error(0)
+}
+
+func (m *MockDocumentRepository) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
+	return m.Called(tx, objId).Error(0)
+}
+
+func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) error {
+	return m.Called(objId, userID).Error(0)
+}
+
 // buildForm creates a multipart form body from the given fields.
 func buildForm(fields map[string]string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}
@@ -434,6 +450,262 @@ func TestHandleServeFileUnauthorized(t *testing.T) {
 	// userId intentionally not set
 
 	h.HandleServeFile(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// --- Helpers for JSON endpoints ---
+
+const (
+	pathPurchases    = "/purchases"
+	pathPurchases5   = "/purchases/5"
+	pathPurchases99  = "/purchases/99"
+	pathPurchasesAbc = "/purchases/abc"
+)
+
+// buildJSONContext creates a gin.Context with a JSON body for POST/PATCH/DELETE tests.
+func buildJSONContext(method, path string, body interface{}, userID int, params gin.Params) (*gin.Context, *httptest.ResponseRecorder) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	bodyBytes, _ := json.Marshal(body)
+	c.Request, _ = http.NewRequest(method, path, bytes.NewReader(bodyBytes))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if userID != 0 {
+		c.Set("userId", userID)
+	}
+	c.Params = params
+	return c, w
+}
+
+// setupUpdateTx creates a sqlmock TX and wires the full UpdatePurchase mock chain.
+func setupUpdateTx(t *testing.T, repo *MockDocumentRepository, objId int64, userID int, docId int64) sqlmock.Sqlmock {
+	t.Helper()
+	db, dbMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	dbMock.ExpectBegin()
+	dbMock.ExpectCommit()
+	tx, _ := db.Begin()
+	t.Cleanup(func() { db.Close() })
+
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, objId, userID, mock.Anything).Return(nil)
+	repo.On("GetDocIdByObjId", mock.Anything, objId, userID).Return(docId, nil)
+	repo.On("DeleteItemsByObjId", mock.Anything, objId).Return(nil)
+	repo.On("SaveItems", mock.Anything, objId, docId, mock.Anything).Return(nil)
+	return dbMock
+}
+
+// validPurchaseBody returns a minimal valid JSON purchase payload.
+func validPurchaseBody() map[string]interface{} {
+	return map[string]interface{}{
+		"name":     "Test Purchase",
+		"buyFrom":  "Woolworths",
+		"buyAt":    "2026-02-25",
+		"buyPrice": "50.00",
+		"items":    []interface{}{},
+	}
+}
+
+// --- HandleCreatePurchase ---
+
+// TestHandleCreatePurchaseSuccess verifies that a valid JSON body results in 201.
+func TestHandleCreatePurchaseSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	db, dbMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+	dbMock.ExpectBegin()
+	dbMock.ExpectCommit()
+	tx, _ := db.Begin()
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("BeginTx").Return(tx, nil)
+	mockRepo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
+	mockRepo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
+	mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("POST", pathPurchases, validPurchaseBody(), 1, nil)
+	h.HandleCreatePurchase(c)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	mockRepo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestHandleCreatePurchaseUnauthorized verifies that missing userId returns 401.
+func TestHandleCreatePurchaseUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("POST", pathPurchases, validPurchaseBody(), 0, nil) // 0 = no userId
+	h.HandleCreatePurchase(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// TestHandleCreatePurchaseInvalidDate verifies that a non-YYYY-MM-DD buyAt returns 400.
+func TestHandleCreatePurchaseInvalidDate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	body := validPurchaseBody()
+	body["buyAt"] = "25/02/2026" // Australian DD/MM/YYYY — wrong format for this endpoint
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("POST", pathPurchases, body, 1, nil)
+	h.HandleCreatePurchase(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// --- HandleUpdatePurchase ---
+
+// TestHandleUpdatePurchaseSuccess verifies that a valid PATCH request returns 200.
+func TestHandleUpdatePurchaseSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	dbMock := setupUpdateTx(t, mockRepo, int64(5), 1, int64(10))
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("PATCH", pathPurchases5, validPurchaseBody(), 1, gin.Params{{Key: "id", Value: "5"}})
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockRepo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestHandleUpdatePurchaseNotFound verifies that a missing document returns 404.
+func TestHandleUpdatePurchaseNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	db, dbMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+	dbMock.ExpectBegin()
+	dbMock.ExpectRollback()
+	tx, _ := db.Begin()
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("BeginTx").Return(tx, nil)
+	mockRepo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("PATCH", pathPurchases99, validPurchaseBody(), 1, gin.Params{{Key: "id", Value: "99"}})
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockRepo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestHandleUpdatePurchaseInvalidID verifies that a non-numeric id returns 400.
+func TestHandleUpdatePurchaseInvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("PATCH", pathPurchasesAbc, validPurchaseBody(), 1, gin.Params{{Key: "id", Value: "abc"}})
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestHandleUpdatePurchaseUnauthorized verifies that missing userId returns 401.
+func TestHandleUpdatePurchaseUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("PATCH", pathPurchases5, validPurchaseBody(), 0, gin.Params{{Key: "id", Value: "5"}})
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// --- HandleDeletePurchase ---
+
+// TestHandleDeletePurchaseSuccess verifies that a valid DELETE returns 204.
+func TestHandleDeletePurchaseSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("SoftDeletePurchase", int64(5), 1).Return(nil)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("DELETE", pathPurchases5, nil, 1, gin.Params{{Key: "id", Value: "5"}})
+	h.HandleDeletePurchase(c)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleDeletePurchaseNotFound verifies that a missing document returns 404.
+func TestHandleDeletePurchaseNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("SoftDeletePurchase", int64(99), 1).Return(sql.ErrNoRows)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("DELETE", pathPurchases99, nil, 1, gin.Params{{Key: "id", Value: "99"}})
+	h.HandleDeletePurchase(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleDeletePurchaseInvalidID verifies that a non-numeric id returns 400.
+func TestHandleDeletePurchaseInvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("DELETE", pathPurchasesAbc, nil, 1, gin.Params{{Key: "id", Value: "abc"}})
+	h.HandleDeletePurchase(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestHandleDeletePurchaseUnauthorized verifies that missing userId returns 401.
+func TestHandleDeletePurchaseUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := buildJSONContext("DELETE", pathPurchases5, nil, 0, gin.Params{{Key: "id", Value: "5"}})
+	h.HandleDeletePurchase(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

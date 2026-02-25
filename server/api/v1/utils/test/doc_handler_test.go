@@ -70,6 +70,23 @@ func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (st
 	return args.String(0), args.String(1), args.Error(2)
 }
 
+func (m *MockDocumentRepository) GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error) {
+	args := m.Called(tx, objId, userID)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockDocumentRepository) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error {
+	return m.Called(tx, objId, userID, doc).Error(0)
+}
+
+func (m *MockDocumentRepository) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
+	return m.Called(tx, objId).Error(0)
+}
+
+func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) error {
+	return m.Called(objId, userID).Error(0)
+}
+
 // Helper function to create multipart request
 func createMultipartRequest(formData map[string]string, includeFile bool, fileName, fileContent string) (*bytes.Buffer, string) {
 	body := &bytes.Buffer{}

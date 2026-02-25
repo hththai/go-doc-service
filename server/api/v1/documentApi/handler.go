@@ -66,7 +66,40 @@ func toPurchaseResponse(doc document.Document) PurchaseResponse {
 	return r
 }
 
-const msgNotAuthenticated = "user not authenticated"
+const (
+	msgNotAuthenticated = "user not authenticated"
+	msgInvalidID        = "invalid id"
+	msgNotFound         = "not found"
+)
+
+// purchaseJSONRequest is the JSON body accepted by the create and update endpoints.
+type purchaseJSONRequest struct {
+	Name     string          `json:"name"`
+	BuyFrom  string          `json:"buyFrom"`
+	BuyAt    string          `json:"buyAt"` // YYYY-MM-DD from a date input
+	BuyPrice string          `json:"buyPrice"`
+	Items    []document.Item `json:"items"`
+}
+
+// parsePurchaseJSONRequest binds the request body and converts buyAt to a *document.Date.
+func parsePurchaseJSONRequest(c *gin.Context) (*purchaseJSONRequest, *document.Date, bool) {
+	var req purchaseJSONRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return nil, nil, false
+	}
+	var buyAt *document.Date
+	if req.BuyAt != "" {
+		parsed, err := time.Parse("2006-01-02", req.BuyAt)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid buyAt, expected YYYY-MM-DD"})
+			return nil, nil, false
+		}
+		d := document.Date{Time: parsed}
+		buyAt = &d
+	}
+	return &req, buyAt, true
+}
 
 type DocumentHandler struct {
 	DocSvc document.DocumentService
@@ -184,14 +217,14 @@ func (h *DocumentHandler) HandleServeFile(c *gin.Context) {
 
 	objId, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": msgInvalidID})
 		return
 	}
 
 	filePath, fileName, err := h.DocSvc.GetFilePath(objId, userId)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": msgNotFound})
 		} else {
 			h.Logger.Errorf("%s Error GetFilePath id=%d: %s", c.ClientIP(), objId, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve file"})
@@ -224,4 +257,107 @@ func (h *DocumentHandler) HandleServeFile(c *gin.Context) {
 	c.DataFromReader(http.StatusOK, stat.Size(), mimeType, f, map[string]string{
 		"Content-Disposition": fmt.Sprintf(`inline; filename="%s"`, fileName),
 	})
+}
+
+// POST /purchases – create a purchase without a file attachment (JSON body).
+func (h *DocumentHandler) HandleCreatePurchase(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	req, buyAt, ok := parsePurchaseJSONRequest(c)
+	if !ok {
+		return
+	}
+
+	input := &document.UploadInput{
+		Title:    req.Name,
+		BuyFrom:  req.BuyFrom,
+		BuyAt:    buyAt,
+		BuyPrice: req.BuyPrice,
+		Items:    req.Items,
+		UserId:   userId,
+	}
+
+	if err := h.DocSvc.UploadDocument(input, nil); err != nil {
+		h.Logger.Errorf("%s Error CreatePurchase: %s", c.ClientIP(), err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "Success"})
+}
+
+// PATCH /purchases/:id – update metadata and items of an existing purchase (JSON body).
+func (h *DocumentHandler) HandleUpdatePurchase(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	objId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msgInvalidID})
+		return
+	}
+
+	req, buyAt, ok := parsePurchaseJSONRequest(c)
+	if !ok {
+		return
+	}
+
+	input := &document.UploadInput{
+		Title:    req.Name,
+		BuyFrom:  req.BuyFrom,
+		BuyAt:    buyAt,
+		BuyPrice: req.BuyPrice,
+		Items:    req.Items,
+		UserId:   userId,
+	}
+
+	if err := h.DocSvc.UpdatePurchase(objId, userId, input); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": msgNotFound})
+			return
+		}
+		h.Logger.Errorf("%s Error UpdatePurchase id=%d: %s", c.ClientIP(), objId, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update purchase"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
+// DELETE /purchases/:id – soft-deletes a purchase (sets status=-1).
+func (h *DocumentHandler) HandleDeletePurchase(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	objId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msgInvalidID})
+		return
+	}
+
+	if err := h.DocSvc.DeletePurchase(objId, userId); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": msgNotFound})
+			return
+		}
+		h.Logger.Errorf("%s Error DeletePurchase id=%d: %s", c.ClientIP(), objId, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete purchase"})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+	c.Writer.WriteHeaderNow()
 }

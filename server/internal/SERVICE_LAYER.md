@@ -1,6 +1,6 @@
 # Service Layer Responsibilities
 
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
 
 ---
 
@@ -67,6 +67,9 @@ tx.Commit()
 | Category | Methods | Description |
 |----------|---------|-------------|
 | **Document Upload** | `UploadDocument()` | Full upload flow with file handling, metadata, and line items |
+| **Create** | `UploadDocument()` (nil file) | Create a purchase without a file attachment (JSON API path) |
+| **Update** | `UpdatePurchase()` | Replace metadata and line items of an existing purchase in a transaction |
+| **Delete** | `DeletePurchase()` | Soft-delete a purchase (sets `status=-1`) |
 | **Read** | `GetPurchases()` | Fetch all active purchases for a user, with optional year/month filter |
 | **Read** | `GetFilePath()` | Fetch the disk path and file name for a user-owned document |
 | **Transaction** | `BeginTx()` | Start database transactions |
@@ -96,7 +99,7 @@ tx.Commit()
 ### Example Usage
 
 ```go
-// Upload a document
+// Upload a document with a file
 input := &UploadInput{
     Title:       "Report",
     Description: "Annual report",
@@ -109,6 +112,19 @@ input := &UploadInput{
 err := documentService.UploadDocument(input, func(file *multipart.FileHeader, dst string) error {
     return c.SaveUploadedFile(file, dst) // gin context method
 })
+
+// Create a purchase without a file (pass nil saveFunc — never called when File is nil)
+input := &UploadInput{Title: "Coles run", BuyFrom: "Coles", BuyPrice: "42.00", UserId: 1}
+err := documentService.UploadDocument(input, nil)
+
+// Update an existing purchase (replaces metadata + line items atomically)
+err := documentService.UpdatePurchase(objId, userID, &UploadInput{
+    Title: "Updated receipt", BuyFrom: "Woolworths", BuyPrice: "55.00", UserId: userID,
+})
+
+// Soft-delete a purchase (sets status = -1)
+err := documentService.DeletePurchase(objId, userID)
+// errors.Is(err, sql.ErrNoRows) → true when not found or owned by another user
 
 // Fetch purchases (pass "" or "all" to skip a filter)
 docs, err := documentService.GetPurchases(userID, "2024", "03")
@@ -132,8 +148,12 @@ filePath, fileName, err := documentService.GetFilePath(objId, userID)
 | **Write** | `SaveMetadata()` | Insert a document row without a pre-assigned obj_id |
 | **Write** | `InsertFilePath()` | Insert the file path into `obj_doc_path` |
 | **Write** | `SaveItems()` | Bulk-insert line items into `obj_item` |
+| **Write** | `UpdatePurchaseMetadata()` | `UPDATE obj_doc` for editable fields; returns `sql.ErrNoRows` if not found/owned |
+| **Write** | `DeleteItemsByObjId()` | `DELETE FROM obj_item` by `obj_id` (used before re-inserting updated items) |
+| **Write** | `SoftDeletePurchase()` | Set `status=-1` on `obj_doc`; returns `sql.ErrNoRows` if not found/owned |
 | **Read** | `GetPurchasesByUser()` | Query purchases with optional year/month filter; assembles items per document |
 | **Read** | `GetFilePathByObjId()` | Ownership-checked lookup of file path and name by obj_id |
+| **Read** | `GetDocIdByObjId()` | Lookup the auto-increment PK (`id`) of `obj_doc` by `obj_id` (used in update flow) |
 | **Tx** | `BeginTx()` | Begin a database transaction |
 
 ### Read Query Details
