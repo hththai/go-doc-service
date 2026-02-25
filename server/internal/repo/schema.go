@@ -26,6 +26,7 @@ func MigrateAll(db *sql.DB) error {
 		{9, addFileNameColumn},
 		{10, ensureItemTable},
 		{11, fixStatusFailedToActive},
+		{12, widenItemNameColumn},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -205,6 +206,14 @@ func createItemTable(db *sql.DB) error {
 	}
 	_, err = db.Exec(`INSERT INTO obj_id_counter (obj_id, name) VALUES (0, 'item') ON DUPLICATE KEY UPDATE obj_id = obj_id`)
 	return err
+}
+
+func widenItemNameColumn(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_item MODIFY COLUMN name VARCHAR(1000) NOT NULL`)
+	if err != nil {
+		return fmt.Errorf("failed to widen obj_item.name column: %w", err)
+	}
+	return nil
 }
 
 // fixStatusFailedToActive corrects records that were saved with status = -1 (StatusFailed)
