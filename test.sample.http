@@ -1,0 +1,171 @@
+@host = http://localhost:8088
+
+### Ping
+GET {{host}}/ping
+
+### ── Auth ──────────────────────────────────────────────────
+
+### Register
+POST {{host}}/register
+Content-Type: application/json
+
+{
+    "username": "your_username",
+    "password": "your_password"
+}
+
+### Login
+POST {{host}}/login
+Content-Type: application/json
+
+{
+    "username": "your_username",
+    "password": "your_password"
+}
+
+### Me (requires auth cookie)
+GET {{host}}/v1/auth/users/me
+
+### Auth test (requires Bearer token)
+GET {{host}}/v2/auth/test
+Authorization: Bearer <your-access-token>
+
+### Refresh token
+POST {{host}}/v1/auth/refresh
+
+### Logout
+POST {{host}}/v1/auth/logout
+
+### Change password
+POST {{host}}/v1/auth/user/changepassword
+Content-Type: application/json
+
+{
+    "password": "your_current_password",
+    "newpassword": "your_new_password"
+}
+
+### ── Upload ─────────────────────────────────────────────────
+
+### Upload with file
+POST {{host}}/v1/auth/upload
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+Invoice Title
+--boundary
+Content-Disposition: form-data; name="description"
+
+Optional description
+--boundary
+Content-Disposition: form-data; name="buyFrom"
+
+Store Name
+--boundary
+Content-Disposition: form-data; name="buyAt"
+
+01/01/2026
+--boundary
+Content-Disposition: form-data; name="buyPrice"
+
+99.99
+--boundary
+Content-Disposition: form-data; name="items"
+
+[{"itemName":"Item A","itemQty":"2","unitPrice":"25.00","subTotal":"50.00"}]
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+< path/to/your/invoice.pdf
+--boundary--
+
+### Upload without file
+POST {{host}}/v1/auth/upload
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+Invoice Title
+--boundary
+Content-Disposition: form-data; name="buyFrom"
+
+Store Name
+--boundary
+Content-Disposition: form-data; name="buyAt"
+
+01/01/2026
+--boundary
+Content-Disposition: form-data; name="buyPrice"
+
+99.99
+--boundary--
+
+### ── OCR ────────────────────────────────────────────────────
+
+### OCR – extract invoice from image
+POST {{host}}/v1/auth/ocr
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.png"
+Content-Type: image/png
+
+< path/to/your/invoice.png
+--boundary--
+
+### OCR – extract invoice from PDF
+POST {{host}}/v1/auth/ocr
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.pdf"
+Content-Type: application/pdf
+
+< path/to/your/invoice.pdf
+--boundary--
+
+### ── Purchases ──────────────────────────────────────────────
+
+### Get all purchases
+GET {{host}}/v1/auth/purchases
+
+### Get file for a purchase
+GET {{host}}/v1/auth/file/1
+
+### Create purchase (no file)
+POST {{host}}/v1/auth/purchases
+Content-Type: application/json
+
+{
+    "name": "Weekly Groceries",
+    "buyFrom": "Store Name",
+    "buyAt": "2026-01-01",
+    "buyPrice": "95.40",
+    "items": [
+        { "itemName": "Item A", "itemQty": "2", "unitPrice": "3.20", "subTotal": "6.40" },
+        { "itemName": "Item B", "itemQty": "1", "unitPrice": "4.50", "subTotal": "4.50" }
+    ]
+}
+
+### Update purchase
+PATCH {{host}}/v1/auth/purchases/1
+Content-Type: application/json
+
+{
+    "name": "Weekly Groceries (updated)",
+    "buyFrom": "Store Name",
+    "buyAt": "2026-01-01",
+    "buyPrice": "97.80",
+    "filename": "renamed-invoice.pdf",
+    "items": [
+        { "itemName": "Item A", "itemQty": "2", "unitPrice": "3.20", "subTotal": "6.40" },
+        { "itemName": "Item B", "itemQty": "2", "unitPrice": "4.50", "subTotal": "9.00" }
+    ]
+}
+
+### Delete purchase (soft-delete)
+DELETE {{host}}/v1/auth/purchases/1
