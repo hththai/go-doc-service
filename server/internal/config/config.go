@@ -3,6 +3,7 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -16,6 +17,7 @@ type Config struct {
 	JWT       JWTConfig
 	CORS      CORSConfig
 	Redis     RedisConfig
+	RateLimit RateLimitConfig
 	Cookie    CookieConfig
 	Anthropic AnthropicConfig
 }
@@ -46,6 +48,10 @@ type CORSConfig struct {
 
 type RedisConfig struct {
 	Addr string
+}
+
+type RateLimitConfig struct {
+	Requests int
 }
 
 type CookieConfig struct {
@@ -94,6 +100,9 @@ func Load() *Config {
 		},
 		Redis: RedisConfig{
 			Addr: getEnvOrDefault("REDIS_ADDR", "redis-service:6379"),
+		},
+		RateLimit: RateLimitConfig{
+			Requests: getRateLimitRequests(),
 		},
 		Cookie: CookieConfig{
 			Secure: getCookieSecure(env),
@@ -146,4 +155,11 @@ func parseCORSOrigins(origins string) []string {
 		return []string{}
 	}
 	return strings.Split(origins, ",")
+}
+
+func getRateLimitRequests() int {
+	if n, err := strconv.Atoi(os.Getenv("RATE_LIMIT_REQUESTS")); err == nil && n > 0 {
+		return n
+	}
+	return 10
 }

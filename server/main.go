@@ -123,6 +123,6 @@ func AddRedisService(r *gin.Engine, cfg *config.Config) {
 
 	log.Info("Redis connection successfully!")
 
-	limiter := rateLimit.NewRedisRateLimiter(rdb, 10, time.Minute)
+	limiter := rateLimit.NewRedisRateLimiter(rdb, cfg.RateLimit.Requests, time.Minute)
 	r.Use(rateLimit.RateLimitMiddleware(limiter))
 }
