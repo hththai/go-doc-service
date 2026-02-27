@@ -79,6 +79,7 @@ services:
       - REDIS_ADDR=redis-service:6379
       - JWT_SECRET=${JWT_SECRET}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
     networks:
       - backend
     depends_on:
