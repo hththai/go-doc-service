@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthUploadRouteImport } from './routes/_auth.upload'
 import { Route as AuthSummaryRouteImport } from './routes/_auth.summary'
+import { Route as AuthReportRouteImport } from './routes/_auth.report'
 import { Route as AuthEditTableRouteImport } from './routes/_auth.edit-table'
 
 const SigninRoute = SigninRouteImport.update({
@@ -40,6 +41,11 @@ const AuthSummaryRoute = AuthSummaryRouteImport.update({
   path: '/summary',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthReportRoute = AuthReportRouteImport.update({
+  id: '/report',
+  path: '/report',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthEditTableRoute = AuthEditTableRouteImport.update({
   id: '/edit-table',
   path: '/edit-table',
@@ -50,6 +56,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
   '/edit-table': typeof AuthEditTableRoute
+  '/report': typeof AuthReportRoute
   '/summary': typeof AuthSummaryRoute
   '/upload': typeof AuthUploadRoute
 }
@@ -57,6 +64,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/signin': typeof SigninRoute
   '/edit-table': typeof AuthEditTableRoute
+  '/report': typeof AuthReportRoute
   '/summary': typeof AuthSummaryRoute
   '/upload': typeof AuthUploadRoute
 }
@@ -66,20 +74,28 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/signin': typeof SigninRoute
   '/_auth/edit-table': typeof AuthEditTableRoute
+  '/_auth/report': typeof AuthReportRoute
   '/_auth/summary': typeof AuthSummaryRoute
   '/_auth/upload': typeof AuthUploadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/signin' | '/edit-table' | '/summary' | '/upload'
+  fullPaths:
+    | '/'
+    | '/signin'
+    | '/edit-table'
+    | '/report'
+    | '/summary'
+    | '/upload'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/signin' | '/edit-table' | '/summary' | '/upload'
+  to: '/' | '/signin' | '/edit-table' | '/report' | '/summary' | '/upload'
   id:
     | '__root__'
     | '/'
     | '/_auth'
     | '/signin'
     | '/_auth/edit-table'
+    | '/_auth/report'
     | '/_auth/summary'
     | '/_auth/upload'
   fileRoutesById: FileRoutesById
@@ -127,6 +143,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSummaryRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/report': {
+      id: '/_auth/report'
+      path: '/report'
+      fullPath: '/report'
+      preLoaderRoute: typeof AuthReportRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/edit-table': {
       id: '/_auth/edit-table'
       path: '/edit-table'
@@ -139,12 +162,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthRouteChildren {
   AuthEditTableRoute: typeof AuthEditTableRoute
+  AuthReportRoute: typeof AuthReportRoute
   AuthSummaryRoute: typeof AuthSummaryRoute
   AuthUploadRoute: typeof AuthUploadRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthEditTableRoute: AuthEditTableRoute,
+  AuthReportRoute: AuthReportRoute,
   AuthSummaryRoute: AuthSummaryRoute,
   AuthUploadRoute: AuthUploadRoute,
 }
