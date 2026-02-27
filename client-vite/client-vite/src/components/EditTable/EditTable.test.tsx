@@ -9,6 +9,11 @@ vi.mock("@/api/upload", () => ({
   createPurchase: vi.fn(),
   updatePurchase: vi.fn(),
   deletePurchase: vi.fn(),
+  uploadFile: vi.fn(),
+}));
+
+vi.mock("@/api/ocr", () => ({
+  scanInvoice: vi.fn(),
 }));
 
 import {
@@ -16,7 +21,9 @@ import {
   createPurchase,
   updatePurchase,
   deletePurchase,
+  uploadFile,
 } from "@/api/upload";
+import { scanInvoice } from "@/api/ocr";
 
 const mockPurchases: Purchase[] = [
   {
@@ -309,6 +316,91 @@ describe("EditTable", () => {
 
     await waitFor(() => {
       expect(deletePurchase).toHaveBeenCalledWith("1");
+    });
+  });
+
+  it("calls uploadFile instead of createPurchase when a file is attached", async () => {
+    vi.mocked(getPurchases).mockResolvedValue([]);
+    vi.mocked(uploadFile).mockResolvedValue({ id: "new-1" });
+    renderEditTable();
+    await waitFor(() => screen.getByText(/no purchases found/i));
+
+    fireEvent.click(screen.getByRole("button", { name: /new purchase/i }));
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: "Test Purchase" },
+    });
+    fireEvent.change(screen.getByLabelText(/store/i), {
+      target: { value: "Test Store" },
+    });
+    fireEvent.change(screen.getByLabelText(/date/i), {
+      target: { value: "2025-06-01" },
+    });
+    fireEvent.change(screen.getByLabelText(/total price/i), {
+      target: { value: "99.99" },
+    });
+
+    const file = new File(["content"], "receipt.jpg", { type: "image/jpeg" });
+    const fileInput = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(uploadFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Test Purchase",
+          buyFrom: "Test Store",
+          buyAt: "2025-06-01",
+          buyPrice: "99.99",
+        }),
+        [],
+        file,
+      );
+      expect(createPurchase).not.toHaveBeenCalled();
+    });
+  });
+
+  it("pre-fills store, date and price fields after scanning a file", async () => {
+    vi.mocked(getPurchases).mockResolvedValue([]);
+    vi.mocked(scanInvoice).mockResolvedValue({
+      invoice: {
+        seller: "ScannedStore",
+        abn: "",
+        document_date: "",
+        order_no: "",
+        order_date: "",
+        billing_address: "",
+        delivery_address: "",
+        items: [],
+        shipping_charges: "",
+        total: "55.00",
+      },
+      purchaseInfo: {
+        buyAt: "01/06/2025",
+        buyFrom: "ScannedStore",
+        buyPrice: "55.00",
+      },
+    });
+    renderEditTable();
+    await waitFor(() => screen.getByText(/no purchases found/i));
+
+    fireEvent.click(screen.getByRole("button", { name: /new purchase/i }));
+
+    const file = new File(["content"], "receipt.jpg", { type: "image/jpeg" });
+    const fileInput = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    fireEvent.click(screen.getByRole("button", { name: /scan/i }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("ScannedStore")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("55.00")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("2025-06-01")).toBeInTheDocument();
     });
   });
 });

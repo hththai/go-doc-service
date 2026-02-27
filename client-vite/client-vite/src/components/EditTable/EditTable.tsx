@@ -11,6 +11,7 @@ import {
   createPurchase,
   updatePurchase,
   deletePurchase,
+  uploadFile,
 } from "../../api/upload";
 import EditTableRow from "./EditTableRow";
 import PurchaseFormModal, { type PurchaseFormData } from "./PurchaseFormModal";
@@ -39,7 +40,25 @@ export default function EditTable() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: PurchaseFormData) => createPurchase(data),
+    mutationFn: ({
+      data,
+      file,
+    }: {
+      data: PurchaseFormData;
+      file?: File | null;
+    }) =>
+      file
+        ? uploadFile(
+            {
+              title: data.title,
+              buyFrom: data.buyFrom,
+              buyAt: data.buyAt,
+              buyPrice: data.buyPrice,
+            },
+            data.items,
+            file,
+          )
+        : createPurchase(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchases"] });
       setFormState(null);
@@ -101,11 +120,11 @@ export default function EditTable() {
     return sum + (Number.isNaN(price) ? 0 : price);
   }, 0);
 
-  function handleSave(data: PurchaseFormData) {
+  function handleSave(data: PurchaseFormData, file?: File | null) {
     if (formState?.mode === "edit") {
       updateMutation.mutate({ id: formState.purchase.id, data });
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate({ data, file });
     }
   }
 
