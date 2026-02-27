@@ -14,9 +14,10 @@ pipeline {
         GO_ENV           = "${params.DEPLOY_ENV}"
 
         // Non-sensitive config
-        API_DOMAIN_PROD  = 'box.hthai.cloud'
-        API_PORT         = '8088'
-        COOKIE_SECURE    = "${params.DEPLOY_ENV != 'development' ? 'true' : 'false'}"
+        API_DOMAIN_PROD      = 'box.hthai.cloud'
+        API_PORT             = '8088'
+        COOKIE_SECURE        = "${params.DEPLOY_ENV != 'development' ? 'true' : 'false'}"
+        RATE_LIMIT_REQUESTS  = '100'
 
         // Secrets from Jenkins Credentials
         DB_ROOT_PASSWORD   = credentials('db-root-password')
@@ -82,6 +83,7 @@ API_PORT=${API_PORT}
 JWT_SECRET=${JWT_SECRET}
 CORS_ORIGINS=https://${API_DOMAIN_PROD}
 COOKIE_SECURE=${COOKIE_SECURE}
+RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 EOF
                     '''
