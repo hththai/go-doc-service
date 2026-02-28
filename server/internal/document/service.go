@@ -1,6 +1,7 @@
 package document
 
 import (
+	"2_Go/internal/obj"
 	"2_Go/utils"
 	"crypto/rand"
 	"database/sql"
@@ -245,7 +246,7 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 		Description:  input.Description,
 		PurchaseInfo: purchaseInfo,
 		Items:        input.Items,
-		Status:       StatusActive,
+		Status:       obj.StatusActive,
 		UserId:       input.UserId,
 	}
 

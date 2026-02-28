@@ -1,6 +1,7 @@
 package document
 
 import (
+	"2_Go/internal/obj"
 	"database/sql/driver"
 	"fmt"
 	"time"
@@ -32,20 +33,6 @@ func (d *Date) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type Status int
-
-const (
-	StatusFailed  Status = -1 // -1
-	StatusPending Status = 0
-	StatusActive  Status = 1
-)
-
-var StatusLabels = map[Status]string{
-	StatusFailed:  "failed",
-	StatusPending: "pending",
-	StatusActive:  "active",
-}
-
 type Document struct {
 	GUID         string       `json:"guid"`
 	Id           string       `json:"id"`
@@ -58,7 +45,7 @@ type Document struct {
 	FileSize     float64      `json:"filesize"`
 	CreatedAt    time.Time    `json:"createdAt"`
 	ModifiedAt   time.Time    `json:"modifiedAt"`
-	Status       Status       `json:"status"`
+	Status       obj.Status   `json:"status"`
 	PurchaseInfo PurchaseInfo `json:"purchaseInfo"`
 	Items        []Item       `json:"items"`
 }

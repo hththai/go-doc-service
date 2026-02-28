@@ -27,6 +27,8 @@ func MigrateAll(db *sql.DB) error {
 		{10, ensureItemTable},
 		{11, fixStatusFailedToActive},
 		{12, widenItemNameColumn},
+		{13, addUserStatusColumn},
+		{14, addItemStatusColumn},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -212,6 +214,22 @@ func widenItemNameColumn(db *sql.DB) error {
 	_, err := db.Exec(`ALTER TABLE obj_item MODIFY COLUMN name VARCHAR(1000) NOT NULL`)
 	if err != nil {
 		return fmt.Errorf("failed to widen obj_item.name column: %w", err)
+	}
+	return nil
+}
+
+func addUserStatusColumn(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE user ADD COLUMN status INT NOT NULL DEFAULT 1 AFTER modified_at`)
+	if err != nil {
+		return fmt.Errorf("failed to add status column to user: %w", err)
+	}
+	return nil
+}
+
+func addItemStatusColumn(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_item ADD COLUMN status INT NOT NULL DEFAULT 1 AFTER modified_at`)
+	if err != nil {
+		return fmt.Errorf("failed to add status column to obj_item: %w", err)
 	}
 	return nil
 }

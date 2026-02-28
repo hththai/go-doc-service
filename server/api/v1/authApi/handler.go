@@ -86,7 +86,7 @@ func (h *AuthHandler) HandleRegister(c *gin.Context) {
 		return
 	}
 
-	account.DefaultObj = obj.DefaultObj{GUID: uuid.New().String()}
+	account.DefaultObj = obj.NewDefaultObj(uuid.New().String())
 
 	err := h.AccountSvc.RegisterAccount(account)
 	if err != nil {

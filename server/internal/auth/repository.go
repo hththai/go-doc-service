@@ -53,7 +53,7 @@ func (r *AuthRepositoryImpl) Register(tx *sql.Tx, account Account) (*Account, er
 		return nil, fmt.Errorf("username exists")
 	}
 
-	_, err := tx.Exec(`INSERT INTO user (guid, user_name, password) VALUES (?,?,?)`, account.DefaultObj.GUID, account.Username, account.Password)
+	_, err := tx.Exec(`INSERT INTO user (guid, user_name, password, status) VALUES (?,?,?,?)`, account.DefaultObj.GUID, account.Username, account.Password, account.DefaultObj.Status)
 
 	if err != nil {
 		return nil, err

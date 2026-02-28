@@ -1,6 +1,7 @@
 package document
 
 import (
+	"2_Go/internal/obj"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -146,13 +147,14 @@ func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (i
 func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {
 	for _, item := range items {
 		_, err := tx.Exec(
-			`INSERT INTO obj_item (obj_id, doc_id, name, quantity, price, total) VALUES (?,?,?,?,?,?)`,
+			`INSERT INTO obj_item (obj_id, doc_id, name, quantity, price, total, status) VALUES (?,?,?,?,?,?,?)`,
 			objId,
 			docId,
 			item.Name,
 			nullableString(item.Quantity),
 			nullableString(item.UnitPrice),
 			nullableString(item.SubTotal),
+			obj.StatusActive,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to save item %q: %w", item.Name, err)
