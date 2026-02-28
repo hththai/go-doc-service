@@ -48,6 +48,10 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
+func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
+	return m.Called(tx, doc).Error(0)
+}
+
 func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error {
 	return m.Called(tx, objId, docId, items).Error(0)
 }
@@ -162,7 +166,7 @@ func TestHandleUploadPurchaseInfoBuyAt(t *testing.T) {
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 			c.Request, _ = http.NewRequest("POST", "/upload", body)
-			c.Request.Header.Set("Content-Type", contentType)
+			c.Request.Header.Set(headerContentType, contentType)
 			c.Set("userId", 1)
 
 			mockRepo := new(MockDocumentRepository)
@@ -461,6 +465,9 @@ const (
 	pathPurchases5   = "/purchases/5"
 	pathPurchases99  = "/purchases/99"
 	pathPurchasesAbc = "/purchases/abc"
+
+	headerContentType  = "Content-Type"
+	testReceiptPDFName = "receipt.pdf"
 )
 
 // buildJSONContext creates a gin.Context with a JSON body for POST/PATCH/DELETE tests.
@@ -469,7 +476,7 @@ func buildJSONContext(method, path string, body interface{}, userID int, params 
 	c, _ := gin.CreateTestContext(w)
 	bodyBytes, _ := json.Marshal(body)
 	c.Request, _ = http.NewRequest(method, path, bytes.NewReader(bodyBytes))
-	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request.Header.Set(headerContentType, "application/json")
 	if userID != 0 {
 		c.Set("userId", userID)
 	}
@@ -642,6 +649,150 @@ func TestHandleUpdatePurchaseUnauthorized(t *testing.T) {
 	h.HandleUpdatePurchase(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// setupUpdateWithFileTx extends setupUpdateTx with a UpsertFilePath expectation.
+func setupUpdateWithFileTx(t *testing.T, repo *MockDocumentRepository, objId int64, userID int, docId int64) sqlmock.Sqlmock {
+	t.Helper()
+	dbMock := setupUpdateTx(t, repo, objId, userID, docId)
+	repo.On("UpsertFilePath", mock.Anything, mock.Anything).Return(nil)
+	return dbMock
+}
+
+// buildFormWithFile creates a multipart form body that includes a file field.
+func buildFormWithFile(t *testing.T, fields map[string]string, fileContent []byte, fileName string) (*bytes.Buffer, string) {
+	t.Helper()
+	body := &bytes.Buffer{}
+	w := multipart.NewWriter(body)
+	for k, v := range fields {
+		_ = w.WriteField(k, v)
+	}
+	fw, err := w.CreateFormFile("file", fileName)
+	assert.NoError(t, err)
+	_, _ = fw.Write(fileContent)
+	_ = w.Close()
+	return body, w.FormDataContentType()
+}
+
+// validMultipartFields returns form fields equivalent to validPurchaseBody but
+// using DD/MM/YYYY date format (as expected by the multipart path).
+func validMultipartFields() map[string]string {
+	return map[string]string{
+		"name":     "Test Purchase",
+		"buyFrom":  "Woolworths",
+		"buyAt":    "25/02/2026",
+		"buyPrice": "50.00",
+	}
+}
+
+// --- HandleUpdatePurchase (multipart / with file) ---
+
+// TestHandleUpdatePurchaseWithFileSuccess verifies that a valid multipart PATCH returns 200.
+func TestHandleUpdatePurchaseWithFileSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() { os.RemoveAll("./filedata") })
+
+	mockRepo := new(MockDocumentRepository)
+	dbMock := setupUpdateWithFileTx(t, mockRepo, int64(5), 1, int64(10))
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	body, contentType := buildFormWithFile(t, validMultipartFields(), []byte("fake pdf"), "receipt.pdf")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("PATCH", pathPurchases5, body)
+	c.Request.Header.Set(headerContentType, contentType)
+	c.Set("userId", 1)
+	c.Params = gin.Params{{Key: "id", Value: "5"}}
+
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockRepo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestHandleUpdatePurchaseWithFileInvalidDate verifies that DD/MM/YYYY is required; YYYY-MM-DD returns 400.
+func TestHandleUpdatePurchaseWithFileInvalidDate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	fields := map[string]string{"name": "Receipt", "buyAt": "2026-02-25"} // YYYY-MM-DD — wrong for multipart
+	body, contentType := buildFormWithFile(t, fields, []byte("pdf"), "receipt.pdf")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("PATCH", pathPurchases5, body)
+	c.Request.Header.Set(headerContentType, contentType)
+	c.Set("userId", 1)
+	c.Params = gin.Params{{Key: "id", Value: "5"}}
+
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestHandleUpdatePurchaseWithFileInvalidItems verifies that malformed items JSON returns 400.
+func TestHandleUpdatePurchaseWithFileInvalidItems(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	fields := map[string]string{"name": "Receipt", "items": "not-valid-json"}
+	body, contentType := buildFormWithFile(t, fields, []byte("pdf"), "receipt.pdf")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("PATCH", pathPurchases5, body)
+	c.Request.Header.Set(headerContentType, contentType)
+	c.Set("userId", 1)
+	c.Params = gin.Params{{Key: "id", Value: "5"}}
+
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestHandleUpdatePurchaseWithFileNotFound verifies that a missing document returns 404.
+func TestHandleUpdatePurchaseWithFileNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	db, dbMock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer db.Close()
+	dbMock.ExpectBegin()
+	dbMock.ExpectRollback()
+	tx, _ := db.Begin()
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("BeginTx").Return(tx, nil)
+	mockRepo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	body, contentType := buildFormWithFile(t, map[string]string{"name": "Ghost"}, []byte("pdf"), "receipt.pdf")
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("PATCH", pathPurchases99, body)
+	c.Request.Header.Set(headerContentType, contentType)
+	c.Set("userId", 1)
+	c.Params = gin.Params{{Key: "id", Value: "99"}}
+
+	h.HandleUpdatePurchase(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockRepo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
 // --- HandleDeletePurchase ---

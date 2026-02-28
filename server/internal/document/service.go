@@ -65,6 +65,95 @@ func (s *DocumentService) UpdatePurchase(objId int64, userID int, input *UploadI
 	return nil
 }
 
+// UpdatePurchaseWithFile updates metadata, items, and replaces the attached file for an existing purchase.
+func (s *DocumentService) UpdatePurchaseWithFile(objId int64, userID int, input *UploadInput, saveFile FileSaveFunc) error {
+	doc := Document{
+		Id:    strconv.FormatInt(objId, 10),
+		Title: input.Title,
+		PurchaseInfo: PurchaseInfo{
+			BuyFrom:  input.BuyFrom,
+			BuyAt:    input.BuyAt,
+			BuyPrice: input.BuyPrice,
+		},
+		Items:     input.Items,
+		FileName:  input.File.Filename,
+		FileSize:  float64(input.File.Size),
+		Extension: filepath.Ext(input.File.Filename),
+	}
+
+	tx, err := s.BeginTx()
+	if err != nil {
+		return fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err = s.repo.UpdatePurchaseMetadata(tx, objId, userID, &doc); err != nil {
+		return fmt.Errorf("update metadata: %w", err)
+	}
+
+	var docId int64
+	docId, err = s.repo.GetDocIdByObjId(tx, objId, userID)
+	if err != nil {
+		return fmt.Errorf("get doc id: %w", err)
+	}
+
+	if err = s.repo.DeleteItemsByObjId(tx, objId); err != nil {
+		return fmt.Errorf("delete items: %w", err)
+	}
+
+	if err = s.repo.SaveItems(tx, objId, docId, doc.Items); err != nil {
+		return fmt.Errorf("save items: %w", err)
+	}
+
+	if err = s.saveFileAndUpsertPath(input.File, &doc, tx, saveFile); err != nil {
+		return fmt.Errorf("replace file: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
+	}
+	return nil
+}
+
+// saveFileAndUpsertPath is like saveFileAndMetadata but uses UpsertFilePath so existing records are replaced.
+func (s *DocumentService) saveFileAndUpsertPath(file *multipart.FileHeader, doc *Document, tx *sql.Tx, saveFile FileSaveFunc) error {
+	tmpPath, err := saveTemp(file, file.Filename)
+	if err != nil {
+		return fmt.Errorf("cannot save file tmp: %w", err)
+	}
+	defer os.RemoveAll(filepath.Dir(tmpPath))
+
+	if utils.IsProduction() {
+		if err := fileScan(tmpPath); err != nil {
+			return fmt.Errorf("file error with scan: %w", err)
+		}
+	}
+
+	getId, err := strconv.Atoi(doc.Id)
+	if err != nil {
+		return fmt.Errorf("cannot convert id: %w", err)
+	}
+
+	uploadPath := buildUploadPath(getId, doc.Id, file, IndexFolder)
+	if err := os.MkdirAll(filepath.Dir(uploadPath), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	if err := saveFile(file, uploadPath); err != nil {
+		return fmt.Errorf("failed to save file: %w", err)
+	}
+
+	doc.FilePath = uploadPath
+	return s.UpsertFilePath(tx, doc)
+}
+
 // DeletePurchase soft-deletes a purchase owned by the user (sets status=-1).
 // Returns sql.ErrNoRows if the document does not exist or belongs to another user.
 func (s *DocumentService) DeletePurchase(objId int64, userID int) error {
@@ -99,6 +188,10 @@ func (s *DocumentService) SaveDocumentMetadata(tx *sql.Tx, document *Document) (
 
 func (s *DocumentService) SaveFilePath(tx *sql.Tx, document *Document) error {
 	return s.repo.InsertFilePath(tx, document)
+}
+
+func (s *DocumentService) UpsertFilePath(tx *sql.Tx, document *Document) error {
+	return s.repo.UpsertFilePath(tx, document)
 }
 
 func (s *DocumentService) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {

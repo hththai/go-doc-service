@@ -4,6 +4,7 @@ import (
 	"2_Go/internal/document"
 	"database/sql"
 	"errors"
+	"mime/multipart"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -70,6 +71,10 @@ func (m *mockRepo) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, d
 
 func (m *mockRepo) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
 	return m.Called(tx, objId).Error(0)
+}
+
+func (m *mockRepo) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
+	return m.Called(tx, doc).Error(0)
 }
 
 func (m *mockRepo) SoftDeletePurchase(objId int64, userID int) error {
@@ -254,14 +259,14 @@ func TestGetPurchasesError(t *testing.T) {
 // TestGetFilePathSuccess verifies that file path and name are returned for a valid document.
 func TestGetFilePathSuccess(t *testing.T) {
 	repo := new(mockRepo)
-	repo.On("GetFilePathByObjId", int64(5), 1).Return("./filedata/0/0/5.pdf", "receipt.pdf", nil)
+	repo.On("GetFilePathByObjId", int64(5), 1).Return("./filedata/0/0/5.pdf", testReceiptFilename, nil)
 
 	svc := document.NewDocumentService(repo)
 	path, name, err := svc.GetFilePath(5, 1)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "./filedata/0/0/5.pdf", path)
-	assert.Equal(t, "receipt.pdf", name)
+	assert.Equal(t, testReceiptFilename, name)
 	repo.AssertExpectations(t)
 }
 
@@ -374,4 +379,92 @@ func TestDeletePurchaseNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, sql.ErrNoRows))
 	repo.AssertExpectations(t)
+}
+
+// --- UpdatePurchaseWithFile ---
+
+const testReceiptFilename = "receipt.pdf"
+
+// minimalFileHeader returns a *multipart.FileHeader with only the fields
+// read during Document construction (Filename, Size). The underlying file
+// is never opened in the error-path tests below.
+func minimalFileHeader(name string) *multipart.FileHeader {
+	return &multipart.FileHeader{Filename: name, Size: 0}
+}
+
+// TestUpdatePurchaseWithFileNotFound verifies that sql.ErrNoRows is propagated
+// when the document does not belong to the user.
+func TestUpdatePurchaseWithFileNotFound(t *testing.T) {
+	db, dbMock, tx := setupTx(t)
+	defer db.Close()
+	dbMock.ExpectRollback()
+
+	repo := new(mockRepo)
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
+
+	svc := document.NewDocumentService(repo)
+	err := svc.UpdatePurchaseWithFile(99, 1, &document.UploadInput{
+		Title:  "Ghost",
+		UserId: 1,
+		File:   minimalFileHeader(testReceiptFilename),
+	}, nil)
+
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	repo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestUpdatePurchaseWithFileDeleteItemsError verifies that a DeleteItems failure
+// rolls back the transaction and returns an error.
+func TestUpdatePurchaseWithFileDeleteItemsError(t *testing.T) {
+	db, dbMock, tx := setupTx(t)
+	defer db.Close()
+	dbMock.ExpectRollback()
+
+	repo := new(mockRepo)
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
+	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
+	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(errors.New("db delete failed"))
+
+	svc := document.NewDocumentService(repo)
+	err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{
+		Title:  "Receipt",
+		UserId: 1,
+		File:   minimalFileHeader(testReceiptFilename),
+	}, nil)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "delete items")
+	repo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// TestUpdatePurchaseWithFileSaveItemsError verifies that a SaveItems failure
+// rolls back the transaction and returns an error.
+func TestUpdatePurchaseWithFileSaveItemsError(t *testing.T) {
+	db, dbMock, tx := setupTx(t)
+	defer db.Close()
+	dbMock.ExpectRollback()
+
+	repo := new(mockRepo)
+	repo.On("BeginTx").Return(tx, nil)
+	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
+	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
+	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(nil)
+	repo.On("SaveItems", mock.Anything, int64(5), int64(10), mock.Anything).Return(errors.New("db insert failed"))
+
+	svc := document.NewDocumentService(repo)
+	err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{
+		Title:  "Receipt",
+		UserId: 1,
+		File:   minimalFileHeader(testReceiptFilename),
+	}, nil)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "save items")
+	repo.AssertExpectations(t)
+	assert.NoError(t, dbMock.ExpectationsWereMet())
 }

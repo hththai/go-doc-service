@@ -19,6 +19,7 @@ type DocumentRepository interface {
 	SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error)
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
+	UpsertFilePath(tx *sql.Tx, document *Document) error
 	SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error
 	// Read operations
 	GetPurchasesByUser(userID int, year, month string) ([]Document, error)
@@ -304,6 +305,20 @@ func (r *documentRepositoryImpl) InsertFilePath(tx *sql.Tx, document *Document) 
 		return err
 	}
 	return nil
+}
+
+// UpsertFilePath inserts or updates the file path for a document (MySQL ON DUPLICATE KEY UPDATE).
+func (r *documentRepositoryImpl) UpsertFilePath(tx *sql.Tx, document *Document) error {
+	objId, err := strconv.ParseInt(document.Id, 10, 64)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(
+		`INSERT INTO obj_doc_path (doc_id, file_path) VALUES (?, ?)
+		 ON DUPLICATE KEY UPDATE file_path = VALUES(file_path)`,
+		objId, document.FilePath,
+	)
+	return err
 }
 
 // GetDocIdByObjId returns the auto-increment primary key (id) of obj_doc for a given obj_id.

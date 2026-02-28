@@ -292,7 +292,8 @@ func (h *DocumentHandler) HandleCreatePurchase(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "Success"})
 }
 
-// PATCH /purchases/:id – update metadata and items of an existing purchase (JSON body).
+// PATCH /purchases/:id – update metadata and items of an existing purchase.
+// Accepts either a JSON body (no file) or multipart/form-data (with file replacement).
 func (h *DocumentHandler) HandleUpdatePurchase(c *gin.Context) {
 	userIdValue, exists := c.Get("userId")
 	if !exists {
@@ -307,6 +308,62 @@ func (h *DocumentHandler) HandleUpdatePurchase(c *gin.Context) {
 		return
 	}
 
+	if file, _ := c.FormFile("file"); file != nil {
+		h.handleUpdateWithFile(c, objId, userId, file)
+		return
+	}
+
+	h.handleUpdateJSON(c, objId, userId)
+}
+
+func (h *DocumentHandler) handleUpdateWithFile(c *gin.Context, objId int64, userId int, file *multipart.FileHeader) {
+	var buyAt *document.Date
+	if raw := c.PostForm("buyAt"); raw != "" {
+		parsed, err := time.Parse("02/01/2006", raw)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid buyAt, expected DD/MM/YYYY"})
+			return
+		}
+		d := document.Date{Time: parsed}
+		buyAt = &d
+	}
+
+	var items []document.Item
+	if rawItems := c.PostForm("items"); rawItems != "" {
+		if err := json.Unmarshal([]byte(rawItems), &items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid items format"})
+			return
+		}
+	}
+
+	input := &document.UploadInput{
+		Title:    c.PostForm("name"),
+		BuyFrom:  c.PostForm("buyFrom"),
+		BuyAt:    buyAt,
+		BuyPrice: c.PostForm("buyPrice"),
+		Items:    items,
+		UserId:   userId,
+		File:     file,
+	}
+
+	saveFunc := func(f *multipart.FileHeader, dst string) error {
+		return c.SaveUploadedFile(f, dst)
+	}
+
+	if err := h.DocSvc.UpdatePurchaseWithFile(objId, userId, input, saveFunc); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": msgNotFound})
+			return
+		}
+		h.Logger.Errorf("%s Error UpdatePurchaseWithFile id=%d: %s", c.ClientIP(), objId, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update purchase"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
+func (h *DocumentHandler) handleUpdateJSON(c *gin.Context, objId int64, userId int) {
 	req, buyAt, ok := parsePurchaseJSONRequest(c)
 	if !ok {
 		return
