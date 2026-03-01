@@ -35,14 +35,12 @@ export async function uploadFile(
   // Append all metadata fields dynamically
   for (const [key, value] of Object.entries(metadata)) {
     if (value) {
-      // Map 'title' to 'name' for backend compatibility
-      const fieldName = key === "title" ? "name" : key;
       // Convert buyAt from YYYY-MM-DD (date input) to DD/MM/YYYY (Australian format expected by server)
       if (key === "buyAt") {
         const [year, month, day] = value.split("-");
-        form.append(fieldName, `${day}/${month}/${year}`);
+        form.append(key, `${day}/${month}/${year}`);
       } else {
-        form.append(fieldName, value);
+        form.append(key, value);
       }
     }
   }
