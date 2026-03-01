@@ -52,8 +52,8 @@ func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Docume
 	return m.Called(tx, doc).Error(0)
 }
 
-func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error {
-	return m.Called(tx, objId, docId, items).Error(0)
+func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, docId int64, items []document.Item) error {
+	return m.Called(tx, docId, items).Error(0)
 }
 
 func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
@@ -95,8 +95,8 @@ func (m *MockDocumentRepository) UpdatePurchaseMetadata(tx *sql.Tx, objId int64,
 	return m.Called(tx, objId, userID, doc).Error(0)
 }
 
-func (m *MockDocumentRepository) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
-	return m.Called(tx, objId).Error(0)
+func (m *MockDocumentRepository) DeleteItemsByDocId(tx *sql.Tx, docId int64) error {
+	return m.Called(tx, docId).Error(0)
 }
 
 func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) error {
@@ -204,7 +204,7 @@ func TestHandleUploadPurchaseInfoBuyAt(t *testing.T) {
 						return true
 					}),
 				).Return(int64(1), nil)
-				mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 				defer func() {
 					assert.NoError(t, mockDB.ExpectationsWereMet())
@@ -510,8 +510,8 @@ func setupUpdateTx(t *testing.T, repo *MockDocumentRepository, objId int64, user
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, objId, userID, mock.Anything).Return(nil)
 	repo.On("GetDocIdByObjId", mock.Anything, objId, userID).Return(docId, nil)
-	repo.On("DeleteItemsByObjId", mock.Anything, objId).Return(nil)
-	repo.On("SaveItems", mock.Anything, objId, docId, mock.Anything).Return(nil)
+	repo.On("DeleteItemsByDocId", mock.Anything, docId).Return(nil)
+	repo.On("SaveItems", mock.Anything, docId, mock.Anything).Return(nil)
 	return dbMock
 }
 
@@ -543,7 +543,7 @@ func TestHandleCreatePurchaseSuccess(t *testing.T) {
 	mockRepo.On("BeginTx").Return(tx, nil)
 	mockRepo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 	mockRepo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
-	mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	logger, _ := test.NewNullLogger()
 	svc := document.NewDocumentService(mockRepo)

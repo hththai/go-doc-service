@@ -83,7 +83,7 @@ export async function createPurchase(data: PurchasePayload) {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: data.title,
+      title: data.title,
       buyFrom: data.buyFrom,
       buyAt: data.buyAt,
       buyPrice: data.buyPrice,
@@ -102,7 +102,7 @@ export async function updatePurchase(id: string, data: PurchasePayload) {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name: data.title,
+        title: data.title,
         buyFrom: data.buyFrom,
         buyAt: data.buyAt,
         buyPrice: data.buyPrice,

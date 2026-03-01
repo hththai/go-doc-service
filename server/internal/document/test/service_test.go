@@ -39,8 +39,8 @@ func (m *mockRepo) InsertFilePath(tx *sql.Tx, doc *document.Document) error {
 	return m.Called(tx, doc).Error(0)
 }
 
-func (m *mockRepo) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error {
-	return m.Called(tx, objId, docId, items).Error(0)
+func (m *mockRepo) SaveItems(tx *sql.Tx, docId int64, items []document.Item) error {
+	return m.Called(tx, docId, items).Error(0)
 }
 
 func (m *mockRepo) BeginTx() (*sql.Tx, error) {
@@ -82,8 +82,8 @@ func (m *mockRepo) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, d
 	return m.Called(tx, objId, userID, doc).Error(0)
 }
 
-func (m *mockRepo) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
-	return m.Called(tx, objId).Error(0)
+func (m *mockRepo) DeleteItemsByDocId(tx *sql.Tx, docId int64) error {
+	return m.Called(tx, docId).Error(0)
 }
 
 func (m *mockRepo) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
@@ -122,7 +122,7 @@ func TestSaveItemsWithItems(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(5), nil)
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(10), nil)
-	repo.On("SaveItems", mock.Anything, int64(5), int64(10), items).Return(nil)
+	repo.On("SaveItems", mock.Anything, int64(10), items).Return(nil)
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UploadDocument(&document.UploadInput{
@@ -146,7 +146,7 @@ func TestSaveItemsNilItems(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
-	repo.On("SaveItems", mock.Anything, int64(1), int64(2), mock.Anything).Return(nil)
+	repo.On("SaveItems", mock.Anything, int64(2), mock.Anything).Return(nil)
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UploadDocument(&document.UploadInput{
@@ -169,7 +169,7 @@ func TestSaveItemsError(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
-	repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db insert failed"))
+	repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db insert failed"))
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UploadDocument(&document.UploadInput{
@@ -409,8 +409,8 @@ func TestUpdatePurchaseSuccess(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
 	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
-	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(nil)
-	repo.On("SaveItems", mock.Anything, int64(5), int64(10), items).Return(nil)
+	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(nil)
+	repo.On("SaveItems", mock.Anything, int64(10), items).Return(nil)
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UpdatePurchase(5, 1, &document.UploadInput{
@@ -454,7 +454,7 @@ func TestUpdatePurchaseDeleteItemsError(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
 	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
-	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(errors.New("db delete failed"))
+	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(errors.New("db delete failed"))
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UpdatePurchase(5, 1, &document.UploadInput{Title: "Receipt", UserId: 1})
@@ -538,7 +538,7 @@ func TestUpdatePurchaseWithFileDeleteItemsError(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
 	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
-	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(errors.New("db delete failed"))
+	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(errors.New("db delete failed"))
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{
@@ -564,8 +564,8 @@ func TestUpdatePurchaseWithFileSaveItemsError(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
 	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
-	repo.On("DeleteItemsByObjId", mock.Anything, int64(5)).Return(nil)
-	repo.On("SaveItems", mock.Anything, int64(5), int64(10), mock.Anything).Return(errors.New("db insert failed"))
+	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(nil)
+	repo.On("SaveItems", mock.Anything, int64(10), mock.Anything).Return(errors.New("db insert failed"))
 
 	svc := document.NewDocumentService(repo)
 	err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{

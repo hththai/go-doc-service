@@ -23,7 +23,7 @@ type DocumentRepository interface {
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
 	UpsertFilePath(tx *sql.Tx, document *Document) error
-	SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error
+	SaveItems(tx *sql.Tx, docId int64, items []Item) error
 	// Read operations
 	GetPurchasesByUser(userID int, year, month string) ([]Document, error)
 	GetPurchaseByObjId(objId int64, userID int) (*Document, error)
@@ -32,7 +32,7 @@ type DocumentRepository interface {
 	GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error)
 	// Write operations
 	UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error
-	DeleteItemsByObjId(tx *sql.Tx, objId int64) error
+	DeleteItemsByDocId(tx *sql.Tx, docId int64) error
 	SoftDeletePurchase(objId int64, userID int) error
 	// Transaction support
 	BeginTx() (*sql.Tx, error)
@@ -148,12 +148,11 @@ func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (i
 }
 
 // SaveItems inserts all line items for a document into obj_item.
-func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {
+func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, docId int64, items []Item) error {
 	for _, item := range items {
 		_, err := tx.Exec(
-			`INSERT INTO obj_item (guid, obj_id, doc_id, name, quantity, price, total, status) VALUES (?,?,?,?,?,?,?,?)`,
+			`INSERT INTO obj_item (guid, doc_id, name, quantity, price, total, status) VALUES (?,?,?,?,?,?,?)`,
 			uuid.New().String(),
-			objId,
 			docId,
 			item.Name,
 			nullableString(item.Quantity),
@@ -330,7 +329,7 @@ func (r *documentRepositoryImpl) GetItemsByPurchaseId(objId int64, userID int) (
 		SELECT i.name, i.quantity, i.price, i.total
 		FROM obj_item i
 		INNER JOIN obj_doc d ON d.id = i.doc_id
-		WHERE i.obj_id = ? AND d.user_id = ? AND d.status = 1
+		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = 1
 	`, objId, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query items: %w", err)
@@ -434,9 +433,9 @@ func (r *documentRepositoryImpl) UpdatePurchaseMetadata(tx *sql.Tx, objId int64,
 	return err
 }
 
-// DeleteItemsByObjId removes all line items for the given obj_id.
-func (r *documentRepositoryImpl) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
-	_, err := tx.Exec(`DELETE FROM obj_item WHERE obj_id=?`, objId)
+// DeleteItemsByDocId removes all line items for the given doc_id.
+func (r *documentRepositoryImpl) DeleteItemsByDocId(tx *sql.Tx, docId int64) error {
+	_, err := tx.Exec(`DELETE FROM obj_item WHERE doc_id=?`, docId)
 	return err
 }
 

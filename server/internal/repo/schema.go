@@ -31,6 +31,7 @@ func MigrateAll(db *sql.DB) error {
 		{14, addItemStatusColumn},
 		{15, addItemGuidColumn},
 		{16, backfillItemGuid},
+		{17, makeItemObjIdAutoIncrement},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -232,6 +233,14 @@ func addItemStatusColumn(db *sql.DB) error {
 	_, err := db.Exec(`ALTER TABLE obj_item ADD COLUMN status INT NOT NULL DEFAULT 1 AFTER modified_at`)
 	if err != nil {
 		return fmt.Errorf("failed to add status column to obj_item: %w", err)
+	}
+	return nil
+}
+
+func makeItemObjIdAutoIncrement(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_item DROP COLUMN obj_id`)
+	if err != nil {
+		return fmt.Errorf("failed to drop obj_id from obj_item: %w", err)
 	}
 	return nil
 }

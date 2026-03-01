@@ -52,11 +52,11 @@ func (s *DocumentService) UpdatePurchase(objId int64, userID int, input *UploadI
 		return fmt.Errorf("get doc id: %w", err)
 	}
 
-	if err = s.repo.DeleteItemsByObjId(tx, objId); err != nil {
+	if err = s.repo.DeleteItemsByDocId(tx, docId); err != nil {
 		return fmt.Errorf("delete items: %w", err)
 	}
 
-	if err = s.repo.SaveItems(tx, objId, docId, doc.Items); err != nil {
+	if err = s.repo.SaveItems(tx, docId, doc.Items); err != nil {
 		return fmt.Errorf("save items: %w", err)
 	}
 
@@ -105,11 +105,11 @@ func (s *DocumentService) UpdatePurchaseWithFile(objId int64, userID int, input 
 		return fmt.Errorf("get doc id: %w", err)
 	}
 
-	if err = s.repo.DeleteItemsByObjId(tx, objId); err != nil {
+	if err = s.repo.DeleteItemsByDocId(tx, docId); err != nil {
 		return fmt.Errorf("delete items: %w", err)
 	}
 
-	if err = s.repo.SaveItems(tx, objId, docId, doc.Items); err != nil {
+	if err = s.repo.SaveItems(tx, docId, doc.Items); err != nil {
 		return fmt.Errorf("save items: %w", err)
 	}
 
@@ -195,8 +195,8 @@ func (s *DocumentService) UpsertFilePath(tx *sql.Tx, document *Document) error {
 	return s.repo.UpsertFilePath(tx, document)
 }
 
-func (s *DocumentService) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {
-	return s.repo.SaveItems(tx, objId, docId, items)
+func (s *DocumentService) SaveItems(tx *sql.Tx, docId int64, items []Item) error {
+	return s.repo.SaveItems(tx, docId, items)
 }
 
 // GetPurchases returns all active purchases for a user, optionally filtered by year and month.
@@ -291,7 +291,7 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to save metadata: %w", err)
 		}
-		if err := s.SaveItems(tx, objId, docId, doc.Items); err != nil {
+		if err := s.SaveItems(tx, docId, doc.Items); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to save items: %w", err)
 		}
@@ -316,7 +316,7 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 		return fmt.Errorf("failed to save metadata: %w", err)
 	}
 
-	if err := s.SaveItems(tx, objId, docId, doc.Items); err != nil {
+	if err := s.SaveItems(tx, docId, doc.Items); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("failed to save items: %w", err)
 	}

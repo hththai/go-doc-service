@@ -49,8 +49,8 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
-func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error {
-	return m.Called(tx, objId, docId, items).Error(0)
+func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, docId int64, items []document.Item) error {
+	return m.Called(tx, docId, items).Error(0)
 }
 
 func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
@@ -93,8 +93,8 @@ func (m *MockDocumentRepository) UpdatePurchaseMetadata(tx *sql.Tx, objId int64,
 	return m.Called(tx, objId, userID, doc).Error(0)
 }
 
-func (m *MockDocumentRepository) DeleteItemsByObjId(tx *sql.Tx, objId int64) error {
-	return m.Called(tx, objId).Error(0)
+func (m *MockDocumentRepository) DeleteItemsByDocId(tx *sql.Tx, docId int64) error {
+	return m.Called(tx, docId).Error(0)
 }
 
 func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
@@ -190,7 +190,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
 				repo.On("InsertFilePath", mock.Anything, mock.Anything).Return(nil)
-				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectErr: false,
 		},
@@ -209,7 +209,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(2), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
-				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectErr: false,
 		},
@@ -281,7 +281,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(5), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(5), nil)
-				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).
 					Return(errors.New("failed to insert items"))
 			},
 			expectErr:     true,
@@ -302,7 +302,7 @@ func TestUploadDocument(t *testing.T) {
 				repo.On("BeginTx").Return(tx, nil)
 				repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(4), nil)
 				repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(4), nil)
-				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			expectErr:     true,
 			errorContains: "commit failed",
