@@ -74,7 +74,7 @@ const (
 
 // purchaseJSONRequest is the JSON body accepted by the create and update endpoints.
 type purchaseJSONRequest struct {
-	Name     string          `json:"name"`
+	Title    string          `json:"title"`
 	BuyFrom  string          `json:"buyFrom"`
 	BuyAt    string          `json:"buyAt"` // YYYY-MM-DD from a date input
 	BuyPrice string          `json:"buyPrice"`
@@ -148,7 +148,7 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 
 	// Build upload input.
 	input := &document.UploadInput{
-		Title:       c.PostForm("name"),
+		Title:       c.PostForm("title"),
 		Description: c.PostForm("description"),
 		BuyFrom:     c.PostForm("buyFrom"),
 		BuyAt:       buyAt,
@@ -304,7 +304,7 @@ func (h *DocumentHandler) HandleCreatePurchase(c *gin.Context) {
 	}
 
 	input := &document.UploadInput{
-		Title:    req.Name,
+		Title:    req.Title,
 		BuyFrom:  req.BuyFrom,
 		BuyAt:    buyAt,
 		BuyPrice: req.BuyPrice,
@@ -366,7 +366,7 @@ func (h *DocumentHandler) handleUpdateWithFile(c *gin.Context, objId int64, user
 	}
 
 	input := &document.UploadInput{
-		Title:    c.PostForm("name"),
+		Title:    c.PostForm("title"),
 		BuyFrom:  c.PostForm("buyFrom"),
 		BuyAt:    buyAt,
 		BuyPrice: c.PostForm("buyPrice"),
@@ -399,7 +399,7 @@ func (h *DocumentHandler) handleUpdateJSON(c *gin.Context, objId int64, userId i
 	}
 
 	input := &document.UploadInput{
-		Title:    req.Name,
+		Title:    req.Title,
 		BuyFrom:  req.BuyFrom,
 		BuyAt:    buyAt,
 		BuyPrice: req.BuyPrice,
