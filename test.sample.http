@@ -1,4 +1,6 @@
 @host = http://localhost:8088
+@username="your_username"
+@password="your_password"
 
 ### Ping
 GET {{host}}/ping
@@ -19,8 +21,8 @@ POST {{host}}/login
 Content-Type: application/json
 
 {
-    "username": "your_username",
-    "password": "your_password"
+    "username": {{username}},
+    "password": {{password}}
 }
 
 ### Me (requires auth cookie)
@@ -169,3 +171,5 @@ Content-Type: application/json
 
 ### Delete purchase (soft-delete)
 DELETE {{host}}/v1/auth/purchases/1
+
+

@@ -19,6 +19,7 @@ import (
 const (
 	testDocumentName = "Test Document"
 	testDescription  = "Test Description"
+	errDBFailure     = "db failure"
 )
 
 // MockDocumentRepository mocks the document repository
@@ -63,6 +64,19 @@ func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error) {
 func (m *MockDocumentRepository) GetPurchasesByUser(userID int, year, month string) ([]document.Document, error) {
 	args := m.Called(userID, year, month)
 	return args.Get(0).([]document.Document), args.Error(1)
+}
+
+func (m *MockDocumentRepository) GetPurchaseByObjId(objId int64, userID int) (*document.Document, error) {
+	args := m.Called(objId, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*document.Document), args.Error(1)
+}
+
+func (m *MockDocumentRepository) GetItemsByPurchaseId(objId int64, userID int) ([]document.Item, error) {
+	args := m.Called(objId, userID)
+	return args.Get(0).([]document.Item), args.Error(1)
 }
 
 func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
@@ -330,6 +344,186 @@ func TestUploadDocument(t *testing.T) {
 
 			// Verify results
 			verifyTestResult(t, err, tt.expectErr, tt.errorContains, mockRepo, mockDB)
+		})
+	}
+}
+
+func TestGetPurchaseItems(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name          string
+		objId         int64
+		userID        int
+		mockSetup     func(repo *MockDocumentRepository)
+		expectedItems []document.Item
+		expectErr     bool
+		errorContains string
+	}{
+		{
+			name:   "success - returns items",
+			objId:  5,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{
+					{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+					{Name: "Bread", Quantity: "1", UnitPrice: "3.00", SubTotal: "3.00"},
+				}, nil)
+			},
+			expectedItems: []document.Item{
+				{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+				{Name: "Bread", Quantity: "1", UnitPrice: "3.00", SubTotal: "3.00"},
+			},
+			expectErr: false,
+		},
+		{
+			name:   "success - empty items list",
+			objId:  5,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, nil)
+			},
+			expectedItems: []document.Item{},
+			expectErr:     false,
+		},
+		{
+			name:   "error - repository failure",
+			objId:  99,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetItemsByPurchaseId", int64(99), 1).Return([]document.Item{}, errors.New(errDBFailure))
+			},
+			expectErr:     true,
+			errorContains: errDBFailure,
+		},
+		{
+			name:   "error - purchase not found (ErrNoRows)",
+			objId:  404,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetItemsByPurchaseId", int64(404), 1).Return([]document.Item{}, sql.ErrNoRows)
+			},
+			expectErr:     true,
+			errorContains: sql.ErrNoRows.Error(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := new(MockDocumentRepository)
+			tt.mockSetup(mockRepo)
+
+			service := document.NewDocumentService(mockRepo)
+			items, err := service.GetPurchaseItems(tt.objId, tt.userID)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedItems, items)
+			}
+
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestGetPurchaseById(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name          string
+		objId         int64
+		userID        int
+		mockSetup     func(repo *MockDocumentRepository)
+		expectedDoc   *document.Document
+		expectErr     bool
+		errorContains string
+	}{
+		{
+			name:   "success - returns purchase with items",
+			objId:  5,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetPurchaseByObjId", int64(5), 1).Return(&document.Document{
+					Id:    "5",
+					Title: "Woolworths",
+					Items: []document.Item{
+						{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+					},
+				}, nil)
+			},
+			expectedDoc: &document.Document{
+				Id:    "5",
+				Title: "Woolworths",
+				Items: []document.Item{
+					{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+				},
+			},
+			expectErr: false,
+		},
+		{
+			name:   "success - purchase with no items",
+			objId:  5,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetPurchaseByObjId", int64(5), 1).Return(&document.Document{
+					Id:    "5",
+					Title: "Coles",
+					Items: []document.Item{},
+				}, nil)
+			},
+			expectedDoc: &document.Document{
+				Id:    "5",
+				Title: "Coles",
+				Items: []document.Item{},
+			},
+			expectErr: false,
+		},
+		{
+			name:   "error - purchase not found (ErrNoRows)",
+			objId:  404,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetPurchaseByObjId", int64(404), 1).Return(nil, sql.ErrNoRows)
+			},
+			expectErr:     true,
+			errorContains: sql.ErrNoRows.Error(),
+		},
+		{
+			name:   "error - repository failure",
+			objId:  99,
+			userID: 1,
+			mockSetup: func(repo *MockDocumentRepository) {
+				repo.On("GetPurchaseByObjId", int64(99), 1).Return(nil, errors.New(errDBFailure))
+			},
+			expectErr:     true,
+			errorContains: errDBFailure,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := new(MockDocumentRepository)
+			tt.mockSetup(mockRepo)
+
+			service := document.NewDocumentService(mockRepo)
+			doc, err := service.GetPurchaseById(tt.objId, tt.userID)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedDoc, doc)
+			}
+
+			mockRepo.AssertExpectations(t)
 		})
 	}
 }

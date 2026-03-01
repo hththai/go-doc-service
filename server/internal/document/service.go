@@ -205,6 +205,17 @@ func (s *DocumentService) GetPurchases(userID int, year, month string) ([]Docume
 	return s.repo.GetPurchasesByUser(userID, year, month)
 }
 
+// GetPurchaseById returns a single purchase owned by the given user.
+// Returns sql.ErrNoRows if not found or the purchase belongs to another user.
+func (s *DocumentService) GetPurchaseById(objId int64, userID int) (*Document, error) {
+	return s.repo.GetPurchaseByObjId(objId, userID)
+}
+
+// GetPurchaseItems returns all line items for a single purchase owned by the given user.
+func (s *DocumentService) GetPurchaseItems(objId int64, userID int) ([]Item, error) {
+	return s.repo.GetItemsByPurchaseId(objId, userID)
+}
+
 // GetFilePath returns the disk path and file name for a document owned by the given user.
 // Returns sql.ErrNoRows (wrapped) if the document does not exist or belongs to another user.
 func (s *DocumentService) GetFilePath(objId int64, userID int) (string, string, error) {

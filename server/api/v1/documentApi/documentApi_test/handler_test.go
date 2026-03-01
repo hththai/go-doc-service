@@ -69,6 +69,19 @@ func (m *MockDocumentRepository) GetPurchasesByUser(userID int, year, month stri
 	return args.Get(0).([]document.Document), args.Error(1)
 }
 
+func (m *MockDocumentRepository) GetPurchaseByObjId(objId int64, userID int) (*document.Document, error) {
+	args := m.Called(objId, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*document.Document), args.Error(1)
+}
+
+func (m *MockDocumentRepository) GetItemsByPurchaseId(objId int64, userID int) ([]document.Item, error) {
+	args := m.Called(objId, userID)
+	return args.Get(0).([]document.Item), args.Error(1)
+}
+
 func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
 	args := m.Called(objId, userID)
 	return args.String(0), args.String(1), args.Error(2)
@@ -795,6 +808,138 @@ func TestHandleUpdatePurchaseWithFileNotFound(t *testing.T) {
 	assert.NoError(t, dbMock.ExpectationsWereMet())
 }
 
+// --- HandleGetPurchaseItems ---
+
+// newGetItemsContext builds a test gin.Context for GET /purchases/:id/items.
+func newGetItemsContext(userID int, idParam string) (*gin.Context, *httptest.ResponseRecorder) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("GET", "/purchases/"+idParam+"/items", nil)
+	if userID != 0 {
+		c.Set("userId", userID)
+	}
+	c.Params = gin.Params{{Key: "id", Value: idParam}}
+	return c, w
+}
+
+// TestHandleGetPurchaseItemsSuccess verifies that items are returned as JSON with 200.
+func TestHandleGetPurchaseItemsSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	items := []document.Item{
+		{Name: "Coffee beans", Quantity: "2", UnitPrice: "15.00", SubTotal: "30.00"},
+		{Name: "Milk", Quantity: "1", UnitPrice: "3.50", SubTotal: "3.50"},
+	}
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetItemsByPurchaseId", int64(5), 1).Return(items, nil)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetItemsContext(1, "5")
+	h.HandleGetPurchaseItems(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp []documentApi.ItemResponse
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Len(t, resp, 2)
+	assert.Equal(t, "Coffee beans", resp[0].ItemName)
+	assert.Equal(t, "2", resp[0].ItemQty)
+	assert.Equal(t, "15.00", resp[0].UnitPrice)
+	assert.Equal(t, "30.00", resp[0].SubTotal)
+	assert.Equal(t, "Milk", resp[1].ItemName)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseItemsEmpty verifies that an empty slice (no items) returns 200 with [].
+func TestHandleGetPurchaseItemsEmpty(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, nil)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetItemsContext(1, "5")
+	h.HandleGetPurchaseItems(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp []documentApi.ItemResponse
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Empty(t, resp)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseItemsUnauthorized verifies that missing userId returns 401.
+func TestHandleGetPurchaseItemsUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetItemsContext(0, "5") // 0 = no userId set
+	h.HandleGetPurchaseItems(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// TestHandleGetPurchaseItemsInvalidID verifies that a non-numeric id returns 400.
+func TestHandleGetPurchaseItemsInvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetItemsContext(1, "abc")
+	h.HandleGetPurchaseItems(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestHandleGetPurchaseItemsNotFound verifies that sql.ErrNoRows returns 404.
+func TestHandleGetPurchaseItemsNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetItemsByPurchaseId", int64(99), 1).Return([]document.Item{}, sql.ErrNoRows)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetItemsContext(1, "99")
+	h.HandleGetPurchaseItems(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseItemsRepoError verifies that a generic repository error returns 500.
+func TestHandleGetPurchaseItemsRepoError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, errors.New("db failure"))
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetItemsContext(1, "5")
+	h.HandleGetPurchaseItems(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockRepo.AssertExpectations(t)
+}
+
 // --- HandleDeletePurchase ---
 
 // TestHandleDeletePurchaseSuccess verifies that a valid DELETE returns 204.
@@ -857,6 +1002,159 @@ func TestHandleDeletePurchaseUnauthorized(t *testing.T) {
 
 	c, w := buildJSONContext("DELETE", pathPurchases5, nil, 0, gin.Params{{Key: "id", Value: "5"}})
 	h.HandleDeletePurchase(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// --- HandleGetPurchaseById ---
+
+// newGetPurchaseByIdContext builds a test gin.Context for GET /purchases/:id.
+func newGetPurchaseByIdContext(userID int, idParam string) (*gin.Context, *httptest.ResponseRecorder) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request, _ = http.NewRequest("GET", "/purchases/"+idParam, nil)
+	if userID != 0 {
+		c.Set("userId", userID)
+	}
+	c.Params = gin.Params{{Key: "id", Value: idParam}}
+	return c, w
+}
+
+// TestHandleGetPurchaseByIdSuccess verifies that a single purchase is returned as JSON with 200.
+func TestHandleGetPurchaseByIdSuccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	buyAt := document.Date{Time: time.Date(2024, 3, 5, 0, 0, 0, 0, time.UTC)}
+	doc := &document.Document{
+		Id:       "5",
+		Title:    "Monthly Groceries",
+		FileName: "coles_mar2024.pdf",
+		FilePath: "./filedata/0/0/5.pdf",
+		PurchaseInfo: document.PurchaseInfo{
+			BuyAt:    &buyAt,
+			BuyFrom:  "Coles",
+			BuyPrice: "112.30",
+		},
+		Items: []document.Item{
+			{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+		},
+	}
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetPurchaseByObjId", int64(5), 1).Return(doc, nil)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetPurchaseByIdContext(1, "5")
+	h.HandleGetPurchaseById(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp documentApi.PurchaseResponse
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "5", resp.ID)
+	assert.Equal(t, "Monthly Groceries", resp.Title)
+	assert.Equal(t, "2024-03-05", resp.BuyAt)
+	assert.Equal(t, "Coles", resp.BuyFrom)
+	assert.Equal(t, "112.30", resp.BuyPrice)
+	assert.Equal(t, "/v1/auth/file/5", resp.FileURL)
+	assert.Len(t, resp.Items, 1)
+	assert.Equal(t, "Apple", resp.Items[0].ItemName)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseByIdNoFileURL verifies that fileUrl is omitted when no file is attached.
+func TestHandleGetPurchaseByIdNoFileURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	doc := &document.Document{
+		Id:           "5",
+		Title:        "No File",
+		FilePath:     "",
+		PurchaseInfo: document.PurchaseInfo{},
+		Items:        []document.Item{},
+	}
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetPurchaseByObjId", int64(5), 1).Return(doc, nil)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetPurchaseByIdContext(1, "5")
+	h.HandleGetPurchaseById(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp documentApi.PurchaseResponse
+	assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Empty(t, resp.FileURL)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseByIdNotFound verifies that sql.ErrNoRows returns 404.
+func TestHandleGetPurchaseByIdNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetPurchaseByObjId", int64(99), 1).Return(nil, sql.ErrNoRows)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetPurchaseByIdContext(1, "99")
+	h.HandleGetPurchaseById(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseByIdRepoError verifies that a generic repository error returns 500.
+func TestHandleGetPurchaseByIdRepoError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockRepo := new(MockDocumentRepository)
+	mockRepo.On("GetPurchaseByObjId", int64(5), 1).Return(nil, errors.New("db failure"))
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(mockRepo)
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetPurchaseByIdContext(1, "5")
+	h.HandleGetPurchaseById(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockRepo.AssertExpectations(t)
+}
+
+// TestHandleGetPurchaseByIdInvalidID verifies that a non-numeric id returns 400.
+func TestHandleGetPurchaseByIdInvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetPurchaseByIdContext(1, "abc")
+	h.HandleGetPurchaseById(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestHandleGetPurchaseByIdUnauthorized verifies that missing userId returns 401.
+func TestHandleGetPurchaseByIdUnauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logger, _ := test.NewNullLogger()
+	svc := document.NewDocumentService(new(MockDocumentRepository))
+	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
+
+	c, w := newGetPurchaseByIdContext(0, "5") // 0 = no userId set
+	h.HandleGetPurchaseById(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }

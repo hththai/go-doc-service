@@ -177,6 +177,35 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
 }
 
+// GET /purchases/:id – returns a single purchase owned by the authenticated user.
+func (h *DocumentHandler) HandleGetPurchaseById(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	objId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msgInvalidID})
+		return
+	}
+
+	doc, err := h.DocSvc.GetPurchaseById(objId, userId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": msgNotFound})
+			return
+		}
+		h.Logger.Errorf("%s Error GetPurchaseById id=%d: %s", c.ClientIP(), objId, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch purchase"})
+		return
+	}
+
+	c.JSON(http.StatusOK, toPurchaseResponse(*doc))
+}
+
 // GET /purchases?year=2024&month=03
 // Returns all active purchases for the authenticated user.
 // year and month are optional; pass "all" or omit to return everything.
@@ -390,6 +419,44 @@ func (h *DocumentHandler) handleUpdateJSON(c *gin.Context, objId int64, userId i
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Success"})
+}
+
+// GET /purchases/:id/items – returns all line items for a single purchase owned by the authenticated user.
+func (h *DocumentHandler) HandleGetPurchaseItems(c *gin.Context) {
+	userIdValue, exists := c.Get("userId")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": msgNotAuthenticated})
+		return
+	}
+	userId := userIdValue.(int)
+
+	objId, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": msgInvalidID})
+		return
+	}
+
+	items, err := h.DocSvc.GetPurchaseItems(objId, userId)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			c.JSON(http.StatusNotFound, gin.H{"error": msgNotFound})
+			return
+		}
+		h.Logger.Errorf("%s Error GetPurchaseItems id=%d: %s", c.ClientIP(), objId, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch items"})
+		return
+	}
+
+	resp := make([]ItemResponse, 0, len(items))
+	for _, item := range items {
+		resp = append(resp, ItemResponse{
+			ItemName:  item.Name,
+			ItemQty:   item.Quantity,
+			UnitPrice: item.UnitPrice,
+			SubTotal:  item.SubTotal,
+		})
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // DELETE /purchases/:id – soft-deletes a purchase (sets status=-1).

@@ -56,6 +56,19 @@ func (m *mockRepo) GetPurchasesByUser(userID int, year, month string) ([]documen
 	return args.Get(0).([]document.Document), args.Error(1)
 }
 
+func (m *mockRepo) GetPurchaseByObjId(objId int64, userID int) (*document.Document, error) {
+	args := m.Called(objId, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*document.Document), args.Error(1)
+}
+
+func (m *mockRepo) GetItemsByPurchaseId(objId int64, userID int) ([]document.Item, error) {
+	args := m.Called(objId, userID)
+	return args.Get(0).([]document.Item), args.Error(1)
+}
+
 func (m *mockRepo) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
 	args := m.Called(objId, userID)
 	return args.String(0), args.String(1), args.Error(2)
@@ -80,6 +93,8 @@ func (m *mockRepo) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
 func (m *mockRepo) SoftDeletePurchase(objId int64, userID int) error {
 	return m.Called(objId, userID).Error(0)
 }
+
+const errDBMsg = "db error"
 
 // setupTx creates a sqlmock DB and begins a transaction.
 func setupTx(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *sql.Tx) {
@@ -244,13 +259,59 @@ func TestGetPurchasesWithFilters(t *testing.T) {
 // TestGetPurchasesError verifies that a repository error is propagated.
 func TestGetPurchasesError(t *testing.T) {
 	repo := new(mockRepo)
-	repo.On("GetPurchasesByUser", 1, "", "").Return([]document.Document{}, errors.New("db error"))
+	repo.On("GetPurchasesByUser", 1, "", "").Return([]document.Document{}, errors.New(errDBMsg))
 
 	svc := document.NewDocumentService(repo)
 	_, err := svc.GetPurchases(1, "", "")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "db error")
+	assert.Contains(t, err.Error(), errDBMsg)
+	repo.AssertExpectations(t)
+}
+
+// --- GetPurchaseItems ---
+
+// TestGetPurchaseItemsSuccess verifies that GetPurchaseItems returns the items from the repository.
+func TestGetPurchaseItemsSuccess(t *testing.T) {
+	expected := []document.Item{
+		{Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+		{Name: "Bread", Quantity: "1", UnitPrice: "3.00", SubTotal: "3.00"},
+	}
+
+	repo := new(mockRepo)
+	repo.On("GetItemsByPurchaseId", int64(5), 1).Return(expected, nil)
+
+	svc := document.NewDocumentService(repo)
+	got, err := svc.GetPurchaseItems(5, 1)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, got)
+	repo.AssertExpectations(t)
+}
+
+// TestGetPurchaseItemsEmpty verifies that an empty slice is returned when a purchase has no items.
+func TestGetPurchaseItemsEmpty(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, nil)
+
+	svc := document.NewDocumentService(repo)
+	got, err := svc.GetPurchaseItems(5, 1)
+
+	assert.NoError(t, err)
+	assert.Empty(t, got)
+	repo.AssertExpectations(t)
+}
+
+// TestGetPurchaseItemsError verifies that a repository error is propagated.
+func TestGetPurchaseItemsError(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetItemsByPurchaseId", int64(99), 1).Return([]document.Item{}, errors.New(errDBMsg))
+
+	svc := document.NewDocumentService(repo)
+	_, err := svc.GetPurchaseItems(99, 1)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), errDBMsg)
 	repo.AssertExpectations(t)
 }
 
@@ -279,6 +340,56 @@ func TestGetFilePathError(t *testing.T) {
 	_, _, err := svc.GetFilePath(99, 1)
 
 	assert.Error(t, err)
+	repo.AssertExpectations(t)
+}
+
+// --- GetPurchaseById ---
+
+// TestGetPurchaseByIdSuccess verifies that GetPurchaseById returns the document from the repository.
+func TestGetPurchaseByIdSuccess(t *testing.T) {
+	expected := &document.Document{
+		Id:    "5",
+		Title: "Woolworths",
+		Items: []document.Item{
+			{Name: "Apple", Quantity: "1", UnitPrice: "1.50", SubTotal: "1.50"},
+		},
+	}
+
+	repo := new(mockRepo)
+	repo.On("GetPurchaseByObjId", int64(5), 1).Return(expected, nil)
+
+	svc := document.NewDocumentService(repo)
+	got, err := svc.GetPurchaseById(5, 1)
+
+	assert.NoError(t, err)
+	assert.Equal(t, expected, got)
+	repo.AssertExpectations(t)
+}
+
+// TestGetPurchaseByIdNotFound verifies that sql.ErrNoRows is returned when the purchase is not found.
+func TestGetPurchaseByIdNotFound(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetPurchaseByObjId", int64(99), 1).Return(nil, sql.ErrNoRows)
+
+	svc := document.NewDocumentService(repo)
+	got, err := svc.GetPurchaseById(99, 1)
+
+	assert.Nil(t, got)
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, sql.ErrNoRows))
+	repo.AssertExpectations(t)
+}
+
+// TestGetPurchaseByIdError verifies that a repository error is propagated.
+func TestGetPurchaseByIdError(t *testing.T) {
+	repo := new(mockRepo)
+	repo.On("GetPurchaseByObjId", int64(5), 1).Return(nil, errors.New(errDBMsg))
+
+	svc := document.NewDocumentService(repo)
+	_, err := svc.GetPurchaseById(5, 1)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), errDBMsg)
 	repo.AssertExpectations(t)
 }
 

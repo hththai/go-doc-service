@@ -24,6 +24,8 @@ type DocumentRepository interface {
 	SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error
 	// Read operations
 	GetPurchasesByUser(userID int, year, month string) ([]Document, error)
+	GetPurchaseByObjId(objId int64, userID int) (*Document, error)
+	GetItemsByPurchaseId(objId int64, userID int) ([]Item, error)
 	GetFilePathByObjId(objId int64, userID int) (string, string, error)
 	GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error)
 	// Write operations
@@ -276,6 +278,80 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 	return result, nil
 }
 
+// GetPurchaseByObjId returns a single active purchase (with items) owned by the given user.
+// Returns sql.ErrNoRows if the document does not exist or belongs to another user.
+func (r *documentRepositoryImpl) GetPurchaseByObjId(objId int64, userID int) (*Document, error) {
+	rows, err := r.db.Query(`
+		SELECT
+			d.obj_id, d.name_or_title, d.file_name, d.buy_at,
+			d.buy_from, d.buy_price, p.file_path,
+			i.name, i.quantity, i.price, i.total
+		FROM obj_doc d
+		LEFT JOIN obj_doc_path p ON p.doc_id = d.obj_id
+		LEFT JOIN obj_item i ON i.doc_id = d.id
+		WHERE d.obj_id = ? AND d.user_id = ? AND d.status = 1
+	`, objId, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query purchase: %w", err)
+	}
+	defer rows.Close()
+
+	var doc *Document
+	for rows.Next() {
+		var row purchaseRow
+		if err := rows.Scan(&row.objId, &row.title, &row.fileName, &row.buyAt,
+			&row.buyFrom, &row.buyPrice, &row.filePath,
+			&row.itemName, &row.itemQty, &row.itemPrice, &row.itemTotal); err != nil {
+			return nil, fmt.Errorf("scan purchase row: %w", err)
+		}
+		if doc == nil {
+			doc = row.toDocument()
+		}
+		if item, ok := row.toItem(); ok {
+			doc.Items = append(doc.Items, item)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+	if doc == nil {
+		return nil, sql.ErrNoRows
+	}
+	return doc, nil
+}
+
+// GetItemsByPurchaseId returns all active line items for a single purchase owned by the given user.
+func (r *documentRepositoryImpl) GetItemsByPurchaseId(objId int64, userID int) ([]Item, error) {
+	rows, err := r.db.Query(`
+		SELECT i.name, i.quantity, i.price, i.total
+		FROM obj_item i
+		INNER JOIN obj_doc d ON d.id = i.doc_id
+		WHERE i.obj_id = ? AND d.user_id = ? AND d.status = 1
+	`, objId, userID)
+	if err != nil {
+		return nil, fmt.Errorf("query items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []Item
+	for rows.Next() {
+		var name, qty, price, total sql.NullString
+		if err := rows.Scan(&name, &qty, &price, &total); err != nil {
+			return nil, fmt.Errorf("scan item row: %w", err)
+		}
+		items = append(items, Item{
+			Name:      name.String,
+			Quantity:  qty.String,
+			UnitPrice: price.String,
+			SubTotal:  total.String,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+	return items, nil
+}
+
 // GetFilePathByObjId retrieves the file path and name for a document owned by the given user.
 func (r *documentRepositoryImpl) GetFilePathByObjId(objId int64, userID int) (string, string, error) {
 	var filePath, fileName sql.NullString
@@ -339,8 +415,8 @@ func (r *documentRepositoryImpl) GetDocIdByObjId(tx *sql.Tx, objId int64, userID
 // UpdatePurchaseMetadata updates the editable fields of a purchase owned by the user.
 // Returns sql.ErrNoRows if the document does not exist or belongs to another user.
 func (r *documentRepositoryImpl) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error {
-	result, err := tx.Exec(
-		`UPDATE obj_doc SET name_or_title=?, buy_from=?, buy_price=?, buy_at=?,
+	_, err := tx.Exec(
+		`UPDATE obj_doc SET name_or_title=COALESCE(NULLIF(?, ''), name_or_title), buy_from=?, buy_price=?, buy_at=?,
 		 file_name=COALESCE(NULLIF(?, ''), file_name)
 		 WHERE obj_id=? AND user_id=? AND status=1`,
 		doc.Title,
@@ -351,17 +427,7 @@ func (r *documentRepositoryImpl) UpdatePurchaseMetadata(tx *sql.Tx, objId int64,
 		objId,
 		userID,
 	)
-	if err != nil {
-		return err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return err
 }
 
 // DeleteItemsByObjId removes all line items for the given obj_id.

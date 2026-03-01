@@ -1,6 +1,6 @@
 # Service Layer Responsibilities
 
-**Last Updated:** 2026-02-25
+**Last Updated:** 2026-02-28
 
 ---
 
@@ -71,6 +71,7 @@ tx.Commit()
 | **Update** | `UpdatePurchase()` | Replace metadata and line items of an existing purchase in a transaction |
 | **Delete** | `DeletePurchase()` | Soft-delete a purchase (sets `status=-1`) |
 | **Read** | `GetPurchases()` | Fetch all active purchases for a user, with optional year/month filter |
+| **Read** | `GetPurchaseItems()` | Fetch all line items for a single purchase, verified against the requesting user |
 | **Read** | `GetFilePath()` | Fetch the disk path and file name for a user-owned document |
 | **Transaction** | `BeginTx()` | Start database transactions |
 | **Metadata** | `SetLatestObjID()`, `SaveMetadataWithObjId()`, `SaveDocumentMetadata()` | Store document metadata |
@@ -94,7 +95,7 @@ tx.Commit()
 - **Automatic cleanup** - Temp files removed via `defer`
 - **Environment-aware** - Virus scanning only in production
 - **Transaction safety** - Rollback on panic/error
-- **Read methods are transaction-free** - `GetPurchases` and `GetFilePath` query directly on `*sql.DB`
+- **Read methods are transaction-free** - `GetPurchases`, `GetPurchaseItems`, and `GetFilePath` query directly on `*sql.DB`
 
 ### Example Usage
 
@@ -129,6 +130,11 @@ err := documentService.DeletePurchase(objId, userID)
 // Fetch purchases (pass "" or "all" to skip a filter)
 docs, err := documentService.GetPurchases(userID, "2024", "03")
 
+// Fetch all line items for a specific purchase (ownership enforced in query)
+items, err := documentService.GetPurchaseItems(objId, userID)
+// returns []Item; empty slice when the purchase has no items
+// errors.Is(err, sql.ErrNoRows) → true when not found or owned by another user
+
 // Fetch the file path for a specific document
 filePath, fileName, err := documentService.GetFilePath(objId, userID)
 ```
@@ -152,6 +158,7 @@ filePath, fileName, err := documentService.GetFilePath(objId, userID)
 | **Write** | `DeleteItemsByObjId()` | `DELETE FROM obj_item` by `obj_id` (used before re-inserting updated items) |
 | **Write** | `SoftDeletePurchase()` | Set `status=-1` on `obj_doc`; returns `sql.ErrNoRows` if not found/owned |
 | **Read** | `GetPurchasesByUser()` | Query purchases with optional year/month filter; assembles items per document |
+| **Read** | `GetItemsByPurchaseId()` | Fetch line items for a single purchase, verifying user ownership via INNER JOIN |
 | **Read** | `GetFilePathByObjId()` | Ownership-checked lookup of file path and name by obj_id |
 | **Read** | `GetDocIdByObjId()` | Lookup the auto-increment PK (`id`) of `obj_doc` by `obj_id` (used in update flow) |
 | **Tx** | `BeginTx()` | Begin a database transaction |
@@ -163,6 +170,12 @@ filePath, fileName, err := documentService.GetFilePath(objId, userID)
 - Filter: `status = 1` (active only), optional `YEAR(buy_at)` / `MONTH(buy_at)`
 - Order: `buy_at DESC, obj_id` (newest first)
 - Groups item rows per document in Go using `docMap` + `docOrder` to preserve order
+
+**`GetItemsByPurchaseId(objId, userID)`**
+- JOINs: `obj_item` → `obj_doc` (INNER, by `doc_id`)
+- Filter: `i.obj_id = ?` (target purchase), `d.user_id = ?` (ownership), `d.status = 1` (active only)
+- Returns an empty `[]Item` (not `sql.ErrNoRows`) when a purchase exists but has no items
+- The INNER JOIN means items from a deleted or foreign purchase are never returned
 
 **`GetFilePathByObjId(objId, userID)`**
 - Verifies ownership (`user_id = ?`) and active status (`status = 1`) in the same query

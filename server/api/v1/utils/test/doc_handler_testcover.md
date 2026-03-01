@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document provides comprehensive coverage documentation for the `TestUploadDocument` function in `doc_handler_test.go`.
+This document provides comprehensive coverage documentation for the test functions in `doc_handler_test.go`.
 
 **Test File**: [doc_handler_test.go](doc_handler_test.go)
 **Handler Under Test**: `UploadDocument` in [document_handler.go](../document_handler.go)
 **Test Framework**: Go testing with testify and sqlmock
 **Date Created**: 2026-02-01
-**Last Updated**: 2026-02-24
+**Last Updated**: 2026-03-01
 
 ---
 
@@ -21,6 +21,8 @@ This document provides comprehensive coverage documentation for the `TestUploadD
 | `UploadDocument` | ~90% | ✅ Excellent |
 | `buildUploadPath` | 100% | ✅ Complete |
 | `saveFileAndMetadata` | 63.2% | ⚠️ Good (limited by production-only code) |
+| `GetPurchaseItems` | 100% | ✅ Complete |
+| `GetPurchaseById` | 100% | ✅ Complete |
 
 ---
 
@@ -233,6 +235,187 @@ mockDB.ExpectCommit().WillReturnError(errors.New("commit failed"))
 
 ---
 
+---
+
+## TestGetPurchaseItems
+
+Tests `GetPurchaseItems()` on the document service — a read-only operation with no transaction.
+
+### Test Cases
+
+#### 1. Success - Returns Items ✅
+
+**Test Name**: `success - returns items`
+
+**Description**: Verifies that items are fetched and returned correctly for a valid purchase owned by the user.
+
+**Mocked Components**:
+```go
+repo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{
+    {Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+    {Name: "Bread", Quantity: "1", UnitPrice: "3.00", SubTotal: "3.00"},
+}, nil)
+```
+
+**Assertion**: `assert.Equal(t, expectedItems, items)` + `assert.NoError(t, err)`
+
+---
+
+#### 2. Success - Empty Items List ✅
+
+**Test Name**: `success - empty items list`
+
+**Description**: Verifies that an empty slice is returned when a purchase exists but has no line items (not an error condition).
+
+**Mocked Components**:
+```go
+repo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, nil)
+```
+
+**Assertion**: `assert.Empty(t, got)` + `assert.NoError(t, err)`
+
+---
+
+#### 3. Error - Repository Failure ❌
+
+**Test Name**: `error - repository failure`
+
+**Description**: Verifies that a generic database error is propagated to the caller.
+
+**Mocked Components**:
+```go
+repo.On("GetItemsByPurchaseId", int64(99), 1).Return([]document.Item{}, errors.New("db failure"))
+```
+
+**Expected Error**: `"db failure"`
+
+---
+
+#### 4. Error - Purchase Not Found (ErrNoRows) ❌
+
+**Test Name**: `error - purchase not found (ErrNoRows)`
+
+**Description**: Verifies that `sql.ErrNoRows` is propagated when the purchase does not exist or belongs to a different user (ownership enforced by the INNER JOIN in the query).
+
+**Mocked Components**:
+```go
+repo.On("GetItemsByPurchaseId", int64(404), 1).Return([]document.Item{}, sql.ErrNoRows)
+```
+
+**Expected Error**: `sql.ErrNoRows.Error()`
+
+---
+
+### Test Structure
+
+```go
+tests := []struct {
+    name          string
+    objId         int64
+    userID        int
+    mockSetup     func(repo *MockDocumentRepository)
+    expectedItems []document.Item
+    expectErr     bool
+    errorContains string
+}
+```
+
+---
+
+---
+
+## TestGetPurchaseById
+
+Tests `GetPurchaseById()` on the document service — fetches a single purchase (with items) by its object ID, enforcing user ownership.
+
+### Test Cases
+
+#### 1. Success - Returns Purchase with Items ✅
+
+**Test Name**: `success - returns purchase with items`
+
+**Description**: Verifies that a purchase with line items is fetched and returned correctly for an authenticated user.
+
+**Mocked Components**:
+```go
+repo.On("GetPurchaseByObjId", int64(5), 1).Return(&document.Document{
+    Id:    "5",
+    Title: "Woolworths",
+    Items: []document.Item{
+        {Name: "Apple", Quantity: "2", UnitPrice: "1.50", SubTotal: "3.00"},
+    },
+}, nil)
+```
+
+**Assertion**: `assert.Equal(t, expectedDoc, doc)` + `assert.NoError(t, err)`
+
+---
+
+#### 2. Success - Purchase with No Items ✅
+
+**Test Name**: `success - purchase with no items`
+
+**Description**: Verifies that a purchase with an empty items list is returned correctly (not an error condition).
+
+**Mocked Components**:
+```go
+repo.On("GetPurchaseByObjId", int64(5), 1).Return(&document.Document{
+    Id:    "5",
+    Title: "Coles",
+    Items: []document.Item{},
+}, nil)
+```
+
+**Assertion**: `assert.Equal(t, expectedDoc, doc)` + `assert.NoError(t, err)`
+
+---
+
+#### 3. Error - Purchase Not Found (ErrNoRows) ❌
+
+**Test Name**: `error - purchase not found (ErrNoRows)`
+
+**Description**: Verifies that `sql.ErrNoRows` is propagated when the purchase does not exist or belongs to a different user (ownership enforced by `WHERE d.user_id = ?` in the query).
+
+**Mocked Components**:
+```go
+repo.On("GetPurchaseByObjId", int64(404), 1).Return(nil, sql.ErrNoRows)
+```
+
+**Expected Error**: `sql.ErrNoRows.Error()`
+
+---
+
+#### 4. Error - Repository Failure ❌
+
+**Test Name**: `error - repository failure`
+
+**Description**: Verifies that a generic database error is propagated to the caller.
+
+**Mocked Components**:
+```go
+repo.On("GetPurchaseByObjId", int64(99), 1).Return(nil, errors.New(errDBFailure))
+```
+
+**Expected Error**: `errDBFailure` (`"db failure"`)
+
+---
+
+### Test Structure
+
+```go
+tests := []struct {
+    name          string
+    objId         int64
+    userID        int
+    mockSetup     func(repo *MockDocumentRepository)
+    expectedDoc   *document.Document
+    expectErr     bool
+    errorContains string
+}
+```
+
+---
+
 ## Test Architecture
 
 ### Mock Objects
@@ -250,10 +433,13 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, objId int64, docId int64, items []document.Item) error
 func (m *MockDocumentRepository) BeginTx() (*sql.Tx, error)
 func (m *MockDocumentRepository) GetPurchasesByUser(userID int, year, month string) ([]document.Document, error)
+func (m *MockDocumentRepository) GetPurchaseByObjId(objId int64, userID int) (*document.Document, error)
 func (m *MockDocumentRepository) GetFilePathByObjId(objId int64, userID int) (string, string, error)
 func (m *MockDocumentRepository) GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error)
+func (m *MockDocumentRepository) GetItemsByPurchaseId(objId int64, userID int) ([]document.Item, error)
 func (m *MockDocumentRepository) UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error
 func (m *MockDocumentRepository) DeleteItemsByObjId(tx *sql.Tx, objId int64) error
+func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) error
 func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) error
 ```
 
@@ -263,6 +449,7 @@ func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) err
 const (
     testDocumentName = "Test Document"
     testDescription  = "Test Description"
+    errDBFailure     = "db failure"
 )
 ```
 
@@ -308,20 +495,28 @@ tests := []struct {
 
 ```bash
 cd /Users/huythai/Documents/0_Projects/2_Go/server
+go test -v ./api/v1/utils/test/...
+```
+
+### Run a Specific Test Function
+
+```bash
 go test -v ./api/v1/utils/test -run TestUploadDocument
+go test -v ./api/v1/utils/test -run TestGetPurchaseItems
+go test -v ./api/v1/utils/test -run TestGetPurchaseById
 ```
 
 ### Run with Coverage
 
 ```bash
-go test -v ./api/v1/utils/test -run TestUploadDocument -coverpkg=./api/v1/utils -coverprofile=coverage.out
+go test -v ./api/v1/utils/test/... -coverpkg=./internal/document/... -coverprofile=coverage.out
 go tool cover -func=coverage.out
 ```
 
 ### Run with Coverage HTML Report
 
 ```bash
-go test -v ./api/v1/utils/test -run TestUploadDocument -coverpkg=./api/v1/utils -coverprofile=coverage.out
+go test -v ./api/v1/utils/test/... -coverpkg=./internal/document/... -coverprofile=coverage.out
 go tool cover -html=coverage.out -o coverage.html
 ```
 
@@ -339,8 +534,20 @@ go tool cover -html=coverage.out -o coverage.html
 === RUN   TestUploadDocument/error_-_SaveItems_fails
 === RUN   TestUploadDocument/error_-_commit_fails
 --- PASS: TestUploadDocument (0.00s)
+=== RUN   TestGetPurchaseItems
+=== RUN   TestGetPurchaseItems/success_-_returns_items
+=== RUN   TestGetPurchaseItems/success_-_empty_items_list
+=== RUN   TestGetPurchaseItems/error_-_repository_failure
+=== RUN   TestGetPurchaseItems/error_-_purchase_not_found_(ErrNoRows)
+--- PASS: TestGetPurchaseItems (0.00s)
+=== RUN   TestGetPurchaseById
+=== RUN   TestGetPurchaseById/success_-_returns_purchase_with_items
+=== RUN   TestGetPurchaseById/success_-_purchase_with_no_items
+=== RUN   TestGetPurchaseById/error_-_purchase_not_found_(ErrNoRows)
+=== RUN   TestGetPurchaseById/error_-_repository_failure
+--- PASS: TestGetPurchaseById (0.00s)
 PASS
-ok      2_Go/api/v1/utils/test    0.506s
+ok      2_Go/api/v1/utils/test    0.581s
 ```
 
 ---
@@ -382,6 +589,6 @@ ok      2_Go/api/v1/utils/test    0.506s
 
 ---
 
-*Last Updated: 2026-02-25*
+*Last Updated: 2026-03-01*
 *Author: Claude Code*
 *Review Status: Pending*
