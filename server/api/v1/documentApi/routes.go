@@ -7,12 +7,14 @@ import (
 func Register(rg *gin.RouterGroup, h *DocumentHandler) {
 	g := rg.Group("/")
 
+	const purchaseRoute = "/purchases/:id"
+
 	g.POST("/upload", h.HandleUpload)
 	g.GET("/purchases", h.HandleGetPurchases)
 	g.POST("/purchases", h.HandleCreatePurchase)
-	g.GET("/purchases/:id", h.HandleGetPurchaseById)
-	g.GET("/purchases/:id/items", h.HandleGetPurchaseItems)
-	g.PATCH("/purchases/:id", h.HandleUpdatePurchase)
-	g.DELETE("/purchases/:id", h.HandleDeletePurchase)
+	g.GET(purchaseRoute, h.HandleGetPurchaseById)
+	g.GET(purchaseRoute+"/items", h.HandleGetPurchaseItems)
+	g.PATCH(purchaseRoute, h.HandleUpdatePurchase)
+	g.DELETE(purchaseRoute, h.HandleDeletePurchase)
 	g.GET("/file/:id", h.HandleServeFile)
 }
