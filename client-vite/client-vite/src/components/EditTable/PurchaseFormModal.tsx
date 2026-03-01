@@ -215,7 +215,7 @@ export default function PurchaseFormModal({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSave(form, mode === "create" ? file : undefined);
+    onSave(form, file);
   }
 
   const hasAttachment = mode === "edit" && purchase?.filename;
@@ -452,36 +452,169 @@ export default function PurchaseFormModal({
               </div>
             )}
 
-            {/* Attached Document (edit mode) */}
-            {hasAttachment && (
+            {/* File attachment / replacement (edit mode) */}
+            {mode === "edit" && (
               <div>
-                <label htmlFor="form-filename" className={labelClass}>
-                  Attached Document
-                </label>
-                <div className="flex items-center gap-2">
-                  <Paperclip size={14} className="shrink-0 text-gray-400" />
-                  <input
-                    id="form-filename"
-                    type="text"
-                    value={form.filename}
-                    onChange={(e) => updateField("filename", e.target.value)}
-                    required
-                    placeholder="File name"
-                    className={inputClass}
-                  />
-                  {purchase?.fileUrl && (
-                    <a
-                      href={purchase.fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 text-gray-500 hover:text-sky-600 hover:border-sky-300 transition-colors"
-                      title="Open attached file"
+                <span className={labelClass}>Attached Document</span>
+
+                {file ? (
+                  /* New replacement file selected */
+                  <div className="rounded-md border border-gray-200 p-3">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewOpen(true)}
+                        className="shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        title="Preview file"
+                      >
+                        {file.type.startsWith("image/") ? (
+                          <img
+                            src={previewUrl ?? ""}
+                            alt="Preview"
+                            className="h-14 w-14 rounded object-cover border border-gray-200 hover:opacity-80 transition-opacity"
+                          />
+                        ) : (
+                          <div className="h-14 w-14 flex items-center justify-center rounded border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="size-7 text-gray-400"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875Zm5.845 17.03a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V12a.75.75 0 0 0-1.5 0v4.19l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3Z"
+                                clipRule="evenodd"
+                              />
+                              <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {(file.size / 1024).toFixed(0)} KB · replaces current
+                          file
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleScan}
+                          disabled={scanning}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-sky-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {scanning ? (
+                            <>
+                              <svg
+                                className="animate-spin h-3 w-3"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v8H4z"
+                                />
+                              </svg>
+                              Scanning…
+                            </>
+                          ) : (
+                            "Scan"
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={removeFile}
+                          className="rounded-md p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                          title="Cancel replacement"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : hasAttachment ? (
+                  /* Existing file — show info + Replace button */
+                  <div className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2">
+                    <Paperclip size={14} className="shrink-0 text-gray-400" />
+                    <span className="flex-1 truncate text-sm text-gray-700">
+                      {form.filename}
+                    </span>
+                    {purchase?.fileUrl && (
+                      <a
+                        href={purchase.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md border border-gray-300 text-gray-500 hover:text-sky-600 hover:border-sky-300 transition-colors"
+                        title="Open attached file"
+                      >
+                        <ExternalLink size={13} />
+                        View
+                      </a>
+                    )}
+                    <label
+                      htmlFor="edit-replace-file"
+                      className="shrink-0 inline-flex items-center gap-1 cursor-pointer px-2.5 py-1.5 text-xs rounded-md border border-gray-300 text-gray-500 hover:text-sky-600 hover:border-sky-300 transition-colors"
+                      title="Upload a replacement file"
                     >
-                      <ExternalLink size={13} />
-                      View
-                    </a>
-                  )}
-                </div>
+                      Replace
+                      <input
+                        id="edit-replace-file"
+                        type="file"
+                        ref={fileInputRef}
+                        className="sr-only"
+                        onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  /* No existing file — show upload dropzone */
+                  <label
+                    htmlFor="edit-attach-file"
+                    aria-label="Upload a file"
+                    className="mt-1 flex items-center gap-3 cursor-pointer rounded-md border border-dashed border-gray-300 px-4 py-3 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="size-5 shrink-0 text-gray-400"
+                    >
+                      <path d="M11.47 1.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1-1.06 1.06l-1.72-1.72V7.5h-1.5V4.06L9.53 5.78a.75.75 0 0 1-1.06-1.06l3-3ZM11.25 7.5V15a.75.75 0 0 0 1.5 0V7.5h3.75a3 3 0 0 1 3 3v6.75a3 3 0 0 1-3 3H6.75a3 3 0 0 1-3-3V10.5a3 3 0 0 1 3-3h4.5Z" />
+                    </svg>
+                    <span className="text-sm text-gray-600">
+                      <span className="font-medium text-slate-900">
+                        Choose file
+                      </span>
+                      <span className="ml-1 text-gray-400">
+                        or drag and drop
+                      </span>
+                    </span>
+                    <input
+                      id="edit-attach-file"
+                      type="file"
+                      ref={fileInputRef}
+                      className="sr-only"
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                )}
+
+                {scanError && (
+                  <p className="mt-1 text-xs text-red-600">{scanError}</p>
+                )}
               </div>
             )}
 

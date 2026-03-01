@@ -115,6 +115,43 @@ export async function updatePurchase(id: string, data: PurchasePayload) {
   return res.json();
 }
 
+export async function updatePurchaseWithFile(
+  id: string,
+  metadata: UploadMetadata,
+  items: UploadItem[],
+  file: File,
+) {
+  const form = new FormData();
+
+  for (const [key, value] of Object.entries(metadata)) {
+    if (value) {
+      if (key === "buyAt") {
+        const [year, month, day] = value.split("-");
+        form.append("buyAt", `${day}/${month}/${year}`);
+      } else {
+        form.append(key, value);
+      }
+    }
+  }
+
+  if (items.length > 0) {
+    form.append("items", JSON.stringify(items));
+  }
+
+  form.append("file", file);
+
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/v1/auth/purchases/${id}`,
+    {
+      method: "PATCH",
+      body: form,
+      credentials: "include",
+    },
+  );
+  if (!res.ok) throw new Error("Failed to update purchase with file");
+  return res.json();
+}
+
 export async function deletePurchase(id: string): Promise<void> {
   const res = await fetch(
     `${import.meta.env.VITE_API_URL}/v1/auth/purchases/${id}`,

@@ -388,15 +388,17 @@ func (r *documentRepositoryImpl) InsertFilePath(tx *sql.Tx, document *Document) 
 	return nil
 }
 
-// UpsertFilePath inserts or updates the file path for a document (MySQL ON DUPLICATE KEY UPDATE).
+// UpsertFilePath replaces the file path for a document, ensuring only one row exists per doc.
 func (r *documentRepositoryImpl) UpsertFilePath(tx *sql.Tx, document *Document) error {
 	objId, err := strconv.ParseInt(document.Id, 10, 64)
 	if err != nil {
 		return err
 	}
+	if _, err = tx.Exec(`DELETE FROM obj_doc_path WHERE doc_id = ?`, objId); err != nil {
+		return err
+	}
 	_, err = tx.Exec(
-		`INSERT INTO obj_doc_path (doc_id, file_path) VALUES (?, ?)
-		 ON DUPLICATE KEY UPDATE file_path = VALUES(file_path)`,
+		`INSERT INTO obj_doc_path (doc_id, file_path) VALUES (?, ?)`,
 		objId, document.FilePath,
 	)
 	return err

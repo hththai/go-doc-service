@@ -10,6 +10,7 @@ import {
   getPurchases,
   createPurchase,
   updatePurchase,
+  updatePurchaseWithFile,
   deletePurchase,
   uploadFile,
 } from "../../api/upload";
@@ -66,8 +67,28 @@ export default function EditTable() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: PurchaseFormData }) =>
-      updatePurchase(id, data),
+    mutationFn: ({
+      id,
+      data,
+      file,
+    }: {
+      id: string;
+      data: PurchaseFormData;
+      file?: File | null;
+    }) =>
+      file
+        ? updatePurchaseWithFile(
+            id,
+            {
+              title: data.title,
+              buyFrom: data.buyFrom,
+              buyAt: data.buyAt,
+              buyPrice: data.buyPrice,
+            },
+            data.items,
+            file,
+          )
+        : updatePurchase(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["purchases"] });
       setFormState(null);
@@ -122,7 +143,7 @@ export default function EditTable() {
 
   function handleSave(data: PurchaseFormData, file?: File | null) {
     if (formState?.mode === "edit") {
-      updateMutation.mutate({ id: formState.purchase.id, data });
+      updateMutation.mutate({ id: formState.purchase.id, data, file });
     } else {
       createMutation.mutate({ data, file });
     }
