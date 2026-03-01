@@ -29,6 +29,8 @@ func MigrateAll(db *sql.DB) error {
 		{12, widenItemNameColumn},
 		{13, addUserStatusColumn},
 		{14, addItemStatusColumn},
+		{15, addItemGuidColumn},
+		{16, backfillItemGuid},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -230,6 +232,22 @@ func addItemStatusColumn(db *sql.DB) error {
 	_, err := db.Exec(`ALTER TABLE obj_item ADD COLUMN status INT NOT NULL DEFAULT 1 AFTER modified_at`)
 	if err != nil {
 		return fmt.Errorf("failed to add status column to obj_item: %w", err)
+	}
+	return nil
+}
+
+func backfillItemGuid(db *sql.DB) error {
+	_, err := db.Exec(`UPDATE obj_item SET guid = UUID() WHERE guid IS NULL`)
+	if err != nil {
+		return fmt.Errorf("failed to backfill guid in obj_item: %w", err)
+	}
+	return nil
+}
+
+func addItemGuidColumn(db *sql.DB) error {
+	_, err := db.Exec(`ALTER TABLE obj_item ADD COLUMN guid char(36) NULL AFTER id`)
+	if err != nil {
+		return fmt.Errorf("failed to add guid column to obj_item: %w", err)
 	}
 	return nil
 }

@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+
+	"github.com/google/uuid"
 )
 
 // nullableString returns nil for an empty string so numeric DB columns receive NULL instead of "".
@@ -149,7 +151,8 @@ func (r *documentRepositoryImpl) SaveMetadata(tx *sql.Tx, document *Document) (i
 func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, objId int64, docId int64, items []Item) error {
 	for _, item := range items {
 		_, err := tx.Exec(
-			`INSERT INTO obj_item (obj_id, doc_id, name, quantity, price, total, status) VALUES (?,?,?,?,?,?,?)`,
+			`INSERT INTO obj_item (guid, obj_id, doc_id, name, quantity, price, total, status) VALUES (?,?,?,?,?,?,?,?)`,
+			uuid.New().String(),
 			objId,
 			docId,
 			item.Name,
@@ -174,6 +177,7 @@ type purchaseRow struct {
 	buyFrom   sql.NullString
 	buyPrice  sql.NullString
 	filePath  sql.NullString
+	itemGuid  sql.NullString
 	itemName  sql.NullString
 	itemQty   sql.NullString
 	itemPrice sql.NullString
