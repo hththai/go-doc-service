@@ -550,9 +550,14 @@ export default function PurchaseFormModal({
                   /* Existing file — show info + Replace button */
                   <div className="flex items-center gap-2 rounded-md border border-gray-200 px-3 py-2">
                     <Paperclip size={14} className="shrink-0 text-gray-400" />
-                    <span className="flex-1 truncate text-sm text-gray-700">
-                      {form.filename}
-                    </span>
+                    <input
+                      type="text"
+                      value={form.filename}
+                      onChange={(e) => updateField("filename", e.target.value)}
+                      className="flex-1 min-w-0 rounded border border-transparent px-1 py-0.5 text-sm text-gray-700 hover:border-gray-300 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400 bg-transparent"
+                      aria-label="Rename file"
+                      title="Click to rename"
+                    />
                     {purchase?.fileUrl && (
                       <a
                         href={purchase.fileUrl}
