@@ -16,6 +16,13 @@ vi.mock("@/api/ocr", () => ({
   scanInvoice: vi.fn(),
 }));
 
+vi.mock("@/api/categories", () => ({
+  getCategories: vi.fn().mockResolvedValue([]),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  deleteCategory: vi.fn(),
+}));
+
 import {
   getPurchases,
   createPurchase,
@@ -358,6 +365,7 @@ describe("EditTable", () => {
         }),
         [],
         file,
+        [],
       );
       expect(createPurchase).not.toHaveBeenCalled();
     });
