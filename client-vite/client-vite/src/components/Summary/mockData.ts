@@ -1,3 +1,5 @@
+import type { Category } from "@/api/categories";
+
 export type Item = {
   itemName: string;
   itemQty: string;
@@ -14,6 +16,7 @@ export type Purchase = {
   buyFrom: string;
   buyPrice: string;
   items: Item[];
+  categories?: Category[];
 };
 
 export const MONTH_NAMES = [

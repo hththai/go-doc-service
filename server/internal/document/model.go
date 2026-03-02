@@ -1,6 +1,7 @@
 package document
 
 import (
+	"2_Go/internal/category"
 	"2_Go/internal/obj"
 	"database/sql/driver"
 	"fmt"
@@ -34,20 +35,21 @@ func (d *Date) UnmarshalJSON(b []byte) error {
 }
 
 type Document struct {
-	GUID         string       `json:"guid"`
-	Id           string       `json:"id"`
-	UserId       int          `json:"userId"`
-	Title        string       `json:"title"`
-	FileName     string       `json:"fileName"`
-	Description  string       `json:"description"`
-	Extension    string       `json:"extension"`
-	FilePath     string       `json:"filepath"`
-	FileSize     float64      `json:"filesize"`
-	CreatedAt    time.Time    `json:"createdAt"`
-	ModifiedAt   time.Time    `json:"modifiedAt"`
-	Status       obj.Status   `json:"status"`
-	PurchaseInfo PurchaseInfo `json:"purchaseInfo"`
-	Items        []Item       `json:"items"`
+	GUID         string              `json:"guid"`
+	Id           string              `json:"id"`
+	UserId       int                 `json:"userId"`
+	Title        string              `json:"title"`
+	FileName     string              `json:"fileName"`
+	Description  string              `json:"description"`
+	Extension    string              `json:"extension"`
+	FilePath     string              `json:"filepath"`
+	FileSize     float64             `json:"filesize"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	ModifiedAt   time.Time           `json:"modifiedAt"`
+	Status       obj.Status          `json:"status"`
+	PurchaseInfo PurchaseInfo        `json:"purchaseInfo"`
+	Items        []Item              `json:"items"`
+	Categories   []category.Category `json:"categories"`
 }
 
 type PurchaseInfo struct {

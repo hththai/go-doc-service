@@ -3,6 +3,7 @@ package documentApi_test
 import (
 	"2_Go/api/v1/documentApi"
 	"2_Go/internal/document"
+	"2_Go/internal/testutil"
 	"bytes"
 	"database/sql"
 	"encoding/json"
@@ -211,7 +212,7 @@ func TestHandleUploadPurchaseInfoBuyAt(t *testing.T) {
 				}()
 			}
 
-			svc := document.NewDocumentService(mockRepo)
+			svc := testutil.NewDocumentService(t, mockRepo)
 			h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 			h.HandleUpload(c)
 
@@ -265,7 +266,7 @@ func TestHandleGetPurchasesSuccess(t *testing.T) {
 	mockRepo.On("GetPurchasesByUser", 1, "", "").Return(docs, nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchasesContext(1, "")
@@ -309,7 +310,7 @@ func TestHandleGetPurchasesQueryParams(t *testing.T) {
 			mockRepo.On("GetPurchasesByUser", 1, tt.year, tt.month).Return([]document.Document{}, nil)
 
 			logger, _ := test.NewNullLogger()
-			svc := document.NewDocumentService(mockRepo)
+			svc := testutil.NewDocumentService(t, mockRepo)
 			h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 			c, w := newGetPurchasesContext(1, tt.query)
@@ -326,7 +327,7 @@ func TestHandleGetPurchasesUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchasesContext(0, "") // 0 = no userId set
@@ -343,7 +344,7 @@ func TestHandleGetPurchasesRepoError(t *testing.T) {
 	mockRepo.On("GetPurchasesByUser", 1, "", "").Return([]document.Document{}, errors.New("db failure"))
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchasesContext(1, "")
@@ -364,7 +365,7 @@ func TestHandleGetPurchasesNoFileURL(t *testing.T) {
 	mockRepo.On("GetPurchasesByUser", 1, "", "").Return(docs, nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchasesContext(1, "")
@@ -394,7 +395,7 @@ func TestHandleServeFileSuccess(t *testing.T) {
 	mockRepo.On("GetFilePathByObjId", int64(5), 1).Return(f.Name(), "receipt.pdf", nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	w := httptest.NewRecorder()
@@ -418,7 +419,7 @@ func TestHandleServeFileNotFound(t *testing.T) {
 	mockRepo.On("GetFilePathByObjId", int64(99), 1).Return("", "", sql.ErrNoRows)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	w := httptest.NewRecorder()
@@ -438,7 +439,7 @@ func TestHandleServeFileInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	w := httptest.NewRecorder()
@@ -457,7 +458,7 @@ func TestHandleServeFileUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	w := httptest.NewRecorder()
@@ -546,7 +547,7 @@ func TestHandleCreatePurchaseSuccess(t *testing.T) {
 	mockRepo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("POST", pathPurchases, validPurchaseBody(), 1, nil)
@@ -562,7 +563,7 @@ func TestHandleCreatePurchaseUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("POST", pathPurchases, validPurchaseBody(), 0, nil) // 0 = no userId
@@ -579,7 +580,7 @@ func TestHandleCreatePurchaseInvalidDate(t *testing.T) {
 	body["buyAt"] = "25/02/2026" // Australian DD/MM/YYYY — wrong format for this endpoint
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("POST", pathPurchases, body, 1, nil)
@@ -598,7 +599,7 @@ func TestHandleUpdatePurchaseSuccess(t *testing.T) {
 	dbMock := setupUpdateTx(t, mockRepo, int64(5), 1, int64(10))
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("PATCH", pathPurchases5, validPurchaseBody(), 1, gin.Params{{Key: "id", Value: "5"}})
@@ -625,7 +626,7 @@ func TestHandleUpdatePurchaseNotFound(t *testing.T) {
 	mockRepo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("PATCH", pathPurchases99, validPurchaseBody(), 1, gin.Params{{Key: "id", Value: "99"}})
@@ -641,7 +642,7 @@ func TestHandleUpdatePurchaseInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("PATCH", pathPurchasesAbc, validPurchaseBody(), 1, gin.Params{{Key: "id", Value: "abc"}})
@@ -655,7 +656,7 @@ func TestHandleUpdatePurchaseUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("PATCH", pathPurchases5, validPurchaseBody(), 0, gin.Params{{Key: "id", Value: "5"}})
@@ -709,7 +710,7 @@ func TestHandleUpdatePurchaseWithFileSuccess(t *testing.T) {
 	dbMock := setupUpdateWithFileTx(t, mockRepo, int64(5), 1, int64(10))
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	body, contentType := buildFormWithFile(t, validMultipartFields(), []byte("fake pdf"), "receipt.pdf")
@@ -732,7 +733,7 @@ func TestHandleUpdatePurchaseWithFileInvalidDate(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	fields := map[string]string{"name": "Receipt", "buyAt": "2026-02-25"} // YYYY-MM-DD — wrong for multipart
@@ -755,7 +756,7 @@ func TestHandleUpdatePurchaseWithFileInvalidItems(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	fields := map[string]string{"name": "Receipt", "items": "not-valid-json"}
@@ -789,7 +790,7 @@ func TestHandleUpdatePurchaseWithFileNotFound(t *testing.T) {
 	mockRepo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	body, contentType := buildFormWithFile(t, map[string]string{"name": "Ghost"}, []byte("pdf"), "receipt.pdf")
@@ -835,7 +836,7 @@ func TestHandleGetPurchaseItemsSuccess(t *testing.T) {
 	mockRepo.On("GetItemsByPurchaseId", int64(5), 1).Return(items, nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetItemsContext(1, "5")
@@ -862,7 +863,7 @@ func TestHandleGetPurchaseItemsEmpty(t *testing.T) {
 	mockRepo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetItemsContext(1, "5")
@@ -881,7 +882,7 @@ func TestHandleGetPurchaseItemsUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetItemsContext(0, "5") // 0 = no userId set
@@ -895,7 +896,7 @@ func TestHandleGetPurchaseItemsInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetItemsContext(1, "abc")
@@ -912,7 +913,7 @@ func TestHandleGetPurchaseItemsNotFound(t *testing.T) {
 	mockRepo.On("GetItemsByPurchaseId", int64(99), 1).Return([]document.Item{}, sql.ErrNoRows)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetItemsContext(1, "99")
@@ -930,7 +931,7 @@ func TestHandleGetPurchaseItemsRepoError(t *testing.T) {
 	mockRepo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, errors.New("db failure"))
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetItemsContext(1, "5")
@@ -950,7 +951,7 @@ func TestHandleDeletePurchaseSuccess(t *testing.T) {
 	mockRepo.On("SoftDeletePurchase", int64(5), 1).Return(nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("DELETE", pathPurchases5, nil, 1, gin.Params{{Key: "id", Value: "5"}})
@@ -968,7 +969,7 @@ func TestHandleDeletePurchaseNotFound(t *testing.T) {
 	mockRepo.On("SoftDeletePurchase", int64(99), 1).Return(sql.ErrNoRows)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("DELETE", pathPurchases99, nil, 1, gin.Params{{Key: "id", Value: "99"}})
@@ -983,7 +984,7 @@ func TestHandleDeletePurchaseInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("DELETE", pathPurchasesAbc, nil, 1, gin.Params{{Key: "id", Value: "abc"}})
@@ -997,7 +998,7 @@ func TestHandleDeletePurchaseUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := buildJSONContext("DELETE", pathPurchases5, nil, 0, gin.Params{{Key: "id", Value: "5"}})
@@ -1044,7 +1045,7 @@ func TestHandleGetPurchaseByIdSuccess(t *testing.T) {
 	mockRepo.On("GetPurchaseByObjId", int64(5), 1).Return(doc, nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchaseByIdContext(1, "5")
@@ -1081,7 +1082,7 @@ func TestHandleGetPurchaseByIdNoFileURL(t *testing.T) {
 	mockRepo.On("GetPurchaseByObjId", int64(5), 1).Return(doc, nil)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchaseByIdContext(1, "5")
@@ -1103,7 +1104,7 @@ func TestHandleGetPurchaseByIdNotFound(t *testing.T) {
 	mockRepo.On("GetPurchaseByObjId", int64(99), 1).Return(nil, sql.ErrNoRows)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchaseByIdContext(1, "99")
@@ -1121,7 +1122,7 @@ func TestHandleGetPurchaseByIdRepoError(t *testing.T) {
 	mockRepo.On("GetPurchaseByObjId", int64(5), 1).Return(nil, errors.New("db failure"))
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(mockRepo)
+	svc := testutil.NewDocumentService(t, mockRepo)
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchaseByIdContext(1, "5")
@@ -1136,7 +1137,7 @@ func TestHandleGetPurchaseByIdInvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchaseByIdContext(1, "abc")
@@ -1150,7 +1151,7 @@ func TestHandleGetPurchaseByIdUnauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	logger, _ := test.NewNullLogger()
-	svc := document.NewDocumentService(new(MockDocumentRepository))
+	svc := testutil.NewDocumentService(t, new(MockDocumentRepository))
 	h := &documentApi.DocumentHandler{DocSvc: *svc, Logger: logger}
 
 	c, w := newGetPurchaseByIdContext(0, "5") // 0 = no userId set

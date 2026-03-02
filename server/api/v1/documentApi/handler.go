@@ -21,14 +21,22 @@ import (
 // PurchaseResponse is the JSON shape returned by GET /purchases.
 // Fields are intentionally flat to match the client-side Purchase type.
 type PurchaseResponse struct {
-	ID       string         `json:"id"`
-	Title    string         `json:"title"`
-	Filename string         `json:"filename"`
-	FileURL  string         `json:"fileUrl,omitempty"`
-	BuyAt    string         `json:"buyAt"`
-	BuyFrom  string         `json:"buyFrom"`
-	BuyPrice string         `json:"buyPrice"`
-	Items    []ItemResponse `json:"items"`
+	ID         string             `json:"id"`
+	Title      string             `json:"title"`
+	Filename   string             `json:"filename"`
+	FileURL    string             `json:"fileUrl,omitempty"`
+	BuyAt      string             `json:"buyAt"`
+	BuyFrom    string             `json:"buyFrom"`
+	BuyPrice   string             `json:"buyPrice"`
+	Items      []ItemResponse     `json:"items"`
+	Categories []CategoryResponse `json:"categories"`
+}
+
+// CategoryResponse is the slim shape returned inside purchase responses.
+type CategoryResponse struct {
+	GUID  string `json:"guid"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
 }
 
 // ItemResponse mirrors the client-side Item type.
@@ -42,12 +50,13 @@ type ItemResponse struct {
 // toPurchaseResponse maps a domain Document to the API response shape.
 func toPurchaseResponse(doc document.Document) PurchaseResponse {
 	r := PurchaseResponse{
-		ID:       doc.Id,
-		Title:    doc.Title,
-		Filename: doc.FileName,
-		BuyFrom:  doc.PurchaseInfo.BuyFrom,
-		BuyPrice: doc.PurchaseInfo.BuyPrice,
-		Items:    []ItemResponse{},
+		ID:         doc.Id,
+		Title:      doc.Title,
+		Filename:   doc.FileName,
+		BuyFrom:    doc.PurchaseInfo.BuyFrom,
+		BuyPrice:   doc.PurchaseInfo.BuyPrice,
+		Items:      []ItemResponse{},
+		Categories: []CategoryResponse{},
 	}
 	if doc.PurchaseInfo.BuyAt != nil {
 		r.BuyAt = doc.PurchaseInfo.BuyAt.Format("2006-01-02")
@@ -63,6 +72,13 @@ func toPurchaseResponse(doc document.Document) PurchaseResponse {
 			SubTotal:  item.SubTotal,
 		})
 	}
+	for _, cat := range doc.Categories {
+		r.Categories = append(r.Categories, CategoryResponse{
+			GUID:  cat.GUID,
+			Name:  cat.Name,
+			Color: cat.Color,
+		})
+	}
 	return r
 }
 
@@ -74,12 +90,13 @@ const (
 
 // purchaseJSONRequest is the JSON body accepted by the create and update endpoints.
 type purchaseJSONRequest struct {
-	Title    string          `json:"title"`
-	BuyFrom  string          `json:"buyFrom"`
-	BuyAt    string          `json:"buyAt"` // YYYY-MM-DD from a date input
-	BuyPrice string          `json:"buyPrice"`
-	FileName string          `json:"filename"` // optional rename for the attached file
-	Items    []document.Item `json:"items"`
+	Title         string          `json:"title"`
+	BuyFrom       string          `json:"buyFrom"`
+	BuyAt         string          `json:"buyAt"` // YYYY-MM-DD from a date input
+	BuyPrice      string          `json:"buyPrice"`
+	FileName      string          `json:"filename"` // optional rename for the attached file
+	Items         []document.Item `json:"items"`
+	CategoryGUIDs []string        `json:"categoryGuids"`
 }
 
 // parsePurchaseJSONRequest binds the request body and converts buyAt to a *document.Date.
@@ -146,15 +163,25 @@ func (h *DocumentHandler) HandleUpload(c *gin.Context) {
 		}
 	}
 
+	// Parse category GUIDs from JSON field.
+	var categoryGUIDs []string
+	if raw := c.PostForm("categoryGuids"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &categoryGUIDs); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid categoryGuids format"})
+			return
+		}
+	}
+
 	// Build upload input.
 	input := &document.UploadInput{
-		Title:       c.PostForm("title"),
-		Description: c.PostForm("description"),
-		BuyFrom:     c.PostForm("buyFrom"),
-		BuyAt:       buyAt,
-		BuyPrice:    c.PostForm("buyPrice"),
-		Items:       items,
-		UserId:      userId,
+		Title:         c.PostForm("title"),
+		Description:   c.PostForm("description"),
+		BuyFrom:       c.PostForm("buyFrom"),
+		BuyAt:         buyAt,
+		BuyPrice:      c.PostForm("buyPrice"),
+		Items:         items,
+		UserId:        userId,
+		CategoryGUIDs: categoryGUIDs,
 	}
 
 	// Get file if attached.
@@ -304,12 +331,13 @@ func (h *DocumentHandler) HandleCreatePurchase(c *gin.Context) {
 	}
 
 	input := &document.UploadInput{
-		Title:    req.Title,
-		BuyFrom:  req.BuyFrom,
-		BuyAt:    buyAt,
-		BuyPrice: req.BuyPrice,
-		Items:    req.Items,
-		UserId:   userId,
+		Title:         req.Title,
+		BuyFrom:       req.BuyFrom,
+		BuyAt:         buyAt,
+		BuyPrice:      req.BuyPrice,
+		Items:         req.Items,
+		UserId:        userId,
+		CategoryGUIDs: req.CategoryGUIDs,
 	}
 
 	if err := h.DocSvc.UploadDocument(input, nil); err != nil {
@@ -365,14 +393,23 @@ func (h *DocumentHandler) handleUpdateWithFile(c *gin.Context, objId int64, user
 		}
 	}
 
+	var categoryGUIDs []string
+	if raw := c.PostForm("categoryGuids"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &categoryGUIDs); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid categoryGuids format"})
+			return
+		}
+	}
+
 	input := &document.UploadInput{
-		Title:    c.PostForm("title"),
-		BuyFrom:  c.PostForm("buyFrom"),
-		BuyAt:    buyAt,
-		BuyPrice: c.PostForm("buyPrice"),
-		Items:    items,
-		UserId:   userId,
-		File:     file,
+		Title:         c.PostForm("title"),
+		BuyFrom:       c.PostForm("buyFrom"),
+		BuyAt:         buyAt,
+		BuyPrice:      c.PostForm("buyPrice"),
+		Items:         items,
+		UserId:        userId,
+		File:          file,
+		CategoryGUIDs: categoryGUIDs,
 	}
 
 	saveFunc := func(f *multipart.FileHeader, dst string) error {
@@ -399,13 +436,14 @@ func (h *DocumentHandler) handleUpdateJSON(c *gin.Context, objId int64, userId i
 	}
 
 	input := &document.UploadInput{
-		Title:    req.Title,
-		BuyFrom:  req.BuyFrom,
-		BuyAt:    buyAt,
-		BuyPrice: req.BuyPrice,
-		FileName: req.FileName,
-		Items:    req.Items,
-		UserId:   userId,
+		Title:         req.Title,
+		BuyFrom:       req.BuyFrom,
+		BuyAt:         buyAt,
+		BuyPrice:      req.BuyPrice,
+		FileName:      req.FileName,
+		Items:         req.Items,
+		UserId:        userId,
+		CategoryGUIDs: req.CategoryGUIDs,
 	}
 
 	if err := h.DocSvc.UpdatePurchase(objId, userId, input); err != nil {

@@ -3,6 +3,7 @@ package routers
 import (
 	v1 "2_Go/api/v1"
 	"2_Go/api/v1/authApi"
+	"2_Go/api/v1/categoryApi"
 	"2_Go/api/v1/documentApi"
 	"2_Go/api/v1/ocrApi"
 	"2_Go/middleware/authen"
@@ -17,4 +18,5 @@ func RegisterV1Routes(r *gin.Engine, deps *v1.Dependencies, logger *logrus.Logge
 	authApi.Register(apiv1, authApi.NewHandler(deps.AuthSvc, logger))
 	documentApi.Register(apiv1, documentApi.NewHandler(deps.DocSvc, logger))
 	ocrApi.Register(apiv1, ocrApi.NewHandler(deps.OcrSvc, logger))
+	categoryApi.Register(apiv1, categoryApi.NewHandler(deps.CatSvc, logger))
 }

@@ -2,6 +2,7 @@ package test
 
 import (
 	"2_Go/internal/document"
+	"2_Go/internal/testutil"
 	"bytes"
 	"database/sql"
 	"errors"
@@ -324,7 +325,7 @@ func TestUploadDocument(t *testing.T) {
 
 			tt.mockRepo(mockRepo, db, mockDB)
 
-			service := document.NewDocumentService(mockRepo)
+			service := testutil.NewDocumentService(t, mockRepo)
 
 			// Build input from context
 			input := &document.UploadInput{
@@ -413,7 +414,7 @@ func TestGetPurchaseItems(t *testing.T) {
 			mockRepo := new(MockDocumentRepository)
 			tt.mockSetup(mockRepo)
 
-			service := document.NewDocumentService(mockRepo)
+			service := testutil.NewDocumentService(t, mockRepo)
 			items, err := service.GetPurchaseItems(tt.objId, tt.userID)
 
 			if tt.expectErr {
@@ -510,7 +511,7 @@ func TestGetPurchaseById(t *testing.T) {
 			mockRepo := new(MockDocumentRepository)
 			tt.mockSetup(mockRepo)
 
-			service := document.NewDocumentService(mockRepo)
+			service := testutil.NewDocumentService(t, mockRepo)
 			doc, err := service.GetPurchaseById(tt.objId, tt.userID)
 
 			if tt.expectErr {

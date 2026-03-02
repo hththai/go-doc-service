@@ -60,6 +60,22 @@ export default function PurchaseDetail({
             </span>
           )}
         </div>
+        {purchase.categories && purchase.categories.length > 0 && (
+          <div className="flex justify-between text-gray-600">
+            <span className="text-gray-400 shrink-0">Categories</span>
+            <div className="flex flex-wrap gap-1 justify-end max-w-48">
+              {purchase.categories.map((cat) => (
+                <span
+                  key={cat.guid}
+                  className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                  style={{ backgroundColor: cat.color || "#94a3b8" }}
+                >
+                  {cat.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex justify-between font-semibold text-gray-900">
           <span>Total</span>
           <span>{formatCurrency(purchase.buyPrice)}</span>

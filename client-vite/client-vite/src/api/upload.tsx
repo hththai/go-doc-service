@@ -25,6 +25,7 @@ export async function uploadFile(
   metadata: UploadMetadata,
   items: UploadItem[],
   file?: File | null,
+  categoryGuids?: string[],
 ) {
   if (!metadata.title) {
     throw new Error("Title is required.");
@@ -47,6 +48,10 @@ export async function uploadFile(
 
   if (items.length > 0) {
     form.append("items", JSON.stringify(items));
+  }
+
+  if (categoryGuids && categoryGuids.length > 0) {
+    form.append("categoryGuids", JSON.stringify(categoryGuids));
   }
 
   if (file) {
@@ -72,6 +77,7 @@ export type PurchasePayload = {
   buyAt: string;
   buyPrice: string;
   filename: string;
+  categoryGuids: string[];
   items: UploadItem[];
 };
 
@@ -85,6 +91,7 @@ export async function createPurchase(data: PurchasePayload) {
       buyFrom: data.buyFrom,
       buyAt: data.buyAt,
       buyPrice: data.buyPrice,
+      categoryGuids: data.categoryGuids,
       items: data.items,
     }),
   });
@@ -105,6 +112,7 @@ export async function updatePurchase(id: string, data: PurchasePayload) {
         buyAt: data.buyAt,
         buyPrice: data.buyPrice,
         filename: data.filename,
+        categoryGuids: data.categoryGuids,
         items: data.items,
       }),
     },
@@ -118,6 +126,7 @@ export async function updatePurchaseWithFile(
   metadata: UploadMetadata,
   items: UploadItem[],
   file: File,
+  categoryGuids?: string[],
 ) {
   const form = new FormData();
 
@@ -134,6 +143,10 @@ export async function updatePurchaseWithFile(
 
   if (items.length > 0) {
     form.append("items", JSON.stringify(items));
+  }
+
+  if (categoryGuids && categoryGuids.length > 0) {
+    form.append("categoryGuids", JSON.stringify(categoryGuids));
   }
 
   form.append("file", file);

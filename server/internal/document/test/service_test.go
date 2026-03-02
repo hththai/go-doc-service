@@ -2,6 +2,7 @@ package document_test
 
 import (
 	"2_Go/internal/document"
+	"2_Go/internal/testutil"
 	"database/sql"
 	"errors"
 	"mime/multipart"
@@ -124,7 +125,7 @@ func TestSaveItemsWithItems(t *testing.T) {
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(10), nil)
 	repo.On("SaveItems", mock.Anything, int64(10), items).Return(nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UploadDocument(&document.UploadInput{
 		Title:  "Woolworths Receipt",
 		UserId: 1,
@@ -148,7 +149,7 @@ func TestSaveItemsNilItems(t *testing.T) {
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
 	repo.On("SaveItems", mock.Anything, int64(2), mock.Anything).Return(nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UploadDocument(&document.UploadInput{
 		Title:  "Empty Receipt",
 		UserId: 1,
@@ -171,7 +172,7 @@ func TestSaveItemsError(t *testing.T) {
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(2), nil)
 	repo.On("SaveItems", mock.Anything, mock.Anything, mock.Anything).Return(errors.New("db insert failed"))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UploadDocument(&document.UploadInput{
 		Title:  "Receipt",
 		UserId: 1,
@@ -195,7 +196,7 @@ func TestSaveItemsMetadataError(t *testing.T) {
 	repo.On("SetLatestObjId", mock.Anything, mock.Anything).Return(int64(1), nil)
 	repo.On("SaveMetadataWithObjId", mock.Anything, mock.Anything, mock.Anything).Return(int64(0), errors.New("metadata insert failed"))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UploadDocument(&document.UploadInput{
 		Title:  "Receipt",
 		UserId: 1,
@@ -221,7 +222,7 @@ func TestGetPurchasesSuccess(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetPurchasesByUser", 1, "", "").Return(expected, nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	got, err := svc.GetPurchases(1, "", "")
 
 	assert.NoError(t, err)
@@ -247,7 +248,7 @@ func TestGetPurchasesWithFilters(t *testing.T) {
 			repo := new(mockRepo)
 			repo.On("GetPurchasesByUser", 1, tt.year, tt.month).Return([]document.Document{}, nil)
 
-			svc := document.NewDocumentService(repo)
+			svc := testutil.NewDocumentService(t, repo)
 			_, err := svc.GetPurchases(1, tt.year, tt.month)
 
 			assert.NoError(t, err)
@@ -261,7 +262,7 @@ func TestGetPurchasesError(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetPurchasesByUser", 1, "", "").Return([]document.Document{}, errors.New(errDBMsg))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	_, err := svc.GetPurchases(1, "", "")
 
 	assert.Error(t, err)
@@ -281,7 +282,7 @@ func TestGetPurchaseItemsSuccess(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetItemsByPurchaseId", int64(5), 1).Return(expected, nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	got, err := svc.GetPurchaseItems(5, 1)
 
 	assert.NoError(t, err)
@@ -294,7 +295,7 @@ func TestGetPurchaseItemsEmpty(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetItemsByPurchaseId", int64(5), 1).Return([]document.Item{}, nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	got, err := svc.GetPurchaseItems(5, 1)
 
 	assert.NoError(t, err)
@@ -307,7 +308,7 @@ func TestGetPurchaseItemsError(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetItemsByPurchaseId", int64(99), 1).Return([]document.Item{}, errors.New(errDBMsg))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	_, err := svc.GetPurchaseItems(99, 1)
 
 	assert.Error(t, err)
@@ -322,7 +323,7 @@ func TestGetFilePathSuccess(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetFilePathByObjId", int64(5), 1).Return("./filedata/0/0/5.pdf", testReceiptFilename, nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	path, name, err := svc.GetFilePath(5, 1)
 
 	assert.NoError(t, err)
@@ -336,7 +337,7 @@ func TestGetFilePathError(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetFilePathByObjId", int64(99), 1).Return("", "", errors.New("not found"))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	_, _, err := svc.GetFilePath(99, 1)
 
 	assert.Error(t, err)
@@ -358,7 +359,7 @@ func TestGetPurchaseByIdSuccess(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetPurchaseByObjId", int64(5), 1).Return(expected, nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	got, err := svc.GetPurchaseById(5, 1)
 
 	assert.NoError(t, err)
@@ -371,7 +372,7 @@ func TestGetPurchaseByIdNotFound(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetPurchaseByObjId", int64(99), 1).Return(nil, sql.ErrNoRows)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	got, err := svc.GetPurchaseById(99, 1)
 
 	assert.Nil(t, got)
@@ -385,7 +386,7 @@ func TestGetPurchaseByIdError(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("GetPurchaseByObjId", int64(5), 1).Return(nil, errors.New(errDBMsg))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	_, err := svc.GetPurchaseById(5, 1)
 
 	assert.Error(t, err)
@@ -412,7 +413,7 @@ func TestUpdatePurchaseSuccess(t *testing.T) {
 	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(nil)
 	repo.On("SaveItems", mock.Anything, int64(10), items).Return(nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UpdatePurchase(5, 1, &document.UploadInput{
 		Title:   "Updated Receipt",
 		BuyFrom: "Coles",
@@ -435,7 +436,7 @@ func TestUpdatePurchaseNotFound(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UpdatePurchase(99, 1, &document.UploadInput{Title: "Ghost", UserId: 1})
 
 	assert.Error(t, err)
@@ -456,7 +457,7 @@ func TestUpdatePurchaseDeleteItemsError(t *testing.T) {
 	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
 	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(errors.New("db delete failed"))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UpdatePurchase(5, 1, &document.UploadInput{Title: "Receipt", UserId: 1})
 
 	assert.Error(t, err)
@@ -472,7 +473,7 @@ func TestDeletePurchaseSuccess(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("SoftDeletePurchase", int64(5), 1).Return(nil)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.DeletePurchase(5, 1)
 
 	assert.NoError(t, err)
@@ -484,7 +485,7 @@ func TestDeletePurchaseNotFound(t *testing.T) {
 	repo := new(mockRepo)
 	repo.On("SoftDeletePurchase", int64(99), 1).Return(sql.ErrNoRows)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.DeletePurchase(99, 1)
 
 	assert.Error(t, err)
@@ -514,7 +515,7 @@ func TestUpdatePurchaseWithFileNotFound(t *testing.T) {
 	repo.On("BeginTx").Return(tx, nil)
 	repo.On("UpdatePurchaseMetadata", mock.Anything, int64(99), 1, mock.Anything).Return(sql.ErrNoRows)
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UpdatePurchaseWithFile(99, 1, &document.UploadInput{
 		Title:  "Ghost",
 		UserId: 1,
@@ -540,7 +541,7 @@ func TestUpdatePurchaseWithFileDeleteItemsError(t *testing.T) {
 	repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
 	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(errors.New("db delete failed"))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{
 		Title:  "Receipt",
 		UserId: 1,
@@ -567,7 +568,7 @@ func TestUpdatePurchaseWithFileSaveItemsError(t *testing.T) {
 	repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(nil)
 	repo.On("SaveItems", mock.Anything, int64(10), mock.Anything).Return(errors.New("db insert failed"))
 
-	svc := document.NewDocumentService(repo)
+	svc := testutil.NewDocumentService(t, repo)
 	err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{
 		Title:  "Receipt",
 		UserId: 1,

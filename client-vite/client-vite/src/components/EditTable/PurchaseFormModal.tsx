@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Plus, Trash2, Paperclip, ExternalLink } from "lucide-react";
 import { type Purchase, formatCurrency } from "../Summary/mockData";
 import { scanInvoice } from "@/api/ocr";
+import CategorySelector from "./CategorySelector";
 
 export type PurchaseFormData = {
   title: string;
@@ -9,6 +10,7 @@ export type PurchaseFormData = {
   buyAt: string;
   buyPrice: string;
   filename: string;
+  categoryGuids: string[];
   items: Array<{
     itemName: string;
     itemQty: string;
@@ -48,6 +50,7 @@ export default function PurchaseFormModal({
         buyAt: purchase.buyAt,
         buyPrice: purchase.buyPrice,
         filename: purchase.filename ?? "",
+        categoryGuids: purchase.categories?.map((c) => c.guid) ?? [],
         items: purchase.items.map((i) => ({ ...i })),
       };
     }
@@ -57,6 +60,7 @@ export default function PurchaseFormModal({
       buyAt: "",
       buyPrice: "",
       filename: "",
+      categoryGuids: [],
       items: [],
     };
   });
@@ -317,6 +321,17 @@ export default function PurchaseFormModal({
                 required
                 placeholder="0.00"
                 className={inputClass}
+              />
+            </div>
+
+            {/* Categories */}
+            <div>
+              <span className={labelClass}>Categories</span>
+              <CategorySelector
+                selectedGuids={form.categoryGuids}
+                onChange={(guids) =>
+                  setForm((prev) => ({ ...prev, categoryGuids: guids }))
+                }
               />
             </div>
 

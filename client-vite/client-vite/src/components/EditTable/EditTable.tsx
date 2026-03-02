@@ -58,6 +58,7 @@ export default function EditTable() {
             },
             data.items,
             file,
+            data.categoryGuids,
           )
         : createPurchase(data),
     onSuccess: () => {
@@ -87,6 +88,7 @@ export default function EditTable() {
             },
             data.items,
             file,
+            data.categoryGuids,
           )
         : updatePurchase(id, data),
     onSuccess: () => {

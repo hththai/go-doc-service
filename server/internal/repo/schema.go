@@ -32,6 +32,8 @@ func MigrateAll(db *sql.DB) error {
 		{15, addItemGuidColumn},
 		{16, backfillItemGuid},
 		{17, makeItemObjIdAutoIncrement},
+		{18, createCategoryTable},
+		{19, createDocCategoryTable},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -267,6 +269,41 @@ func fixStatusFailedToActive(db *sql.DB) error {
 	_, err := db.Exec(`UPDATE obj_doc SET status = 1 WHERE status = -1`)
 	if err != nil {
 		return fmt.Errorf("failed to fix status -1 to 1: %w", err)
+	}
+	return nil
+}
+
+func createCategoryTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_category (
+		id          INT AUTO_INCREMENT PRIMARY KEY,
+		guid        CHAR(36)      NOT NULL,
+		user_id     INT           NOT NULL,
+		name        VARCHAR(100)  NOT NULL,
+		color       VARCHAR(20)   NULL,
+		status      INT           NOT NULL DEFAULT 1,
+		created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
+		modified_at TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		CONSTRAINT fk_category_user FOREIGN KEY (user_id) REFERENCES user(id),
+		UNIQUE KEY uq_category_user_name (user_id, name)
+	) ENGINE=InnoDB`)
+	if err != nil {
+		return fmt.Errorf("failed to create obj_category: %w", err)
+	}
+	return nil
+}
+
+func createDocCategoryTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_doc_category (
+		id          INT AUTO_INCREMENT PRIMARY KEY,
+		doc_id      INT  NOT NULL,
+		category_id INT  NOT NULL,
+		created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		CONSTRAINT fk_dc_doc      FOREIGN KEY (doc_id)      REFERENCES obj_doc(id),
+		CONSTRAINT fk_dc_category FOREIGN KEY (category_id) REFERENCES obj_category(id),
+		UNIQUE KEY uq_doc_category (doc_id, category_id)
+	) ENGINE=InnoDB`)
+	if err != nil {
+		return fmt.Errorf("failed to create obj_doc_category: %w", err)
 	}
 	return nil
 }

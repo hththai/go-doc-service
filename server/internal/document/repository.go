@@ -1,6 +1,7 @@
 package document
 
 import (
+	"2_Go/internal/category"
 	"2_Go/internal/obj"
 	"database/sql"
 	"fmt"
@@ -39,11 +40,12 @@ type DocumentRepository interface {
 }
 
 type documentRepositoryImpl struct {
-	db *sql.DB
+	db      *sql.DB
+	catRepo category.CategoryRepository
 }
 
-func NewDocumentRepository(db *sql.DB) DocumentRepository {
-	return &documentRepositoryImpl{db: db}
+func NewDocumentRepository(db *sql.DB, catRepo category.CategoryRepository) DocumentRepository {
+	return &documentRepositoryImpl{db: db, catRepo: catRepo}
 }
 
 // BeginTx starts a new database transaction.
@@ -169,6 +171,7 @@ func (r *documentRepositoryImpl) SaveItems(tx *sql.Tx, docId int64, items []Item
 
 // purchaseRow holds raw scanned values from a single query row.
 type purchaseRow struct {
+	docId     int64 // auto-increment PK of obj_doc (used for category join)
 	objId     int64
 	title     string
 	fileName  sql.NullString
@@ -219,7 +222,7 @@ func (row *purchaseRow) toItem() (Item, bool) {
 func buildPurchaseQuery(userID int, year, month string) (string, []interface{}) {
 	query := `
 		SELECT
-			d.obj_id, d.name_or_title, d.file_name, d.buy_at,
+			d.id, d.obj_id, d.name_or_title, d.file_name, d.buy_at,
 			d.buy_from, d.buy_price, p.file_path,
 			i.name, i.quantity, i.price, i.total
 		FROM obj_doc d
@@ -252,10 +255,12 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 	// docOrder preserves DESC ordering; docMap avoids duplicate doc entries from the item JOIN.
 	docMap := make(map[int64]*Document)
 	docOrder := []int64{}
+	// objIdToDocId maps obj_id -> auto-increment id (needed for category join).
+	objIdToDocId := make(map[int64]int64)
 
 	for rows.Next() {
 		var row purchaseRow
-		if err := rows.Scan(&row.objId, &row.title, &row.fileName, &row.buyAt,
+		if err := rows.Scan(&row.docId, &row.objId, &row.title, &row.fileName, &row.buyAt,
 			&row.buyFrom, &row.buyPrice, &row.filePath,
 			&row.itemName, &row.itemQty, &row.itemPrice, &row.itemTotal); err != nil {
 			return nil, fmt.Errorf("scan purchase row: %w", err)
@@ -264,6 +269,7 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 		if _, exists := docMap[row.objId]; !exists {
 			docMap[row.objId] = row.toDocument()
 			docOrder = append(docOrder, row.objId)
+			objIdToDocId[row.objId] = row.docId
 		}
 
 		if item, ok := row.toItem(); ok {
@@ -272,6 +278,24 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	// Batch-fetch categories for all documents.
+	if len(docOrder) > 0 {
+		docIds := make([]int64, 0, len(docOrder))
+		for _, oid := range docOrder {
+			docIds = append(docIds, objIdToDocId[oid])
+		}
+		catsByDocId, err := r.catRepo.GetCategoriesByDocIds(docIds)
+		if err != nil {
+			return nil, fmt.Errorf("fetch categories: %w", err)
+		}
+		for _, oid := range docOrder {
+			docId := objIdToDocId[oid]
+			if cats, ok := catsByDocId[docId]; ok {
+				docMap[oid].Categories = cats
+			}
+		}
 	}
 
 	result := make([]Document, 0, len(docOrder))
@@ -286,7 +310,7 @@ func (r *documentRepositoryImpl) GetPurchasesByUser(userID int, year, month stri
 func (r *documentRepositoryImpl) GetPurchaseByObjId(objId int64, userID int) (*Document, error) {
 	rows, err := r.db.Query(`
 		SELECT
-			d.obj_id, d.name_or_title, d.file_name, d.buy_at,
+			d.id, d.obj_id, d.name_or_title, d.file_name, d.buy_at,
 			d.buy_from, d.buy_price, p.file_path,
 			i.name, i.quantity, i.price, i.total
 		FROM obj_doc d
@@ -300,15 +324,17 @@ func (r *documentRepositoryImpl) GetPurchaseByObjId(objId int64, userID int) (*D
 	defer rows.Close()
 
 	var doc *Document
+	var docId int64
 	for rows.Next() {
 		var row purchaseRow
-		if err := rows.Scan(&row.objId, &row.title, &row.fileName, &row.buyAt,
+		if err := rows.Scan(&row.docId, &row.objId, &row.title, &row.fileName, &row.buyAt,
 			&row.buyFrom, &row.buyPrice, &row.filePath,
 			&row.itemName, &row.itemQty, &row.itemPrice, &row.itemTotal); err != nil {
 			return nil, fmt.Errorf("scan purchase row: %w", err)
 		}
 		if doc == nil {
 			doc = row.toDocument()
+			docId = row.docId
 		}
 		if item, ok := row.toItem(); ok {
 			doc.Items = append(doc.Items, item)
@@ -320,6 +346,16 @@ func (r *documentRepositoryImpl) GetPurchaseByObjId(objId int64, userID int) (*D
 	if doc == nil {
 		return nil, sql.ErrNoRows
 	}
+
+	// Attach categories.
+	catsByDocId, err := r.catRepo.GetCategoriesByDocIds([]int64{docId})
+	if err != nil {
+		return nil, fmt.Errorf("fetch categories: %w", err)
+	}
+	if cats, ok := catsByDocId[docId]; ok {
+		doc.Categories = cats
+	}
+
 	return doc, nil
 }
 

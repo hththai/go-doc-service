@@ -5,6 +5,7 @@ import (
 	"2_Go/api/v1/authApi"
 	"2_Go/api/v1/routers"
 	"2_Go/internal/auth"
+	"2_Go/internal/category"
 	"2_Go/internal/config"
 	"2_Go/internal/document"
 	"2_Go/internal/repo"
@@ -57,8 +58,11 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	docRepo := document.NewDocumentRepository(db)
-	docService := document.NewDocumentService(docRepo)
+	catRepo := category.NewCategoryRepository(db)
+	catService := category.NewCategoryService(catRepo)
+
+	docRepo := document.NewDocumentRepository(db, catRepo)
+	docService := document.NewDocumentService(docRepo, catRepo)
 	ocrService := ocr.NewService(cfg.Anthropic.APIKey)
 
 	// Register service.
@@ -82,6 +86,7 @@ func main() {
 	deps := &v1.Dependencies{
 		AuthSvc: acctSvc,
 		DocSvc:  *docService,
+		CatSvc:  catService,
 		OcrSvc:  ocrService,
 		Logger:  log,
 	}

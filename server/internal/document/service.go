@@ -1,6 +1,7 @@
 package document
 
 import (
+	"2_Go/internal/category"
 	"2_Go/internal/obj"
 	"2_Go/utils"
 	"crypto/rand"
@@ -60,6 +61,13 @@ func (s *DocumentService) UpdatePurchase(objId int64, userID int, input *UploadI
 		return fmt.Errorf("save items: %w", err)
 	}
 
+	if err = s.catRepo.DeleteDocCategories(tx, docId); err != nil {
+		return fmt.Errorf("delete categories: %w", err)
+	}
+	if err = s.catRepo.SaveDocCategories(tx, docId, input.CategoryGUIDs, userID); err != nil {
+		return fmt.Errorf("save categories: %w", err)
+	}
+
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
@@ -113,6 +121,13 @@ func (s *DocumentService) UpdatePurchaseWithFile(objId int64, userID int, input 
 		return fmt.Errorf("save items: %w", err)
 	}
 
+	if err = s.catRepo.DeleteDocCategories(tx, docId); err != nil {
+		return fmt.Errorf("delete categories: %w", err)
+	}
+	if err = s.catRepo.SaveDocCategories(tx, docId, input.CategoryGUIDs, userID); err != nil {
+		return fmt.Errorf("save categories: %w", err)
+	}
+
 	if err = s.saveFileAndUpsertPath(input.File, &doc, tx, saveFile); err != nil {
 		return fmt.Errorf("replace file: %w", err)
 	}
@@ -162,11 +177,12 @@ func (s *DocumentService) DeletePurchase(objId int64, userID int) error {
 }
 
 type DocumentService struct {
-	repo DocumentRepository
+	repo    DocumentRepository
+	catRepo category.CategoryRepository
 }
 
-func NewDocumentService(repo DocumentRepository) *DocumentService {
-	return &DocumentService{repo: repo}
+func NewDocumentService(repo DocumentRepository, catRepo category.CategoryRepository) *DocumentService {
+	return &DocumentService{repo: repo, catRepo: catRepo}
 }
 
 // BeginTx starts a new database transaction.
@@ -225,15 +241,16 @@ func (s *DocumentService) GetFilePath(objId int64, userID int) (string, string, 
 // UploadInput contains the data needed for document upload (decoupled from HTTP layer).
 // Modifying when model change to get input
 type UploadInput struct {
-	Title       string
-	Description string
-	BuyFrom     string
-	BuyAt       *Date
-	BuyPrice    string
-	FileName    string // display name override for rename
-	Items       []Item
-	UserId      int
-	File        *multipart.FileHeader // nil if no file attached
+	Title         string
+	Description   string
+	BuyFrom       string
+	BuyAt         *Date
+	BuyPrice      string
+	FileName      string // display name override for rename
+	Items         []Item
+	UserId        int
+	File          *multipart.FileHeader // nil if no file attached
+	CategoryGUIDs []string              // GUIDs of selected categories (may be empty)
 }
 
 // FileSaveFunc is a function type for saving uploaded files to disk.
@@ -295,6 +312,10 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 			_ = tx.Rollback()
 			return fmt.Errorf("failed to save items: %w", err)
 		}
+		if err := s.catRepo.SaveDocCategories(tx, docId, input.CategoryGUIDs, input.UserId); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("failed to save categories: %w", err)
+		}
 		return tx.Commit()
 	}
 
@@ -319,6 +340,11 @@ func (s *DocumentService) UploadDocument(input *UploadInput, saveFile FileSaveFu
 	if err := s.SaveItems(tx, docId, doc.Items); err != nil {
 		_ = tx.Rollback()
 		return fmt.Errorf("failed to save items: %w", err)
+	}
+
+	if err := s.catRepo.SaveDocCategories(tx, docId, input.CategoryGUIDs, input.UserId); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("failed to save categories: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
