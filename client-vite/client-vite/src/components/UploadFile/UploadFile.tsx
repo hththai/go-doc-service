@@ -26,6 +26,7 @@ export default function UploadFile() {
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [categoryGuids, setCategoryGuids] = useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -37,7 +38,7 @@ export default function UploadFile() {
     onSubmit: async ({ value }) => {
       setUploadError(null);
       try {
-        const ok = await uploadFile(value, items, file);
+        const ok = await uploadFile(value, items, file, categoryGuids);
         if (ok) {
           setSuccess(true);
           handleClear();
@@ -83,6 +84,7 @@ export default function UploadFile() {
     form.reset();
     setFile(null);
     setItems([]);
+    setCategoryGuids([]);
     setScanError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -386,6 +388,7 @@ export default function UploadFile() {
                       buyPrice: values.buyPrice,
                     }}
                     items={items}
+                    categoryGuids={categoryGuids}
                     onChange={(name, value) =>
                       form.setFieldValue(
                         name as keyof typeof defaultValues,
@@ -393,6 +396,7 @@ export default function UploadFile() {
                       )
                     }
                     onItemsChange={setItems}
+                    onCategoryGuidsChange={setCategoryGuids}
                   />
                 )}
               </form.Subscribe>

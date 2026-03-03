@@ -1,3 +1,5 @@
+import CategorySelector from "@/components/EditTable/CategorySelector";
+
 type Item = {
   itemName: string;
   itemQty: string;
@@ -12,8 +14,10 @@ interface PurchaseInfoProps {
     buyPrice: string;
   };
   items: Item[];
+  categoryGuids: string[];
   onChange: (name: string, value: string) => void;
   onItemsChange: (items: Item[]) => void;
+  onCategoryGuidsChange: (guids: string[]) => void;
 }
 
 const inputClass =
@@ -34,8 +38,10 @@ const emptyItem = (): Item => ({
 export default function PurchaseInfo({
   values,
   items,
+  categoryGuids,
   onChange,
   onItemsChange,
+  onCategoryGuidsChange,
 }: Readonly<PurchaseInfoProps>) {
   const keyCounterRef = useRef(0);
   const itemKeysRef = useRef<string[]>([]);
@@ -119,6 +125,17 @@ export default function PurchaseInfo({
                 className={inputClass}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Categories */}
+        <div className="col-span-full">
+          <span className={labelClass}>Categories</span>
+          <div className="mt-1">
+            <CategorySelector
+              selectedGuids={categoryGuids}
+              onChange={onCategoryGuidsChange}
+            />
           </div>
         </div>
 

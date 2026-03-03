@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import UploadFile from "./UploadFile";
 
 vi.mock("@/api/upload", () => ({
@@ -9,6 +10,13 @@ vi.mock("@/api/upload", () => ({
 vi.mock("@/api/ocr", () => ({
   scanInvoice: vi.fn(),
   parseOcrDate: vi.fn(),
+}));
+
+vi.mock("@/api/categories", () => ({
+  getCategories: vi.fn().mockResolvedValue([]),
+  createCategory: vi.fn(),
+  updateCategory: vi.fn(),
+  deleteCategory: vi.fn(),
 }));
 
 import { uploadFile } from "@/api/upload";
@@ -22,13 +30,24 @@ const mockPdfFile = () =>
 const getFileInput = () =>
   document.querySelector('input[type="file"]') as HTMLInputElement;
 
+function renderUploadFile() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <UploadFile />
+    </QueryClientProvider>,
+  );
+}
+
 describe("UploadFile", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("renders all form fields from config", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     expect(screen.getByLabelText(/title/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
@@ -37,7 +56,7 @@ describe("UploadFile", () => {
   });
 
   it("renders purchase info fields", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     expect(screen.getByLabelText(/purchase price/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/purchase from/i)).toBeInTheDocument();
@@ -45,14 +64,14 @@ describe("UploadFile", () => {
   });
 
   it("shows required indicator for required fields", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     const titleLabel = screen.getByText(/title/i).closest("label");
     expect(titleLabel?.textContent).toContain("*");
   });
 
   it("updates field values when typing", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     const titleInput = screen.getByLabelText(/title/i);
     const descriptionInput = screen.getByLabelText(/description/i);
@@ -67,7 +86,7 @@ describe("UploadFile", () => {
   });
 
   it("clears form when clear button is clicked", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     const titleInput = screen.getByLabelText(/title/i);
     const descriptionInput = screen.getByLabelText(/description/i);
@@ -90,7 +109,7 @@ describe("UploadFile", () => {
   });
 
   it("updates purchase info fields when typing", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     const buyFromInput = screen.getByLabelText(/purchase from/i);
     const buyPriceInput = screen.getByLabelText(/purchase price/i);
@@ -108,7 +127,7 @@ describe("UploadFile", () => {
   it("calls uploadFile with metadata on submit", async () => {
     vi.mocked(uploadFile).mockResolvedValue({ success: true });
 
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: "My Title" },
@@ -139,6 +158,7 @@ describe("UploadFile", () => {
         }),
         [],
         null,
+        [],
       );
     });
   });
@@ -146,7 +166,7 @@ describe("UploadFile", () => {
   it("shows success message after successful upload", async () => {
     vi.mocked(uploadFile).mockResolvedValue({ success: true });
 
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: "Test" },
@@ -161,7 +181,7 @@ describe("UploadFile", () => {
   // File selection and preview tests
 
   it("shows file card with name and size after selecting a file", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
 
@@ -171,7 +191,7 @@ describe("UploadFile", () => {
   });
 
   it("shows file card for a pdf file", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(getFileInput(), { target: { files: [mockPdfFile()] } });
 
@@ -179,7 +199,7 @@ describe("UploadFile", () => {
   });
 
   it("opens preview dialog when thumbnail button is clicked", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
     fireEvent.click(screen.getByTitle(/preview file/i));
@@ -188,7 +208,7 @@ describe("UploadFile", () => {
   });
 
   it("closes preview dialog when close button is clicked", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
     fireEvent.click(screen.getByTitle(/preview file/i));
@@ -198,7 +218,7 @@ describe("UploadFile", () => {
   });
 
   it("removes file and restores upload input when × is clicked", () => {
-    render(<UploadFile />);
+    renderUploadFile();
 
     fireEvent.change(getFileInput(), { target: { files: [mockImageFile()] } });
     expect(screen.getByText("test.jpg")).toBeInTheDocument();

@@ -9,6 +9,9 @@ This is a document for purchase record application using golang as backend, and 
 - This app is applying clean architecture.
 - Make sure to test after changing.
 
+# Command to run
+- /client-vite/client-vite: "pnpm test"
+- /server/: "go test ./..."
 
 # Git
 Please suggest git commit after making change.

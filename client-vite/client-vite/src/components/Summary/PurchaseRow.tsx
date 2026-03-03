@@ -23,8 +23,21 @@ export default function PurchaseRow({
         }}
         className="hover:bg-gray-50 transition-colors cursor-pointer sm:cursor-default"
       >
-        <td className="px-4 py-2.5 text-gray-900 font-medium">
-          {purchase.title}
+        <td className="px-4 py-2.5">
+          <div className="font-medium text-gray-900">{purchase.title}</div>
+          {purchase.categories && purchase.categories.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {purchase.categories.map((cat) => (
+                <span
+                  key={cat.guid}
+                  className="rounded-full px-2 py-0.5 text-xs font-medium text-white"
+                  style={{ backgroundColor: cat.color || "#94a3b8" }}
+                >
+                  {cat.name}
+                </span>
+              ))}
+            </div>
+          )}
         </td>
         <td className="hidden sm:table-cell px-4 py-2.5 text-xs w-36 max-w-36 overflow-hidden">
           {purchase.fileUrl ? (
