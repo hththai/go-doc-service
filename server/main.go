@@ -87,6 +87,10 @@ func main() {
 		remoteAddr := c.Request.RemoteAddr
 		realIP := c.GetHeader("X-Real-IP")
 		forwardedFor := c.GetHeader("X-Forwarded-For")
+		clientIP := c.ClientIP()
+		log.Printf("DEBUG /debug/ip: clientIP=%s remoteAddr=%s realIP=%s forwardedFor=%s",
+			clientIP, remoteAddr, realIP, forwardedFor,
+		)
 
 		c.String(200,
 			"RemoteAddr: %s\nX-Real-IP: %s\nX-Forwarded-For: %s\n",
