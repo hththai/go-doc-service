@@ -92,6 +92,9 @@ func main() {
 			clientIP, remoteAddr, realIP, forwardedFor,
 		)
 
+		cfIP := c.GetHeader("CF-Connecting-IP")
+		log.Printf("CF-Connecting-IP: %s", cfIP)
+
 		c.String(200,
 			"RemoteAddr: %s\nX-Real-IP: %s\nX-Forwarded-For: %s\n",
 			remoteAddr,
