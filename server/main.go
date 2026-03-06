@@ -83,6 +83,19 @@ func main() {
 		})
 	})
 
+	r.GET("/debug/ip", func(c *gin.Context) {
+		remoteAddr := c.Request.RemoteAddr
+		realIP := c.GetHeader("X-Real-IP")
+		forwardedFor := c.GetHeader("X-Forwarded-For")
+
+		c.String(200,
+			"RemoteAddr: %s\nX-Real-IP: %s\nX-Forwarded-For: %s\n",
+			remoteAddr,
+			realIP,
+			forwardedFor,
+		)
+	})
+
 	// Public auth handler for register and login
 	publicAuthHandler := authApi.NewHandler(acctSvc, log)
 	r.POST("/register", publicAuthHandler.HandleRegister)
