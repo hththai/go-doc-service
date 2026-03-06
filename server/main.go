@@ -45,6 +45,14 @@ func main() {
 	// Start gin http
 	r := gin.Default()
 
+	// Trust the immediate upstream proxy so c.ClientIP() resolves X-Real-IP / X-Forwarded-For.
+	// Replace with specific proxy CIDRs in production for stricter security.
+	if err := r.SetTrustedProxies(nil); err != nil {
+		log.Warnf("SetTrustedProxies: %v", err)
+	}
+
+	r.Use(rateLimit.RequestLogger(log))
+
 	// Redis middleware (production only)
 	if config.IsProduction() {
 		AddRedisService(r, cfg)
