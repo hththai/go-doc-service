@@ -21,6 +21,9 @@ func RequestLogger(logger *logrus.Logger) gin.HandlerFunc {
 			"clientIP": c.ClientIP(),
 		}
 
+		if v := c.GetHeader("CF-Connecting-IP"); v != "" {
+			fields["cf-connecting-ip"] = v
+		}
 		if v := c.GetHeader("X-Real-IP"); v != "" {
 			fields["x-real-ip"] = v
 		}
