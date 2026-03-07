@@ -122,7 +122,7 @@ EOF
                             echo "Migration done. Remove old volume manually when ready: docker volume rm server_mydata"
                         fi
 
-                        docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-build api
+                        docker-compose -p server -f docker-compose.prod.yml up -d --force-recreate --no-build api
                         docker image prune -f
                     '''
                 }
