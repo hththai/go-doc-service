@@ -131,8 +131,13 @@ func main() {
 
 // AddLogService configures the application logger.
 func AddLogService() {
+	logPath := "./logs/myapp.log"
+	if config.IsProduction() {
+		logPath = "/app/app/log/myapp.log"
+	}
+
 	log.SetOutput(&lumberjack.Logger{
-		Filename:   "./app/log/myapp.log",
+		Filename:   logPath,
 		MaxSize:    10,
 		MaxBackups: 5,
 		MaxAge:     7,
