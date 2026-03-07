@@ -131,7 +131,7 @@ func main() {
 
 // AddLogService configures the application logger.
 func AddLogService() {
-	logPath := "./logs/myapp.log"
+	logPath := "./app/log/myapp.log"
 	if config.IsProduction() {
 		logPath = "/app/app/log/myapp.log"
 	}
