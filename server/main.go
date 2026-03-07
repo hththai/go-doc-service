@@ -12,6 +12,7 @@ import (
 	rateLimit "2_Go/middleware"
 	"2_Go/middleware/authen"
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -43,7 +44,23 @@ func main() {
 	log.Info("Database connection successful")
 
 	// Start gin http
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		cfIP := param.Request.Header.Get("CF-Connecting-IP")
+		ipField := param.ClientIP
+		if cfIP != "" {
+			ipField = fmt.Sprintf("%s | %s", cfIP, param.ClientIP)
+		}
+		return fmt.Sprintf("[GIN] %s | %3d | %13v | %s | %-7s %q\n",
+			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			param.StatusCode,
+			param.Latency,
+			ipField,
+			param.Method,
+			param.Path,
+		)
+	}))
 
 	// Trust the immediate upstream proxy so c.ClientIP() resolves X-Real-IP / X-Forwarded-For.
 	// Replace with specific proxy CIDRs in production for stricter security.
@@ -81,26 +98,6 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
 		})
-	})
-
-	r.GET("/debug/ip", func(c *gin.Context) {
-		remoteAddr := c.Request.RemoteAddr
-		realIP := c.GetHeader("X-Real-IP")
-		forwardedFor := c.GetHeader("X-Forwarded-For")
-		clientIP := c.ClientIP()
-		log.Printf("DEBUG /debug/ip: clientIP=%s remoteAddr=%s realIP=%s forwardedFor=%s",
-			clientIP, remoteAddr, realIP, forwardedFor,
-		)
-
-		cfIP := c.GetHeader("CF-Connecting-IP")
-		log.Printf("CF-Connecting-IP: %s", cfIP)
-
-		c.String(200,
-			"RemoteAddr: %s\nX-Real-IP: %s\nX-Forwarded-For: %s\n",
-			remoteAddr,
-			realIP,
-			forwardedFor,
-		)
 	})
 
 	// Public auth handler for register and login
