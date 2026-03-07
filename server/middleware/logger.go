@@ -7,30 +7,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// RequestLogger returns a Gin middleware that logs each request with real client IP headers.
+// RequestLogger returns a Gin middleware that logs each request to the log file.
 func RequestLogger(logger *logrus.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
 
-		fields := logrus.Fields{
-			"method":   c.Request.Method,
-			"path":     c.Request.URL.Path,
-			"status":   c.Writer.Status(),
-			"latency":  time.Since(start).String(),
-			"clientIP": c.ClientIP(),
+		ip := c.GetHeader("CF-Connecting-IP")
+		if ip == "" {
+			ip = c.ClientIP()
 		}
 
-		if v := c.GetHeader("CF-Connecting-IP"); v != "" {
-			fields["cf-connecting-ip"] = v
-		}
-		if v := c.GetHeader("X-Real-IP"); v != "" {
-			fields["x-real-ip"] = v
-		}
-		if v := c.GetHeader("X-Forwarded-For"); v != "" {
-			fields["x-forwarded-for"] = v
-		}
-
-		logger.WithFields(fields).Info("request")
+		logger.Infof("%d | %s | %s | %s %s",
+			c.Writer.Status(),
+			time.Since(start).Round(time.Microsecond),
+			ip,
+			c.Request.Method,
+			c.Request.URL.Path,
+		)
 	}
 }
