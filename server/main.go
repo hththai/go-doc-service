@@ -13,7 +13,9 @@ import (
 	"2_Go/middleware/authen"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/hththai/ocr"
@@ -29,11 +31,11 @@ import (
 var log = logrus.New()
 
 func main() {
-	// Initialize logging first
-	AddLogService()
-
-	// Load centralized config
+	// Load config first so IsProduction() works correctly
 	cfg := config.Load()
+
+	// Initialize logging with correct environment
+	AddLogService()
 
 	db, err := repo.InitDB(cfg)
 	if err != nil {
@@ -130,22 +132,32 @@ func main() {
 }
 
 // AddLogService configures the application logger.
+// config.Load() must be called before this function.
 func AddLogService() {
 	logPath := "./app/log/myapp.log"
 	if config.IsProduction() {
 		logPath = "/app/app/log/myapp.log"
 	}
 
-	log.SetOutput(&lumberjack.Logger{
+	// Use lumberjack for rotation, wrapped with a direct O_APPEND open
+	// to guarantee existing logs are never truncated on restart.
+	lj := &lumberjack.Logger{
 		Filename:   logPath,
-		MaxSize:    10,
-		MaxBackups: 5,
-		MaxAge:     7,
+		MaxSize:    100,
+		MaxBackups: 10,
+		MaxAge:     30,
 		Compress:   true,
-	})
+	}
 
+	// Pre-open the file with O_APPEND so the inode already exists before
+	// lumberjack touches it. This prevents lumberjack from falling back to
+	// openNew() (which truncates) due to a missing-file race on startup.
+	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
+		f.Close()
+	}
+
+	log.SetOutput(io.MultiWriter(os.Stdout, lj))
 	log.SetLevel(logrus.DebugLevel)
-
 	log.Info("******APPLICATION STARTED*******")
 }
 
