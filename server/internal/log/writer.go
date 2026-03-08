@@ -1,4 +1,4 @@
-package main
+package log
 
 import (
 	"os"
@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-// rotatingWriter is an io.Writer that appends to a log file and rotates it
+// RotatingWriter is an io.Writer that appends to a log file and rotates it
 // when it exceeds maxBytes. It never truncates existing content.
-type rotatingWriter struct {
+type RotatingWriter struct {
 	mu       sync.Mutex
 	file     *os.File
 	path     string
@@ -19,7 +19,7 @@ type rotatingWriter struct {
 	maxFiles int
 }
 
-func newRotatingWriter(path string, maxSizeMB, maxFiles int) (*rotatingWriter, error) {
+func NewRotatingWriter(path string, maxSizeMB, maxFiles int) (*RotatingWriter, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func newRotatingWriter(path string, maxSizeMB, maxFiles int) (*rotatingWriter, e
 		f.Close()
 		return nil, err
 	}
-	return &rotatingWriter{
+	return &RotatingWriter{
 		file:     f,
 		path:     path,
 		size:     info.Size(),
@@ -38,7 +38,7 @@ func newRotatingWriter(path string, maxSizeMB, maxFiles int) (*rotatingWriter, e
 	}, nil
 }
 
-func (rw *rotatingWriter) Write(p []byte) (int, error) {
+func (rw *RotatingWriter) Write(p []byte) (int, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
@@ -51,10 +51,10 @@ func (rw *rotatingWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-func (rw *rotatingWriter) rotate() {
+func (rw *RotatingWriter) rotate() {
 	rw.file.Close()
 
-	backup := rw.path + "." + time.Now().Format("2006-01-02T15-04-05")
+	backup := rw.path + "." + time.Now().Format("2006-01-02T15-04-05.000000000")
 	os.Rename(rw.path, backup)
 
 	rw.pruneOldFiles()
@@ -64,7 +64,7 @@ func (rw *rotatingWriter) rotate() {
 	rw.size = 0
 }
 
-func (rw *rotatingWriter) pruneOldFiles() {
+func (rw *RotatingWriter) pruneOldFiles() {
 	dir := filepath.Dir(rw.path)
 	base := filepath.Base(rw.path)
 	matches, _ := filepath.Glob(filepath.Join(dir, base+".*"))

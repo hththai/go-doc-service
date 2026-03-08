@@ -8,6 +8,7 @@ import (
 	"2_Go/internal/category"
 	"2_Go/internal/config"
 	"2_Go/internal/document"
+	applog "2_Go/internal/log"
 	"2_Go/internal/repo"
 	rateLimit "2_Go/middleware"
 	"2_Go/middleware/authen"
@@ -144,7 +145,7 @@ func AddLogService() {
 
 	// Open with O_APPEND — guaranteed never to truncate existing content.
 	// Rotates at 100 MB, keeps 10 backup files.
-	rw, err := newRotatingWriter(logPath, 100, 10)
+	rw, err := applog.NewRotatingWriter(logPath, 100, 10)
 	if err != nil {
 		fmt.Printf("[log] failed to open log file, falling back to stdout: %v\n", err)
 		log.SetOutput(os.Stdout)
