@@ -41,7 +41,7 @@ services:
     restart: always
     volumes:
       - filedata:/app/filedata
-      - logdata:/app/app/log
+      - ./logs:/app/app/log
     environment:
       - GO_ENV=${GO_ENV:-production}
       - DB_USER=${DB_USER}
@@ -75,9 +75,6 @@ services:
 
 volumes:
   filedata:
-  logdata:
-    external: true
-    name: server_logdata
   dbdata:
 
 
