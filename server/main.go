@@ -134,9 +134,6 @@ func main() {
 // config.Load() must be called before this function.
 func AddLogService() {
 	logPath := "./app/log/myapp.log"
-	if config.IsProduction() {
-		logPath = "/app/app/log/myapp.log"
-	}
 
 	// Check existing file state for diagnostics (visible in docker logs)
 	if info, err := os.Stat(logPath); err == nil {
