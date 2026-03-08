@@ -25,7 +25,6 @@ import (
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var log = logrus.New()
@@ -139,24 +138,22 @@ func AddLogService() {
 		logPath = "/app/app/log/myapp.log"
 	}
 
-	// Use lumberjack for rotation, wrapped with a direct O_APPEND open
-	// to guarantee existing logs are never truncated on restart.
-	lj := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    100,
-		MaxBackups: 10,
-		MaxAge:     30,
-		Compress:   true,
+	// Check existing file state for diagnostics (visible in docker logs)
+	if info, err := os.Stat(logPath); err == nil {
+		fmt.Printf("[log] existing log file found: %s (%d bytes)\n", logPath, info.Size())
+	} else {
+		fmt.Printf("[log] no existing log file at %s: %v\n", logPath, err)
 	}
 
-	// Pre-open the file with O_APPEND so the inode already exists before
-	// lumberjack touches it. This prevents lumberjack from falling back to
-	// openNew() (which truncates) due to a missing-file race on startup.
-	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); err == nil {
-		f.Close()
+	// Open with O_APPEND — guaranteed never to truncate existing content.
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		fmt.Printf("[log] failed to open log file, falling back to stdout: %v\n", err)
+		log.SetOutput(os.Stdout)
+	} else {
+		log.SetOutput(io.MultiWriter(os.Stdout, f))
 	}
 
-	log.SetOutput(io.MultiWriter(os.Stdout, lj))
 	log.SetLevel(logrus.DebugLevel)
 	log.Info("******APPLICATION STARTED*******")
 }
