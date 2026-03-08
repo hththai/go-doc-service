@@ -146,12 +146,13 @@ func AddLogService() {
 	}
 
 	// Open with O_APPEND — guaranteed never to truncate existing content.
-	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	// Rotates at 100 MB, keeps 10 backup files.
+	rw, err := newRotatingWriter(logPath, 100, 10)
 	if err != nil {
 		fmt.Printf("[log] failed to open log file, falling back to stdout: %v\n", err)
 		log.SetOutput(os.Stdout)
 	} else {
-		log.SetOutput(io.MultiWriter(os.Stdout, f))
+		log.SetOutput(io.MultiWriter(os.Stdout, rw))
 	}
 
 	log.SetLevel(logrus.DebugLevel)
