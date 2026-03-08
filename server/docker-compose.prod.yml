@@ -76,6 +76,8 @@ services:
 volumes:
   filedata:
   logdata:
+    external: true
+    name: server_logdata
   dbdata:
 
 
