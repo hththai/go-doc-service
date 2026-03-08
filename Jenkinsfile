@@ -123,6 +123,7 @@ EOF
                         fi
 
                         mkdir -p logs
+                        echo "Log folder: $(pwd)/logs"
                         docker-compose -p server -f docker-compose.prod.yml up -d --force-recreate --no-build api
                         docker image prune -f
                     '''
