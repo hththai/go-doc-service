@@ -1,9 +1,9 @@
 # Server Architecture Review & TODO
 
 **Date:** 2026-02-01
-**Last Updated:** 2026-02-08 (configuration centralized)
+**Last Updated:** 2026-03-09 (log module implemented, document tests added, category module added)
 **Total Lines of Code:** ~4,234 lines of Go code
-**Test Files:** 6 test files
+**Test Files:** 8 test files
 
 ---
 
@@ -19,11 +19,13 @@ server/
 │   └── utils/
 ├── internal/         # Business Logic Layer
 │   ├── auth/         # Authentication & authorization
+│   ├── category/     # Category management ✅ NEW
 │   ├── config/       # Centralized configuration ✅
 │   ├── document/     # Document management
-│   ├── log/          # Logging models
+│   ├── log/          # Logging (RotatingWriter) ✅
 │   ├── obj/          # Shared domain objects
-│   └── repo/         # Database schema & initialization
+│   ├── repo/         # Database schema & initialization
+│   └── testutil/     # Shared mock utilities
 ├── middleware/       # Middleware components
 │   └── authen/       # JWT authentication
 └── utils/            # Shared utilities
@@ -165,7 +167,20 @@ type Config struct {
 
 ---
 
-### 5. Missing DTO Layer ❌
+### 5. Category Module ✅ COMPLETED (partial)
+
+**Current State:**
+- ✅ `internal/category/model.go` - `Category` domain model defined
+- ✅ `internal/category/repository.go` - CRUD + soft-delete repository
+- ✅ `internal/category/service.go` - Service with Create/Get/Update/Delete and doc-category linking
+
+**Remaining:**
+- [ ] Add `categoryApi/` handler in `api/v1/` and wire routes
+- [ ] Add unit tests for category service and repository
+
+---
+
+### 6. Missing DTO Layer ❌
 
 **Problem:**
 - Using domain models directly in API requests/responses
@@ -183,7 +198,7 @@ type Config struct {
 
 ## Medium Priority Issues
 
-### 6. Transaction Management Scattered ⚠️ (Partial Progress)
+### 7. Transaction Management Scattered ⚠️ (Partial Progress)
 
 **Previous Problem:**
 - Transaction handling in `api/v1/utils/` handlers
@@ -201,7 +216,7 @@ type Config struct {
 
 ---
 
-### 7. Missing Abstractions
+### 8. Missing Abstractions
 
 **Fix:**
 - [ ] Add centralized error handling
@@ -215,22 +230,26 @@ type Config struct {
 
 ---
 
-### 8. Incomplete Modules
+### 9. Incomplete Modules
 
 **Files with Issues:**
-- `/server/internal/log/model.go` - Only has empty struct
+- `/server/internal/log/model.go` - `LogError` struct is still empty (only a placeholder)
 - `/server/internal/repo/services.go` - Unused interface
 - Multiple TODO comments indicating incomplete work
 
+**Recent Progress:**
+- ✅ `internal/log/writer.go` - `RotatingWriter` fully implemented with size-based rotation and backup pruning
+- ✅ `internal/log/test/log_test.go` - Tests for RotatingWriter added
+
 **Fix:**
-- [ ] Complete or remove `internal/log/` module
+- [ ] Flesh out or remove `internal/log/model.go` (`LogError` is still empty)
 - [ ] Remove unused code from `internal/repo/services.go`
 - [ ] Address all TODO comments in codebase
 - [ ] Clean up `ValidateAccountService` (marked for deletion but still in use)
 
 ---
 
-### 9. Security Concerns
+### 10. Security Concerns
 
 **Issues:**
 - JWT secret loaded from environment but no validation
@@ -250,7 +269,7 @@ type Config struct {
 
 ---
 
-### 10. Testing Gaps
+### 11. Testing Gaps
 
 **Current Test Coverage:**
 - ✅ `internal/auth/test/auth_test.go`
@@ -259,13 +278,17 @@ type Config struct {
 - ✅ `api/v1/utils/test/doc_handler_test.go`
 - ✅ `middleware/authen/authen_test/authenWithJWT_test.go`
 - ✅ `utils/test/utils_test.go`
-- ❌ No tests for `internal/document/` module
+- ✅ `internal/document/test/service_test.go` - NEW: document service tests added
+- ✅ `internal/log/test/log_test.go` - NEW: RotatingWriter tests added
+- ❌ No tests for `internal/document/repository.go`
+- ❌ No tests for `internal/category/` module
 - ❌ No integration tests
 - ❌ No API-level end-to-end tests
 
 **Fix:**
-- [ ] Add unit tests for `internal/document/service.go`
+- ✅ Add unit tests for `internal/document/service.go`
 - [ ] Add unit tests for `internal/document/repository.go`
+- [ ] Add unit tests for `internal/category/` module
 - [ ] Add integration tests for database operations
 - [ ] Add API contract tests (e2e tests)
 - [ ] Add test for rate limiting middleware
@@ -273,7 +296,7 @@ type Config struct {
 
 ---
 
-### 11. Code Organization
+### 12. Code Organization
 
 **Issues:**
 - Some files too long (register_handler.go: 417 lines)
@@ -288,7 +311,7 @@ type Config struct {
 
 ---
 
-### 12. Documentation
+### 13. Documentation
 
 **Fix:**
 - [ ] Add architecture documentation (README.md)
@@ -301,7 +324,7 @@ type Config struct {
 
 ## Long Term Improvements
 
-### 13. Dependency Injection
+### 14. Dependency Injection
 
 **Current State:**
 - Manual DI via Dependencies struct
@@ -314,7 +337,7 @@ type Config struct {
 
 ---
 
-### 14. Observability
+### 15. Observability
 
 **Fix:**
 - [ ] Implement structured logging throughout
@@ -327,7 +350,7 @@ type Config struct {
 
 ---
 
-### 15. Advanced Patterns (If Needed)
+### 16. Advanced Patterns (If Needed)
 
 **Consider when complexity grows:**
 - [ ] Domain-Driven Design (DDD)
@@ -394,7 +417,9 @@ type Config struct {
    - [ ] Standardize error logging
 
 9. **Complete Test Coverage**
-   - [ ] Add document module tests
+   - ✅ Add document module tests (`internal/document/test/service_test.go`)
+   - ✅ Add log module tests (`internal/log/test/log_test.go`)
+   - [ ] Add category module tests
    - [ ] Add integration tests
    - [ ] Add API contract tests
    - [ ] Set up CI/CD with test coverage reports
@@ -476,3 +501,5 @@ type Config struct {
 - **Goal:** More maintainable, testable, and scalable codebase
 
 **Remember:** Don't over-engineer. Make changes incrementally and test thoroughly.
+
+
