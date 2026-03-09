@@ -7,6 +7,7 @@
 **/sess/
 **/sigs/
 **/logs/
+**/log/test/log/
 **/certs
 **/cert.pem
 **/key.pem
