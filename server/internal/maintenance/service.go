@@ -21,3 +21,71 @@ package maintenance
 // 1. Check if there is duplicated number files. ex: 8.pdf 8.png 8.txt.
 // 2. In obj_doc_path, find the address of obj_id 8, file_path: ./filedata/0/0/8.pdf
 // 3. Verify with obj_doc: extension, file_size
+
+// internal/maintenance/error.go
+
+type ErrorCode int
+
+const (
+	ErrCodeNotFound ErrorCode = iota + 1
+	ErrCodeInvalidInput
+	ErrCodeDatabaseError
+	// Add more error codes as needed
+)
+
+type Error struct {
+	Code    ErrorCode
+	Message string
+}
+
+func (e *Error) Error() string {
+	return e.Message
+}
+
+func NewError(code ErrorCode, message string) *Error {
+	return &Error{
+		Code:    code,
+		Message: message,
+	}
+}
+
+type MaintenanceService struct {
+}
+
+func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
+	lastObjId, err := getLastObjectIdDoc()
+	if err != nil {
+		return false, err
+	}
+
+	currentObjId, err := getCurrentObjectIdCounter()
+	if err != nil {
+		return false, err
+	}
+
+	return lastObjId == currentObjId, nil
+}
+
+// It returns the last objId of documents
+func getLastObjectIdDoc() (int, error) {
+	// Implement the logic to get the last object ID
+	// For example:
+	// lastObjId, err := getFromDatabase()
+	// if err != nil {
+	//     return 0, NewError(ErrCodeDatabaseError, "failed to get last object ID")
+	// }
+	// return lastObjId, nil
+	return 0, NewError(ErrCodeNotFound, "last object ID not found")
+}
+
+// It returns the current objId records.
+func getCurrentObjectIdCounter() (int, error) {
+	// Implement the logic to get the current object ID
+	// For example:
+	// currentObjId, err := getFromCounter()
+	// if err != nil {
+	//     return 0, NewError(ErrCodeDatabaseError, "failed to get current object ID")
+	// }
+	// return currentObjId, nil
+	return 0, NewError(ErrCodeNotFound, "current object ID not found")
+}
