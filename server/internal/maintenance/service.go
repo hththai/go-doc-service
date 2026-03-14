@@ -49,16 +49,37 @@ func NewError(code ErrorCode, message string) *Error {
 	}
 }
 
+type ObjectIDProvider interface {
+	GetLast() (int, error)
+	GetCurrent() (int, error)
+}
+
+type DefaultObjectIDProvider struct{}
+
+func (p *DefaultObjectIDProvider) GetLast() (int, error) {
+	return getLastObjectIdDoc()
+}
+func (p *DefaultObjectIDProvider) GetCurrent() (int, error) {
+	return getCurrentObjectIdCounter()
+}
+
 type MaintenanceService struct {
+	Provider ObjectIDProvider
+}
+
+func NewMaintenanceService() *MaintenanceService {
+	return &MaintenanceService{
+		Provider: &DefaultObjectIDProvider{},
+	}
 }
 
 func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
-	lastObjId, err := getLastObjectIdDoc()
+	lastObjId, err := ms.Provider.GetLast()
 	if err != nil {
 		return false, err
 	}
 
-	currentObjId, err := getCurrentObjectIdCounter()
+	currentObjId, err := ms.Provider.GetCurrent()
 	if err != nil {
 		return false, err
 	}
