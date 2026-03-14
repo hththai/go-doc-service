@@ -1,23 +1,28 @@
 package test
 
-import (
-	"github.com/stretchr/testify/mock"
-)
+import "github.com/stretchr/testify/mock"
 
+// MockObjectIDProvider is a test double for ObjectIDProvider.
 type MockObjectIDProvider struct {
 	mock.Mock
 }
 
+// GetLastObjId returns the last object ID or an error.
 func (m *MockObjectIDProvider) GetLastObjId() (int, error) {
-	args := m.Called()
-	return args.Int(0), args.Error(1)
+	return extractIntAndErr(m.Called())
 }
 
+// GetCurrentObjId returns the current object ID or an error.
 func (m *MockObjectIDProvider) GetCurrentObjId() (int, error) {
-	args := m.Called()
-	return args.Int(0), args.Error(1)
+	return extractIntAndErr(m.Called())
 }
 
+// extractIntAndErr safely extracts an int and error from mock arguments.
 func extractIntAndErr(args mock.Arguments) (int, error) {
-	return args.Int(0), args.Error(1)
+	// Defensive: avoid panic if Int(0) is missing
+	val := 0
+	if args.Get(0) != nil {
+		val = args.Int(0)
+	}
+	return val, args.Error(1)
 }
