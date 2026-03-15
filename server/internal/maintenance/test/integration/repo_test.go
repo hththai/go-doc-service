@@ -82,3 +82,38 @@ func TestGetCurrentIdIntegration(t *testing.T) {
 		t.Errorf("expected 456, got %d", id)
 	}
 }
+
+func TestIsMatchedObjectDocAndCounter(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Clean table
+	_, _ = db.Exec("DROP TABLE IF EXISTS obj_doc")
+	_, _ = db.Exec("CREATE TABLE obj_doc (obj_id BIGINT PRIMARY KEY)")
+	_, _ = db.Exec("DROP TABLE IF EXISTS obj_id_counter")
+	_, _ = db.Exec("CREATE TABLE obj_id_counter (name VARCHAR(255) PRIMARY KEY, obj_id BIGINT)")
+
+	// Insert test data
+	_, err := db.Exec("INSERT INTO obj_doc (obj_id) VALUES (1), (2), (3)")
+	if err != nil {
+		t.Errorf("\033[31mfailed to insert test data: %v\033[0m", err)
+	}
+	_, err = db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 3)")
+	if err != nil {
+		t.Errorf("\033[31mfailed to insert test data: %v\033[0m", err)
+	}
+
+	repo := mntRepo.NewMaintenanceRepository(db)
+	svc := mntRepo.NewMaintenanceService(repo)
+
+	isMatch, err := svc.IsMatchedObjectDocAndCounter()
+	if err != nil {
+		t.Fatalf("\x1b[31mIsMatchedObjectDocAndCounter returned error: %v\x1b[0m", err)
+	}
+
+	if !isMatch {
+		t.Errorf("\033[31mexpected true, got false\033[0m")
+	}
+
+	t.Logf("\033[32mSuccessfully tested IsMatchedObjectDocAndCounter\033[0m")
+}

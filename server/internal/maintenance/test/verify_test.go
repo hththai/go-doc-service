@@ -50,12 +50,12 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 				Return(tt.lastReturn, tt.lastErr)
 
 			mockProvider.
-				On("GetCurrentObjId").
+				On("GetCurrentId").
 				Return(tt.currentReturn, tt.currentErr).
 				Maybe()
 
 			ms := &mntSvc.MaintenanceService{
-				Provider: mockProvider,
+				Repo: mockProvider,
 			}
 
 			match, err := ms.IsMatchedObjectDocAndCounter()

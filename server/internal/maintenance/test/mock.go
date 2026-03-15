@@ -8,21 +8,21 @@ type MockObjectIDProvider struct {
 }
 
 // GetLastObjId returns the last object ID or an error.
-func (m *MockObjectIDProvider) GetLastObjId() (int, error) {
+func (m *MockObjectIDProvider) GetLastObjId() (int64, error) {
 	return extractIntAndErr(m.Called())
 }
 
 // GetCurrentObjId returns the current object ID or an error.
-func (m *MockObjectIDProvider) GetCurrentObjId() (int, error) {
+func (m *MockObjectIDProvider) GetCurrentId() (int64, error) {
 	return extractIntAndErr(m.Called())
 }
 
 // extractIntAndErr safely extracts an int and error from mock arguments.
-func extractIntAndErr(args mock.Arguments) (int, error) {
+func extractIntAndErr(args mock.Arguments) (int64, error) {
 	// Defensive: avoid panic if Int(0) is missing
-	val := 0
+	var val int64
 	if args.Get(0) != nil {
-		val = args.Int(0)
+		val = int64(args.Get(0).(int))
 	}
 	return val, args.Error(1)
 }

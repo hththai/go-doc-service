@@ -65,21 +65,26 @@ func (p *DefaultObjectIDProvider) GetCurrentObjId() (int, error) {
 
 type MaintenanceService struct {
 	Provider ObjectIDProvider
+	Repo     MaintenanceRepository
 }
 
-func NewMaintenanceService() *MaintenanceService {
+func NewMaintenanceService(repo MaintenanceRepository) *MaintenanceService {
 	return &MaintenanceService{
 		Provider: &DefaultObjectIDProvider{},
+		Repo:     repo,
 	}
 }
 
 func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
-	lastObjId, err := ms.Provider.GetLastObjId()
+	// lastObjId, err := ms.Provider.GetLastObjId()
+	lastObjId, err := ms.Repo.GetLastObjId()
+
 	if err != nil {
 		return false, err
 	}
 
-	currentObjId, err := ms.Provider.GetCurrentObjId()
+	// currentObjId, err := ms.Provider.GetCurrentObjId()
+	currentObjId, err := ms.Repo.GetCurrentId()
 	if err != nil {
 		return false, err
 	}
