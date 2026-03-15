@@ -49,29 +49,29 @@ func NewError(code ErrorCode, message string) *Error {
 	}
 }
 
-type ObjectIDProvider interface {
-	GetLastObjId() (int, error)
-	GetCurrentObjId() (int, error)
-}
+// type ObjectIDProvider interface {
+// 	GetLastObjId() (int, error)
+// 	GetCurrentObjId() (int, error)
+// }
 
-type DefaultObjectIDProvider struct{}
+// type DefaultObjectIDProvider struct{}
 
-func (p *DefaultObjectIDProvider) GetLastObjId() (int, error) {
-	return getLastObjectIdDoc()
-}
-func (p *DefaultObjectIDProvider) GetCurrentObjId() (int, error) {
-	return getCurrentObjectIdCounter()
-}
+// func (p *DefaultObjectIDProvider) GetLastObjId() (int, error) {
+// 	return getLastObjectIdDoc()
+// }
+// func (p *DefaultObjectIDProvider) GetCurrentObjId() (int, error) {
+// 	return getCurrentObjectIdCounter()
+// }
 
 type MaintenanceService struct {
-	Provider ObjectIDProvider
-	Repo     MaintenanceRepository
+	// Provider ObjectIDProvider
+	Repo MaintenanceRepository
 }
 
 func NewMaintenanceService(repo MaintenanceRepository) *MaintenanceService {
 	return &MaintenanceService{
-		Provider: &DefaultObjectIDProvider{},
-		Repo:     repo,
+		// Provider: &DefaultObjectIDProvider{},
+		Repo: repo,
 	}
 }
 
