@@ -12,6 +12,18 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const (
+	errorInsertMsg = "\033[31mfailed to insert test data: %v\033[0m"
+
+	dropObjDocTable   = "DROP TABLE IF EXISTS obj_doc"
+	createObjDocTable = "CREATE TABLE obj_doc (obj_id BIGINT PRIMARY KEY)"
+	insertObjDocData  = "INSERT INTO obj_doc (obj_id) VALUES (1), (2), (3)"
+
+	dropObjIdCounterTable   = "DROP TABLE IF EXISTS obj_id_counter"
+	createObjIdCounterTable = "CREATE TABLE obj_id_counter (name VARCHAR(255) PRIMARY KEY, obj_id BIGINT)"
+	insertObjIdCounterData  = "INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 456)"
+)
+
 func setupTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -37,11 +49,11 @@ func TestGetLastObjIdIntegration(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
-	_, _ = db.Exec("DROP TABLE IF EXISTS obj_doc")
-	_, _ = db.Exec("CREATE TABLE obj_doc (obj_id BIGINT PRIMARY KEY)")
+	_, _ = db.Exec(dropObjDocTable)
+	_, _ = db.Exec(createObjDocTable)
 
 	// Insert test data
-	_, err := db.Exec("INSERT INTO obj_doc (obj_id) VALUES (1), (2), (3)")
+	_, err := db.Exec(insertObjDocData)
 	if err != nil {
 		t.Fatalf("failed to insert test data: %v", err)
 	}
@@ -63,10 +75,10 @@ func TestGetCurrentIdIntegration(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
-	_, _ = db.Exec("DROP TABLE IF EXISTS obj_id_counter")
-	_, _ = db.Exec("CREATE TABLE obj_id_counter (name VARCHAR(255) PRIMARY KEY, obj_id BIGINT)")
+	_, _ = db.Exec(dropObjIdCounterTable)
+	_, _ = db.Exec(createObjIdCounterTable)
 
-	_, err := db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 456)")
+	_, err := db.Exec(insertObjIdCounterData)
 	if err != nil {
 		t.Fatalf("failed to insert test data: %v", err)
 	}
@@ -88,19 +100,19 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
-	_, _ = db.Exec("DROP TABLE IF EXISTS obj_doc")
-	_, _ = db.Exec("CREATE TABLE obj_doc (obj_id BIGINT PRIMARY KEY)")
-	_, _ = db.Exec("DROP TABLE IF EXISTS obj_id_counter")
-	_, _ = db.Exec("CREATE TABLE obj_id_counter (name VARCHAR(255) PRIMARY KEY, obj_id BIGINT)")
+	_, _ = db.Exec(dropObjDocTable)
+	_, _ = db.Exec(createObjDocTable)
+	_, _ = db.Exec(dropObjIdCounterTable)
+	_, _ = db.Exec(createObjIdCounterTable)
 
 	// Insert test data
-	_, err := db.Exec("INSERT INTO obj_doc (obj_id) VALUES (1), (2), (3)")
+	_, err := db.Exec(insertObjDocData)
 	if err != nil {
-		t.Errorf("\033[31mfailed to insert test data: %v\033[0m", err)
+		t.Errorf(errorInsertMsg, err)
 	}
 	_, err = db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 3)")
 	if err != nil {
-		t.Errorf("\033[31mfailed to insert test data: %v\033[0m", err)
+		t.Errorf(errorInsertMsg, err)
 	}
 
 	repo := mntRepo.NewMaintenanceRepository(db)
@@ -116,4 +128,39 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 	}
 
 	t.Logf("\033[32mSuccessfully tested IsMatchedObjectDocAndCounter\033[0m")
+}
+
+func TestIsNotMatchedObjectDocAndCounter(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	// Clean table
+	_, _ = db.Exec(dropObjDocTable)
+	_, _ = db.Exec(createObjDocTable)
+	_, _ = db.Exec(dropObjIdCounterTable)
+	_, _ = db.Exec(createObjIdCounterTable)
+
+	// Insert test data
+	_, err := db.Exec(insertObjDocData)
+	if err != nil {
+		t.Errorf(errorInsertMsg, err)
+	}
+	_, err = db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 4)")
+	if err != nil {
+		t.Errorf(errorInsertMsg, err)
+	}
+
+	repo := mntRepo.NewMaintenanceRepository(db)
+	svc := mntRepo.NewMaintenanceService(repo)
+
+	isMatch, err := svc.IsMatchedObjectDocAndCounter()
+	if err != nil {
+		t.Fatalf("\x1b[31mIsMatchedObjectDocAndCounter returned error: %v\x1b[0m", err)
+	}
+
+	if isMatch {
+		t.Errorf("\033[31mexpected false, got true\033[0m")
+	}
+
+	t.Logf("\033[32mSuccessfully tested IsNotMatchedObjectDocAndCounter\033[0m")
 }
