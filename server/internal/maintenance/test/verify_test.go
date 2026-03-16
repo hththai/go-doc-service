@@ -18,25 +18,37 @@ import (
 
 func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 	tests := []struct {
-		name          string
-		lastReturn    int
-		lastErr       error
-		currentReturn int
-		currentErr    error
-		expectedMatch bool
-		expectErr     bool
+		name            string
+		lastObjId       int
+		lastObjIdErr    error
+		currentObjId    int
+		currentObjIdErr error
+		expectedMatch   bool
+		expectErr       bool
 	}{
 		{
 			name:          "matched",
-			lastReturn:    10,
-			currentReturn: 10,
+			lastObjId:     10,
+			currentObjId:  10,
 			expectedMatch: true,
 		},
 		{
-			name:          "error get last obj doc",
-			lastErr:       mntSvc.NewError(mntSvc.ErrCodeNotFound, "last object ID not found"),
-			currentReturn: 10,
-			expectErr:     true,
+			name:         "error get last obj doc",
+			lastObjIdErr: mntSvc.NewError(mntSvc.ErrCodeNotFound, "last object ID not found"),
+			currentObjId: 10,
+			expectErr:    true,
+		},
+		{
+			name:            "error get current obj doc",
+			lastObjId:       10,
+			currentObjIdErr: mntSvc.NewError(mntSvc.ErrCodeNotFound, "current object ID not found"),
+			expectErr:       true,
+		},
+		{
+			name:          "not matched last objId and current objId",
+			lastObjId:     10,
+			currentObjId:  11,
+			expectedMatch: false,
 		},
 	}
 
@@ -47,11 +59,11 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 
 			mockProvider.
 				On("GetLastObjId").
-				Return(tt.lastReturn, tt.lastErr)
+				Return(tt.lastObjId, tt.lastObjIdErr)
 
 			mockProvider.
 				On("GetCurrentId").
-				Return(tt.currentReturn, tt.currentErr).
+				Return(tt.currentObjId, tt.currentObjIdErr).
 				Maybe()
 
 			ms := &mntSvc.MaintenanceService{
