@@ -49,20 +49,6 @@ func NewError(code ErrorCode, message string) *Error {
 	}
 }
 
-// type ObjectIDProvider interface {
-// 	GetLastObjId() (int, error)
-// 	GetCurrentObjId() (int, error)
-// }
-
-// type DefaultObjectIDProvider struct{}
-
-// func (p *DefaultObjectIDProvider) GetLastObjId() (int, error) {
-// 	return getLastObjectIdDoc()
-// }
-// func (p *DefaultObjectIDProvider) GetCurrentObjId() (int, error) {
-// 	return getCurrentObjectIdCounter()
-// }
-
 type MaintenanceService struct {
 	// Provider ObjectIDProvider
 	Repo MaintenanceRepository
@@ -90,28 +76,4 @@ func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 	}
 
 	return lastObjId == currentObjId, nil
-}
-
-// It returns the last objId of documents
-func getLastObjectIdDoc() (int, error) {
-	// Implement the logic to get the last object ID
-	// For example:
-	// lastObjId, err := getFromDatabase()
-	// if err != nil {
-	//     return 0, NewError(ErrCodeDatabaseError, "failed to get last object ID")
-	// }
-	// return lastObjId, nil
-	return 0, NewError(ErrCodeNotFound, "last object ID not found")
-}
-
-// It returns the current objId records.
-func getCurrentObjectIdCounter() (int, error) {
-	// Implement the logic to get the current object ID
-	// For example:
-	// currentObjId, err := getFromCounter()
-	// if err != nil {
-	//     return 0, NewError(ErrCodeDatabaseError, "failed to get current object ID")
-	// }
-	// return currentObjId, nil
-	return 0, NewError(ErrCodeNotFound, "current object ID not found")
 }
