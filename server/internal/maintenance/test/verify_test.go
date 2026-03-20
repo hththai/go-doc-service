@@ -87,3 +87,96 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 		})
 	}
 }
+
+// Test Count total documents
+func TestGetTotalDocument(t *testing.T) {
+	tests := []struct {
+		name    string // description of this test case
+		input   int64
+		want    int64
+		funcErr error
+		wantErr bool
+	}{
+		{
+			name:    "return valid document count",
+			input:   3,
+			want:    3,
+			funcErr: nil,
+			wantErr: false,
+		},
+		{
+			name:    "return invalid document count",
+			input:   4,
+			want:    3,
+			funcErr: mntSvc.NewError(mntSvc.ErrCodeNotFound, "error of getting total doc path"),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockProvider := new(MockObjectIDProvider)
+
+			mockProvider.
+				On("GetTotalDocument",
+					int64(tt.input)).Return(tt.want, tt.funcErr)
+
+			ms := &mntSvc.MaintenanceService{
+				Repo: nil,
+			}
+
+			got, gotErr := ms.GetTotalDocument(tt.input)
+			t.Logf("Result is::: %v", got)
+			if tt.wantErr {
+				assert.Error(t, gotErr)
+
+				customErr, ok := gotErr.(*mntSvc.Error)
+				assert.True(t, ok)
+				t.Logf("\x1b[33mError code: %d, message: %s\x1b[0m", customErr.Code, customErr.Message)
+			} else {
+				assert.NoError(t, gotErr)
+			}
+
+			assert.Equal(t, tt.want, got)
+			mockProvider.AssertExpectations(t)
+		})
+	}
+}
+
+// Test for GetTotalFilesInPath function
+func TestGetTotalFilesInPath(t *testing.T) {
+	tests := []struct {
+		name        string
+		path        string
+		expected    int64
+		expectError bool
+	}{
+		{
+			name:        "existing directory with files",
+			path:        "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/0", // Assuming this directory exists and has files in it
+			expected:    10,
+			expectError: false,
+		},
+		{
+			name:        "non-existent directory",
+			path:        "./non_existent_directory",
+			expected:    0,
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			ms := &mntSvc.MaintenanceService{}
+
+			count, err := ms.GetTotalFilesInPath(tt.path)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Equalf(t, tt.expected, count, "\x1b[31mfail negative by returning wrong number of files\x1b[0m")
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, count)
+			}
+		})
+	}
+}

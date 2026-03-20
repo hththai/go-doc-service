@@ -1,5 +1,12 @@
 package maintenance
 
+import (
+	"fmt"
+	"io/fs"
+	"path/filepath"
+	"strings"
+)
+
 // I. Verify obj_doc id equals to obj_id_counter
 
 // II. Verify total files is matched with obj_doc_path.
@@ -61,6 +68,7 @@ func NewMaintenanceService(repo MaintenanceRepository) *MaintenanceService {
 	}
 }
 
+// I. Verify matched Object Counter
 func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 	// lastObjId, err := ms.Provider.GetLastObjId()
 	lastObjId, err := ms.Repo.GetLastObjId()
@@ -76,4 +84,51 @@ func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 	}
 
 	return lastObjId == currentObjId, nil
+}
+
+// II. Verify total files is matched with obj_doc_path.
+// 1. Find number of files in a directory file/0/
+// Step 1: Count object document has obj_doc_path
+// This is equal to GetLastObjId
+func (ms *MaintenanceService) GetTotalDocument(input int64) (int64, error) {
+	// dummy test
+	if input > 0 {
+		return input, nil
+	}
+
+	return -1, NewError(ErrCodeNotFound, "error of getting total doc path")
+}
+
+// Step 2: Count document files in path folder.
+// we have a path= /filedata/0/
+// If the file id is 9, it will be stored in /filedata/0/0/9.txt
+// If the file id is 31 it will be stored in /filedata/0/0/31.pdf
+// If the file id is 491 it will be stored in /filedata/0/0/4/491.pdf
+// If the file id is 4599 it will be stored in /file/data/0/0/45/4599.png
+// Build me the function that can get total files in the path provided.
+func (ms *MaintenanceService) GetTotalFilesInPath(path string) (int64, error) {
+	var count int64
+
+	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Ignore hidden/system files
+		// resolve .DS_Store file
+		if strings.HasPrefix(d.Name(), ".") {
+			return nil
+		}
+
+		if !d.IsDir() {
+			count++
+		}
+		return nil
+	})
+
+	if err != nil {
+		return 0, NewError(ErrCodeDatabaseError, fmt.Sprintf("failed walking directory: %v", err))
+	}
+
+	return count, nil
 }
