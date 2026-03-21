@@ -54,22 +54,17 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			mockProvider := new(MockObjectIDProvider)
-
 			mockProvider.
 				On("GetLastObjId").
 				Return(tt.lastObjId, tt.lastObjIdErr)
-
 			mockProvider.
 				On("GetCurrentId").
 				Return(tt.currentObjId, tt.currentObjIdErr).
 				Maybe()
-
 			ms := &mntSvc.MaintenanceService{
 				Repo: mockProvider,
 			}
-
 			match, err := ms.IsMatchedObjectDocAndCounter()
 
 			if tt.expectErr {
@@ -89,7 +84,7 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 }
 
 // Test Count total documents
-func TestGetTotalDocument(t *testing.T) {
+func TestGetTotalFilePathRecord(t *testing.T) {
 	tests := []struct {
 		name    string // description of this test case
 		input   int64
@@ -106,39 +101,26 @@ func TestGetTotalDocument(t *testing.T) {
 		},
 		{
 			name:    "return invalid document count",
-			input:   0,
+			input:   7,
 			want:    -1,
 			funcErr: mntSvc.NewError(mntSvc.ErrCodeNotFound, "error of getting total doc path"),
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// mockProvider := new(MockObjectIDProvider)
+			mockProvider := new(MockObjectIDProvider)
 
-			// // mockProvider.
-			// // 	On("GetTotalDocument",
-			// // 		int64(tt.input)).Return(tt.want, tt.funcErr)
-			// mockProvider.
-			// 	On("GetTotalDocument", mock.AnythingOfType("int64")).
-			// 	Run(func(args mock.Arguments) {
-			// 		input := args.Get(0).(int64)
-
-			// 		if input > 0 {
-			// 			args.Set(0, input)
-			// 			args.Set(1, nil)
-			// 		} else {
-			// 			args.Set(0, int64(-1))
-			// 			args.Set(1, fmt.Errorf("error of getting total doc path"))
-			// 		}
-			// 	}).
-			// 	Return(int64(0), nil)
+			mockProvider.
+				On("CountRecordsInFilePath").
+				Return(tt.input, tt.funcErr)
 
 			ms := &mntSvc.MaintenanceService{
-				Repo: nil,
+				Repo: mockProvider,
 			}
 
-			got, gotErr := ms.GetTotalDocument(tt.input)
+			got, gotErr := ms.GetTotalDocument()
 			t.Logf("Result is::: %v", got)
 
 			if tt.wantErr {
@@ -149,7 +131,7 @@ func TestGetTotalDocument(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, got, "Error GetTotalDocument() = %v, want %")
-			// mockProvider.AssertExpectations(t)
+			mockProvider.AssertExpectations(t)
 		})
 	}
 }

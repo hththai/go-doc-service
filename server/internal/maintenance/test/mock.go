@@ -18,8 +18,8 @@ func (m *MockObjectIDProvider) GetCurrentId() (int64, error) {
 }
 
 // GetTotalDocument returns the max number of object file doc or an error.
-func (m *MockObjectIDProvider) GetTotalDocument(input int64) (int64, error) {
-	args := m.Called(input)
+func (m *MockObjectIDProvider) CountRecordsInFilePath() (int64, error) {
+	args := m.Called()
 	return args.Get(0).(int64), args.Error(1)
 }
 

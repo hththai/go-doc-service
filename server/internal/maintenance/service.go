@@ -89,17 +89,16 @@ func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 // II. Verify total files is matched with obj_doc_path.
 // 1. Find number of files in a directory file/0/
 // Step 1: Count object document has obj_doc_path
-// This is equal to GetLastObjId
-func (ms *MaintenanceService) GetTotalDocument(input int64) (int64, error) {
-	// dummy test
-	if input > 0 {
-		return input, nil
+func (ms *MaintenanceService) GetTotalDocument() (int64, error) {
+	totalRecords, err := ms.Repo.CountRecordsInFilePath()
+	if err != nil {
+		return -1, NewError(ErrCodeNotFound, "error of getting total doc path")
 	}
 
-	return -1, NewError(ErrCodeNotFound, "error of getting total doc path")
+	return totalRecords, nil
 }
 
-// Step 2: Count document files in path folder.
+// Step 2: Count document files in path folder file/0/
 // we have a path= /filedata/0/
 // If the file id is 9, it will be stored in /filedata/0/0/9.txt
 // If the file id is 31 it will be stored in /filedata/0/0/31.pdf

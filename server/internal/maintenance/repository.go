@@ -6,6 +6,7 @@ import "database/sql"
 type MaintenanceRepository interface {
 	GetLastObjId() (int64, error)
 	GetCurrentId() (int64, error)
+	CountRecordsInFilePath() (int64, error)
 }
 
 type maintenanceRepoImpl struct {
@@ -34,4 +35,14 @@ func (r *maintenanceRepoImpl) GetCurrentId() (int64, error) {
 		return 0, err
 	}
 	return currentId, nil
+}
+
+// Count the number of records in file path.
+func (r *maintenanceRepoImpl) CountRecordsInFilePath() (int64, error) {
+	var totalRecords int64
+	err := r.db.QueryRow("SELECT COUNT(id) AS total_records FROM obj_doc_path").Scan(&totalRecords)
+	if err != nil {
+		return 0, err
+	}
+	return totalRecords, nil
 }
