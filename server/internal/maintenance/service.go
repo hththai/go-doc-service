@@ -1,7 +1,6 @@
 package maintenance
 
 import (
-	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -37,6 +36,8 @@ const (
 	ErrCodeNotFound ErrorCode = iota + 1
 	ErrCodeInvalidInput
 	ErrCodeDatabaseError
+	ErrCodeFilePath
+	ErrCodeVerificationFailed
 	// Add more error codes as needed
 )
 
@@ -89,10 +90,10 @@ func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 // II. Verify total files is matched with obj_doc_path.
 // 1. Find number of files in a directory file/0/
 // Step 1: Count object document has obj_doc_path
-func (ms *MaintenanceService) GetTotalDocument() (int64, error) {
+func (ms *MaintenanceService) GetTotalFileRecord() (int64, error) {
 	totalRecords, err := ms.Repo.CountRecordsInFilePath()
 	if err != nil {
-		return -1, NewError(ErrCodeNotFound, "error of getting total doc path")
+		return -1, NewError(ErrCodeDatabaseError, "error of getting total doc path")
 	}
 
 	return totalRecords, nil
@@ -126,8 +127,34 @@ func (ms *MaintenanceService) GetTotalFilesInPath(path string) (int64, error) {
 	})
 
 	if err != nil {
-		return 0, NewError(ErrCodeDatabaseError, fmt.Sprintf("failed walking directory: %v", err))
+		return 0, NewError(ErrCodeFilePath, "failed walking directory")
 	}
 
 	return count, nil
+}
+
+// Step 3: check if total file path and count file path are equal.
+func (ms *MaintenanceService) IsFilePathEqualToCountFile(path string) (bool, error) {
+	// Sanity path
+	if strings.Trim(path, " ") == "" {
+		return false, NewError(ErrCodeInvalidInput, "path cannot be empty")
+	}
+
+	// Get count file record
+	totalFilePath, pathErr := ms.GetTotalFilesInPath(path)
+	if pathErr != nil {
+		return false, pathErr
+	}
+
+	// Get total current file record
+	totalFileRecord, err := ms.GetTotalFileRecord()
+	if err != nil {
+		return false, err
+	}
+
+	if totalFileRecord != totalFilePath {
+		return false, NewError(ErrCodeVerificationFailed, "total file record and count file record are not equal")
+	}
+
+	return true, nil
 }

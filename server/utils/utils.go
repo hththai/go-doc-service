@@ -74,3 +74,20 @@ func previewPDF(c *gin.Context) {
 	// Stream file.
 	c.File(filePath)
 }
+
+// Color log
+func Colorize(color string, message string) string {
+	colorMap := map[string]string{
+		"red":    "\x1b[31m",
+		"green":  "\x1b[32m",
+		"yellow": "\x1b[33m",
+		"blue":   "\x1b[34m",
+		"orange": "\x1b[38;5;208m", // ANSI code for orange
+		// Add more colors as needed
+	}
+
+	if code, ok := colorMap[color]; ok {
+		return fmt.Sprintf("%s%s\x1b[0m", code, message)
+	}
+	return message // Return the original message if the color is not recognized
+}

@@ -1,9 +1,11 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	mntSvc "2_Go/internal/maintenance"
+	"2_Go/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -103,7 +105,7 @@ func TestGetTotalFilePathRecord(t *testing.T) {
 			name:    "return invalid document count",
 			input:   7,
 			want:    -1,
-			funcErr: mntSvc.NewError(mntSvc.ErrCodeNotFound, "error of getting total doc path"),
+			funcErr: mntSvc.NewError(mntSvc.ErrCodeDatabaseError, "error of getting total doc path"),
 			wantErr: true,
 		},
 	}
@@ -120,17 +122,25 @@ func TestGetTotalFilePathRecord(t *testing.T) {
 				Repo: mockProvider,
 			}
 
-			got, gotErr := ms.GetTotalDocument()
+			got, gotErr := ms.GetTotalFileRecord()
 			t.Logf("Result is::: %v", got)
 
 			if tt.wantErr {
 				assert.Error(t, gotErr)
 				customErr, ok := gotErr.(*mntSvc.Error)
 				assert.True(t, ok, "Error is not a custom error")
-				t.Logf("\x1b[33mError code: %d, message: %s\x1b[0m", customErr.Code, customErr.Message)
+				// server/internal/maintenance/test/verify_test.go (130-130)
+				t.Log(utils.Colorize("orange",
+					fmt.Sprintf("Error code: %d, message: %s", customErr.Code, customErr.Message)))
+				// Compare the error code
+				expectedCode := tt.funcErr.(*mntSvc.Error).Code
+				assert.Equal(t, expectedCode, customErr.Code,
+					utils.Colorize("red", "Error codes do not match"))
+
+				return
 			}
 
-			assert.Equal(t, tt.want, got, "Error GetTotalDocument() = %v, want %")
+			assert.Equal(t, tt.want, got, utils.Colorize("red", "Error GetTotalDocument() = %v, want %"))
 			mockProvider.AssertExpectations(t)
 		})
 	}
@@ -171,6 +181,91 @@ func TestGetTotalFilesInPath(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.expected, count)
 			}
+		})
+	}
+}
+
+// Test if verification of number path file and path record.
+func TestIsFilePathEqualToCountFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		path          string
+		recordProcess struct {
+			totalRecord    int64
+			countRecordErr error
+		}
+		isVerify  bool
+		expectErr bool
+	}{
+		// Add test case
+		{
+			name: "matched file path and record",
+			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			recordProcess: struct {
+				totalRecord    int64
+				countRecordErr error
+			}{
+				totalRecord:    10,
+				countRecordErr: nil,
+			},
+			isVerify:  true,
+			expectErr: false,
+		},
+		{
+			name: "unmatched file path and record",
+			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			recordProcess: struct {
+				totalRecord    int64
+				countRecordErr error
+			}{
+				totalRecord:    8,
+				countRecordErr: nil,
+			},
+			isVerify:  false,
+			expectErr: false,
+		},
+		{
+			name: "invalid path input",
+			path: "",
+			recordProcess: struct {
+				totalRecord    int64
+				countRecordErr error
+			}{
+				totalRecord:    8,
+				countRecordErr: nil,
+			},
+			isVerify:  false,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockProvider := new(MockObjectIDProvider)
+
+			mockProvider.
+				On("CountRecordsInFilePath").
+				Return(tt.recordProcess.totalRecord, tt.recordProcess.countRecordErr).
+				Maybe()
+			// mockProvider.
+			// On("IsFilePathEqualToCountFile",path).
+			// Return(true,false)
+
+			ms := &mntSvc.MaintenanceService{
+				Repo: mockProvider,
+			}
+
+			isFileVerify, err := ms.IsFilePathEqualToCountFile(tt.path)
+
+			t.Logf("isFileVerify = %v", isFileVerify)
+
+			if tt.expectErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.Equalf(t, tt.isVerify, isFileVerify, "\x1b[31mfalse result of file verification\x1b[0m")
+			mockProvider.AssertExpectations(t)
 		})
 	}
 }

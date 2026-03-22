@@ -23,21 +23,11 @@ func (m *MockObjectIDProvider) CountRecordsInFilePath() (int64, error) {
 	return args.Get(0).(int64), args.Error(1)
 }
 
-// func (m *MockObjectIDProvider) GetTotalDocument(input int64) (int64, error) {
-// 	args := m.Called(input)
-
-// 	var val int64
-// 	if v := args.Get(0); v != nil {
-// 		switch t := v.(type) {
-// 		case int:
-// 			val = int64(t)
-// 		case int64:
-// 			val = t
-// 		}
-// 	}
-
-//		return val, args.Error(1)
-//	}
+// IsFilePathEqualToCountFile checks if the path's file count matches the record count or returns an error.
+func (m *MockObjectIDProvider) IsFilePathEqualToCountFile(path string) (bool, error) {
+	args := m.Called(path)
+	return args.Bool(0), args.Error(1)
+}
 
 // extractIntAndErr safely extracts an int and error from mock arguments.
 func extractIntAndErr(args mock.Arguments) (int64, error) {
@@ -48,3 +38,12 @@ func extractIntAndErr(args mock.Arguments) (int64, error) {
 	}
 	return val, args.Error(1)
 }
+
+// extractBoolAndErr safely extracts a bool and error from mock arguments.
+// func extractBoolAndErr(args mock.Arguments) (bool, error) {
+// 	var result bool
+// 	if args.Get(0) != nil {
+// 		result = args.Get(0).(bool)
+// 	}
+// 	return result, args.Error(1)
+// }
