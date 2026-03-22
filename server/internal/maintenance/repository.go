@@ -1,7 +1,9 @@
 package maintenance
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -13,6 +15,7 @@ type MaintenanceRepository interface {
 	GetCurrentId() (int64, error)
 	GetTotalRecordsWithFilePath() (int64, error)
 	GetTotalFileInStorage(string) (int64, error)
+	InsertIssueRecord(context.Context, ObjVerifyRecord) (int64, error)
 }
 
 type maintenanceRepoImpl struct {
@@ -85,4 +88,30 @@ func (r *maintenanceRepoImpl) GetTotalFileInStorage(path string) (int64, error) 
 	}
 
 	return count, nil
+}
+
+// Flag the issue record
+// has a new table call obj_doc_verification
+// if the issue found, update to this record and reference to obj_doc table with obj_id
+func (r *maintenanceRepoImpl) InsertIssueRecord(ctx context.Context, record ObjVerifyRecord) (int64, error) {
+	query := `
+        INSERT INTO obj_doc_verification (obj_id, has_issue, issue_code, issue_message)
+        VALUES (?, ?, ?, ?)
+    `
+	res, err := r.db.ExecContext(ctx, query,
+		record.ObjId,
+		record.HasIssue,
+		record.IssueCode,
+		record.IssueMessage,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("InsertIssueRecord: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("InsertIssueRecord LastInsertId: %w", err)
+	}
+
+	return id, nil
 }

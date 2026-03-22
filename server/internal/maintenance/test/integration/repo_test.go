@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	mntRepo "2_Go/internal/maintenance"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -22,6 +24,17 @@ const (
 	dropObjIdCounterTable   = "DROP TABLE IF EXISTS obj_id_counter"
 	createObjIdCounterTable = "CREATE TABLE obj_id_counter (name VARCHAR(255) PRIMARY KEY, obj_id BIGINT)"
 	insertObjIdCounterData  = "INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 456)"
+
+	dropObjVerificationTable   = "DROP TABLE IF EXISTS obj_doc_verification"
+	createObjVerficiationTable = `CREATE TABLE obj_doc_verification (
+								id BIGINT AUTO_INCREMENT PRIMARY KEY,
+								obj_id BIGINT NOT NULL,
+								has_issue TINYINT(1) NOT NULL DEFAULT 0,
+								issue_code VARCHAR(50) NULL,
+								issue_message VARCHAR(255) NULL,
+								verified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+								FOREIGN KEY (obj_id) REFERENCES obj_doc(obj_id)
+								)`
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
@@ -49,6 +62,7 @@ func TestGetLastObjIdIntegration(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
+	_, _ = db.Exec(dropObjVerificationTable)
 	_, _ = db.Exec(dropObjDocTable)
 	_, _ = db.Exec(createObjDocTable)
 
@@ -75,6 +89,7 @@ func TestGetCurrentIdIntegration(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
+	_, _ = db.Exec(dropObjVerificationTable)
 	_, _ = db.Exec(dropObjIdCounterTable)
 	_, _ = db.Exec(createObjIdCounterTable)
 
@@ -100,6 +115,7 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
+	_, _ = db.Exec(dropObjVerificationTable)
 	_, _ = db.Exec(dropObjDocTable)
 	_, _ = db.Exec(createObjDocTable)
 	_, _ = db.Exec(dropObjIdCounterTable)
@@ -126,8 +142,6 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 	if !isMatch {
 		t.Errorf("\033[31mexpected true, got false\033[0m")
 	}
-
-	t.Logf("\033[32mSuccessfully tested IsMatchedObjectDocAndCounter\033[0m")
 }
 
 func TestIsNotMatchedObjectDocAndCounter(t *testing.T) {
@@ -135,6 +149,7 @@ func TestIsNotMatchedObjectDocAndCounter(t *testing.T) {
 	defer db.Close()
 
 	// Clean table
+	_, _ = db.Exec(dropObjVerificationTable)
 	_, _ = db.Exec(dropObjDocTable)
 	_, _ = db.Exec(createObjDocTable)
 	_, _ = db.Exec(dropObjIdCounterTable)
@@ -161,6 +176,74 @@ func TestIsNotMatchedObjectDocAndCounter(t *testing.T) {
 	if isMatch {
 		t.Errorf("\033[31mexpected false, got true\033[0m")
 	}
+}
 
-	t.Logf("\033[32mSuccessfully tested IsNotMatchedObjectDocAndCounter\033[0m")
+// II Verification test
+func TestInsertIssueRecord(t *testing.T) {
+	tests := []struct {
+		name        string
+		record      mntRepo.ObjVerifyRecord
+		expectedErr bool
+	}{
+		{
+			name: "success insert",
+			record: mntRepo.ObjVerifyRecord{
+				ObjId:        1,
+				HasIssue:     true,
+				IssueCode:    1,
+				IssueMessage: "Test issue message",
+			},
+			expectedErr: false,
+		},
+		{
+			name: "insert with not exist obj record",
+			record: mntRepo.ObjVerifyRecord{
+				ObjId:        6,
+				HasIssue:     true,
+				IssueCode:    1,
+				IssueMessage: "Test issue message",
+			},
+			expectedErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			db := setupTestDB(t)
+			defer db.Close()
+
+			// Clean tables
+			_, _ = db.Exec(dropObjVerificationTable)
+			_, _ = db.Exec(dropObjDocTable)
+			_, _ = db.Exec(createObjDocTable)
+			_, _ = db.Exec(dropObjIdCounterTable)
+			_, _ = db.Exec(createObjIdCounterTable)
+			_, _ = db.Exec(createObjVerficiationTable)
+
+			// Insert into obj_doc so foreign key is valid
+			_, err := db.Exec(insertObjDocData)
+			if err != nil {
+				t.Fatalf("failed to insert obj_doc test data:")
+			}
+
+			repo := mntRepo.NewMaintenanceRepository(db)
+
+			// Execute insert
+			_, err = repo.InsertIssueRecord(context.Background(), tt.record)
+
+			if tt.expectedErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+
+			// Optional: verify record exists in DB
+			var count int
+			err = db.QueryRow("SELECT COUNT(*) FROM obj_doc_verification WHERE obj_id = ?", tt.record.ObjId).Scan(&count)
+			assert.NoError(t, err)
+			assert.Equal(t, 1, count)
+		})
+	}
 }
