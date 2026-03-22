@@ -1,8 +1,6 @@
 package maintenance
 
 import (
-	"io/fs"
-	"path/filepath"
 	"strings"
 )
 
@@ -91,9 +89,9 @@ func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 // 1. Find number of files in a directory file/0/
 // Step 1: Count object document has obj_doc_path
 func (ms *MaintenanceService) GetTotalFileRecord() (int64, error) {
-	totalRecords, err := ms.Repo.CountRecordsInFilePath()
+	totalRecords, err := ms.Repo.GetTotalRecordsWithFilePath()
 	if err != nil {
-		return -1, NewError(ErrCodeDatabaseError, "error of getting total doc path")
+		return -1, NewError(ErrCodeDatabaseError, "error of getting total doc path records")
 	}
 
 	return totalRecords, nil
@@ -106,31 +104,38 @@ func (ms *MaintenanceService) GetTotalFileRecord() (int64, error) {
 // If the file id is 491 it will be stored in /filedata/0/0/4/491.pdf
 // If the file id is 4599 it will be stored in /file/data/0/0/45/4599.png
 // Build me the function that can get total files in the path provided.
-func (ms *MaintenanceService) GetTotalFilesInPath(path string) (int64, error) {
-	var count int64
+func (ms *MaintenanceService) GetTotalFileInStorage(path string) (int64, error) {
+	// var count int64
 
-	err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+	// err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
+	// 	if err != nil {
+	// 		return err
+	// 	}
 
-		// Ignore hidden/system files
-		// resolve .DS_Store file
-		if strings.HasPrefix(d.Name(), ".") {
-			return nil
-		}
+	// 	// Ignore hidden/system files
+	// 	// resolve .DS_Store file
+	// 	if strings.HasPrefix(d.Name(), ".") {
+	// 		return nil
+	// 	}
 
-		if !d.IsDir() {
-			count++
-		}
-		return nil
-	})
+	// 	if !d.IsDir() {
+	// 		count++
+	// 	}
+	// 	return nil
+	// })
 
+	// if err != nil {
+	// 	return 0, NewError(ErrCodeFilePath, "failed walking directory")
+	// }
+
+	// return count, nil
+	count, err := ms.Repo.GetTotalFileInStorage(path)
 	if err != nil {
-		return 0, NewError(ErrCodeFilePath, "failed walking directory")
+		return 0, err
 	}
 
 	return count, nil
+
 }
 
 // Step 3: check if total file path and count file path are equal.
@@ -141,7 +146,7 @@ func (ms *MaintenanceService) IsFilePathEqualToCountFile(path string) (bool, err
 	}
 
 	// Get count file record
-	totalFilePath, pathErr := ms.GetTotalFilesInPath(path)
+	totalFilePath, pathErr := ms.GetTotalFileInStorage(path)
 	if pathErr != nil {
 		return false, pathErr
 	}

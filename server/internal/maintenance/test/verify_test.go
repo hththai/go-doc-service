@@ -115,7 +115,7 @@ func TestGetTotalFilePathRecord(t *testing.T) {
 			mockProvider := new(MockObjectIDProvider)
 
 			mockProvider.
-				On("CountRecordsInFilePath").
+				On("GetTotalRecordsWithFilePath").
 				Return(tt.input, tt.funcErr)
 
 			ms := &mntSvc.MaintenanceService{
@@ -148,6 +148,8 @@ func TestGetTotalFilePathRecord(t *testing.T) {
 
 // Test for GetTotalFilesInPath function
 func TestGetTotalFilesInPath(t *testing.T) {
+
+	// test case
 	tests := []struct {
 		name        string
 		path        string
@@ -171,15 +173,17 @@ func TestGetTotalFilesInPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			ms := &mntSvc.MaintenanceService{}
+			// ms := &mntSvc.MaintenanceService{}
 
-			count, err := ms.GetTotalFilesInPath(tt.path)
+			ms := mntSvc.NewMaintenanceRepository(nil)
+
+			count, err := ms.GetTotalFileInStorage(tt.path)
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Equalf(t, tt.expected, count, "\x1b[31mfail negative by returning wrong number of files\x1b[0m")
+				assert.Error(t, err, utils.Colorize("red", "An error is expected but got nil"))
+				assert.Equalf(t, tt.expected, count, utils.Colorize("red", "fail negative by returning wrong number of files"))
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, count)
+				assert.Equal(t, tt.expected, count, utils.Colorize("orange", "not match expect number of file"))
 			}
 		})
 	}
@@ -194,6 +198,10 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 		recordProcess struct {
 			totalRecord    int64
 			countRecordErr error
+		}
+		fileProcess struct {
+			totalFile      int64
+			fileProcessErr error
 		}
 		expectFuncErr error
 		isVerify      bool
@@ -210,12 +218,19 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 				totalRecord:    10,
 				countRecordErr: nil,
 			},
+			fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      10,
+				fileProcessErr: nil,
+			},
 			expectFuncErr: nil,
 			isVerify:      true,
 			expectErr:     false,
 		},
 		{
-			name: "unmatched file path and record",
+			name: "unmatched file path with valid path input and record",
 			path: defaultPath,
 			recordProcess: struct {
 				totalRecord    int64
@@ -223,6 +238,13 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 			}{
 				totalRecord:    8,
 				countRecordErr: nil,
+			},
+			fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      10,
+				fileProcessErr: nil,
 			},
 			expectFuncErr: nil,
 			isVerify:      false,
@@ -238,6 +260,13 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 				totalRecord:    8,
 				countRecordErr: nil,
 			},
+			fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      0,
+				fileProcessErr: mntSvc.NewError(mntSvc.ErrCodeInvalidInput, ""),
+			},
 			expectFuncErr: mntSvc.NewError(mntSvc.ErrCodeInvalidInput, ""),
 			isVerify:      false,
 			expectErr:     true,
@@ -251,6 +280,12 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 			}{
 				totalRecord:    -1,
 				countRecordErr: mntSvc.NewError(mntSvc.ErrCodeDatabaseError, "error of getting total doc path records"),
+			}, fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      10,
+				fileProcessErr: nil,
 			},
 			expectFuncErr: mntSvc.NewError(mntSvc.ErrCodeDatabaseError, ""),
 			isVerify:      false,
@@ -265,6 +300,13 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 				totalRecord:    -1,
 				countRecordErr: mntSvc.NewError(mntSvc.ErrCodeDatabaseError, "error of getting total doc path records"),
 			},
+			fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      10,
+				fileProcessErr: nil,
+			},
 			expectFuncErr: mntSvc.NewError(mntSvc.ErrCodeInvalidInput, ""),
 			isVerify:      false,
 			expectErr:     true,
@@ -276,12 +318,14 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 			mockProvider := new(MockObjectIDProvider)
 
 			mockProvider.
-				On("CountRecordsInFilePath").
+				On("GetTotalRecordsWithFilePath").
 				Return(tt.recordProcess.totalRecord, tt.recordProcess.countRecordErr).
 				Maybe()
-			// mockProvider.
-			// On("IsFilePathEqualToCountFile",path).
-			// Return(true,false)
+
+			mockProvider.
+				On("GetTotalFileInStorage", tt.path).
+				Return(tt.fileProcess.totalFile, tt.fileProcess.fileProcessErr).
+				Maybe()
 
 			ms := &mntSvc.MaintenanceService{
 				Repo: mockProvider,
@@ -297,19 +341,13 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 				// Compare error type.
 				expectedRecordErr := tt.expectFuncErr
 
-				// TODO: expected Path error
 				customErr, ok := err.(*mntSvc.Error)
 				assert.True(t, ok, utils.Colorize("red", "expected *mntSvc.Error type"))
 
 				// Compare error code + message
 				expCustomErr := expectedRecordErr.(*mntSvc.Error)
-				assert.Equal(t, expCustomErr.Code, customErr.Code, utils.Colorize("red", "unmatched error code"))
+				assert.Equal(t, expCustomErr.Code, customErr.Code, utils.Colorize("red", "unmatched error code expected"))
 
-				// If want to check error message.
-				// assert.Equal(t, expCustomErr.Message, customErr.Message, utils.Colorize("red", "unmatched error message"))
-				// if fail check record
-
-				// if fail to check file doc
 				return
 			}
 
