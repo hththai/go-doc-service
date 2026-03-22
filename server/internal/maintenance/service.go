@@ -105,30 +105,6 @@ func (ms *MaintenanceService) GetTotalFileRecord() (int64, error) {
 // If the file id is 4599 it will be stored in /file/data/0/0/45/4599.png
 // Build me the function that can get total files in the path provided.
 func (ms *MaintenanceService) GetTotalFileInStorage(path string) (int64, error) {
-	// var count int64
-
-	// err := filepath.WalkDir(path, func(_ string, d fs.DirEntry, err error) error {
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	// Ignore hidden/system files
-	// 	// resolve .DS_Store file
-	// 	if strings.HasPrefix(d.Name(), ".") {
-	// 		return nil
-	// 	}
-
-	// 	if !d.IsDir() {
-	// 		count++
-	// 	}
-	// 	return nil
-	// })
-
-	// if err != nil {
-	// 	return 0, NewError(ErrCodeFilePath, "failed walking directory")
-	// }
-
-	// return count, nil
 	count, err := ms.Repo.GetTotalFileInStorage(path)
 	if err != nil {
 		return 0, err
