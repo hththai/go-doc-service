@@ -160,7 +160,7 @@ func TestInsertIssueRecord(t *testing.T) {
 				ObjId:        1,
 				HasIssue:     true,
 				IssueCode:    1,
-				IssueMessage: "Test issue message",
+				IssueMessage: "Test issue message", // dummy message
 			},
 			expectedErr: false,
 		},
@@ -169,8 +169,8 @@ func TestInsertIssueRecord(t *testing.T) {
 			record: mntRepo.ObjVerifyRecord{
 				ObjId:        6,
 				HasIssue:     true,
-				IssueCode:    1,
-				IssueMessage: "Test issue message",
+				IssueCode:    -1,
+				IssueMessage: "Test issue message", // dummy message
 			},
 			expectedErr: true,
 		},
@@ -193,6 +193,7 @@ func TestInsertIssueRecord(t *testing.T) {
 
 			// Insert into obj_doc so foreign key is valid
 			_, err := db.Exec(insertObjDocData)
+
 			if err != nil {
 				t.Fatalf("failed to insert obj_doc test data:")
 			}

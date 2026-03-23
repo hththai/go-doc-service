@@ -84,7 +84,8 @@ func (r *maintenanceRepoImpl) GetTotalFileInStorage(path string) (int64, error) 
 	})
 
 	if err != nil {
-		return 0, NewError(ErrCodeFilePath, "failed walking directory")
+		// return 0, NewError(ErrCodeFilePath, "failed walking directory")
+		return 0, fmt.Errorf("failed walking directory")
 	}
 
 	return count, nil

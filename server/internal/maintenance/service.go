@@ -98,12 +98,7 @@ func (ms *MaintenanceService) GetTotalFileRecord() (int64, error) {
 }
 
 // Step 2: Count document files in path folder file/0/
-// we have a path= /filedata/0/
-// If the file id is 9, it will be stored in /filedata/0/0/9.txt
-// If the file id is 31 it will be stored in /filedata/0/0/31.pdf
-// If the file id is 491 it will be stored in /filedata/0/0/4/491.pdf
-// If the file id is 4599 it will be stored in /file/data/0/0/45/4599.png
-// Build me the function that can get total files in the path provided.
+
 func (ms *MaintenanceService) GetTotalFileInStorage(path string) (int64, error) {
 	count, err := ms.Repo.GetTotalFileInStorage(path)
 	if err != nil {
@@ -139,3 +134,11 @@ func (ms *MaintenanceService) IsFilePathEqualToCountFile(path string) (bool, err
 
 	return true, nil
 }
+
+// Step 4: report the list of flagged file
+// isFlag true means flag the issue doc object
+func FlagIssueDocObj() error {
+	return nil
+}
+
+// REPAIR PROCESS

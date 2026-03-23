@@ -311,6 +311,48 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 			isVerify:      false,
 			expectErr:     true,
 		},
+		{
+			name: "records higher than files in storage",
+			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			recordProcess: struct {
+				totalRecord    int64
+				countRecordErr error
+			}{
+				totalRecord:    11,
+				countRecordErr: nil,
+			},
+			fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      10,
+				fileProcessErr: nil,
+			},
+			expectFuncErr: mntSvc.NewError(mntSvc.ErrCodeVerificationFailed, ""),
+			isVerify:      false,
+			expectErr:     false,
+		},
+		{
+			name: "records less than files in storage",
+			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			recordProcess: struct {
+				totalRecord    int64
+				countRecordErr error
+			}{
+				totalRecord:    8,
+				countRecordErr: nil,
+			},
+			fileProcess: struct {
+				totalFile      int64
+				fileProcessErr error
+			}{
+				totalFile:      10,
+				fileProcessErr: nil,
+			},
+			expectFuncErr: mntSvc.NewError(mntSvc.ErrCodeVerificationFailed, ""),
+			isVerify:      false,
+			expectErr:     false,
+		},
 	}
 
 	for _, tt := range tests {
