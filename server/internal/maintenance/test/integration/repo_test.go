@@ -16,10 +16,6 @@ func TestGetLastObjIdIntegration(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	// Clean table
-	// _, _ = db.Exec(dropObjVerificationTable)
-	// _, _ = db.Exec(dropObjDocTable)
-
 	dropErr := dropAllTables(db)
 
 	if dropErr != nil {
@@ -83,11 +79,6 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
 
-	// Clean table
-	// _, _ = db.Exec(dropObjVerificationTable)
-	// _, _ = db.Exec(dropObjDocTable)
-	// _, _ = db.Exec(dropObjIdCounterTable)
-
 	dropErr := dropAllTables(db)
 
 	if dropErr != nil {
@@ -123,11 +114,6 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 func TestIsNotMatchedObjectDocAndCounter(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
-
-	// Clean table
-	// _, _ = db.Exec(dropObjVerificationTable)
-	// _, _ = db.Exec(dropObjDocTable)
-	// _, _ = db.Exec(dropObjIdCounterTable)
 
 	dropErr := dropAllTables(db)
 
@@ -195,11 +181,6 @@ func TestInsertIssueRecord(t *testing.T) {
 
 			db := setupTestDB(t)
 			defer db.Close()
-
-			// Clean tables
-			// _, _ = db.Exec(dropObjVerificationTable)
-			// _, _ = db.Exec(dropObjDocTable)
-			// _, _ = db.Exec(dropObjIdCounterTable)
 
 			dropErr := dropAllTables(db)
 
