@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	mntRepo "2_Go/internal/maintenance"
+	utils "2_Go/utils"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
@@ -75,77 +76,67 @@ func TestGetCurrentIdIntegration(t *testing.T) {
 	}
 }
 
+// ... existing code ...
+
 func TestIsMatchedObjectDocAndCounter(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
-
-	dropErr := dropAllTables(db)
-
-	if dropErr != nil {
-		t.Fatalf(errorDropAllTableMsg, dropErr)
+	tests := []struct {
+		name          string
+		objID         int
+		wantedId      int
+		expectedMatch bool
+	}{
+		{
+			name:          "Matched",
+			objID:         3,
+			wantedId:      3,
+			expectedMatch: true,
+		},
+		{
+			name:          "Not Matched",
+			objID:         4,
+			wantedId:      3,
+			expectedMatch: false,
+		},
 	}
 
-	_, _ = db.Exec(createObjDocTable)
-	_, _ = db.Exec(createObjIdCounterTable)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := setupTestDB(t)
+			defer db.Close()
 
-	// Insert test data
-	_, err := db.Exec(insertObjDocData)
-	if err != nil {
-		t.Errorf(errorInsertMsg, err)
-	}
-	_, err = db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 3)")
-	if err != nil {
-		t.Errorf(errorInsertMsg, err)
-	}
+			dropErr := dropAllTables(db)
 
-	repo := mntRepo.NewMaintenanceRepository(db)
-	svc := mntRepo.NewMaintenanceService(repo)
+			if dropErr != nil {
+				t.Fatalf(errorDropAllTableMsg, dropErr)
+			}
 
-	isMatch, err := svc.IsMatchedObjectDocAndCounter()
-	if err != nil {
-		t.Fatalf("\x1b[31mIsMatchedObjectDocAndCounter returned error: %v\x1b[0m", err)
-	}
+			_, _ = db.Exec(createObjDocTable)
+			_, _ = db.Exec(createObjIdCounterTable)
 
-	if !isMatch {
-		t.Errorf("\033[31mexpected true, got false\033[0m")
-	}
-}
+			// Insert test data
+			_, err := db.Exec(insertObjDocData)
+			if err != nil {
+				t.Errorf(errorInsertMsg, err)
+			}
+			_, err = db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', ?)", tt.objID)
+			if err != nil {
+				t.Errorf(errorInsertMsg, err)
+			}
 
-func TestIsNotMatchedObjectDocAndCounter(t *testing.T) {
-	db := setupTestDB(t)
-	defer db.Close()
+			repo := mntRepo.NewMaintenanceRepository(db)
+			svc := mntRepo.NewMaintenanceService(repo)
 
-	dropErr := dropAllTables(db)
+			isMatch, err := svc.IsMatchedObjectDocAndCounter()
+			if err != nil {
+				t.Fatalf("\x1b[31mIsMatchedObjectDocAndCounter returned error: %v\x1b[0m", err)
+			}
 
-	if dropErr != nil {
-		t.Fatalf(errorDropAllTableMsg, dropErr)
-	}
-
-	_, _ = db.Exec(createObjDocTable)
-	_, _ = db.Exec(createObjIdCounterTable)
-
-	// Insert test data
-	_, err := db.Exec(insertObjDocData)
-	if err != nil {
-		t.Errorf(errorInsertMsg, err)
-	}
-	_, err = db.Exec("INSERT INTO obj_id_counter (name, obj_id) VALUES ('document', 4)")
-	if err != nil {
-		t.Errorf(errorInsertMsg, err)
-	}
-
-	repo := mntRepo.NewMaintenanceRepository(db)
-	svc := mntRepo.NewMaintenanceService(repo)
-
-	isMatch, err := svc.IsMatchedObjectDocAndCounter()
-	if err != nil {
-		t.Fatalf("\x1b[31mIsMatchedObjectDocAndCounter returned error: %v\x1b[0m", err)
-	}
-
-	if isMatch {
-		t.Errorf("\033[31mexpected false, got true\033[0m")
+			assert.Equal(t, tt.expectedMatch, isMatch, utils.Colorize("red", "wrong return result"))
+		})
 	}
 }
+
+// ... existing code ...
 
 // II Verification test
 func TestInsertIssueRecord(t *testing.T) {

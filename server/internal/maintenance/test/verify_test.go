@@ -273,7 +273,7 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 		},
 		{
 			name: "cannot retrieve total record with valid input",
-			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			path: defaultPath,
 			recordProcess: struct {
 				totalRecord    int64
 				countRecordErr error
@@ -313,7 +313,7 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 		},
 		{
 			name: "records higher than files in storage",
-			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			path: defaultPath,
 			recordProcess: struct {
 				totalRecord    int64
 				countRecordErr error
@@ -334,7 +334,7 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 		},
 		{
 			name: "records less than files in storage",
-			path: "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/",
+			path: defaultPath,
 			recordProcess: struct {
 				totalRecord    int64
 				countRecordErr error
