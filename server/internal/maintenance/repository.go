@@ -11,6 +11,8 @@ import (
 
 // MaintenanceRepository defines the interface for maintenance operations
 type MaintenanceRepository interface {
+	/// GET
+
 	GetLastObjId() (int64, error)
 	GetCurrentId() (int64, error)
 	GetTotalRecordsWithFilePath() (int64, error)
@@ -18,6 +20,8 @@ type MaintenanceRepository interface {
 
 	// Repair.
 	GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error)
+
+	/// INSERT
 
 	InsertIssueRecord(context.Context, ObjVerifyRecord) (int64, error)
 }
@@ -140,6 +144,51 @@ func (r *maintenanceRepoImpl) GetFlagDocuments(ctx context.Context) ([]ObjVerify
 	for rows.Next() {
 		var record ObjVerifyRecord
 		err := rows.Scan(&record.ObjId, &record.HasIssue, &record.IssueCode, &record.IssueMessage)
+		if err != nil {
+			return nil, fmt.Errorf(errMess, err)
+		}
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errMess, err)
+	}
+
+	return records, nil
+}
+
+// Get all flagged details
+
+func (r *maintenanceRepoImpl) GetFlagDocumentDetail(ctx context.Context) ([]FlaggedDocument, error) {
+
+	errMess := "GetFlagDocumentDetail: %w"
+
+	rows, err := r.db.QueryContext(ctx, `
+        SELECT
+            od.obj_id,
+            odv.has_issue,
+            od.status,
+            od.name_or_title,
+            od.description,
+            od.created_at,
+            od.modified_at,
+            od.file_size,
+            od.extension
+        FROM obj_doc AS od
+        JOIN obj_doc_verification AS odv
+            ON od.obj_id = odv.obj_id
+        WHERE odv.has_issue = TRUE;
+    `)
+	if err != nil {
+		return nil, fmt.Errorf(errMess, err)
+	}
+	defer rows.Close()
+
+	var records []FlaggedDocument
+
+	for rows.Next() {
+		var record FlaggedDocument
+		err := rows.Scan(&record.ObjId, &record.HasIssue, &record.Status, &record.NameOrTitle, &record.Description, &record.CreatedAt, &record.ModifiedAt, &record.FileSize, &record.Extension)
 		if err != nil {
 			return nil, fmt.Errorf(errMess, err)
 		}
