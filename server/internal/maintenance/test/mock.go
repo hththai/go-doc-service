@@ -59,3 +59,11 @@ func extractIntAndErr(args mock.Arguments) (int64, error) {
 // 	}
 // 	return result, args.Error(1)
 // }
+
+// REPAIR PROCESS MOCK FUNCTION
+
+// GetFlagDocuments mocks the GetFlagDocuments method.
+func (m *MockObjectIDProvider) GetFlagDocuments(ctx context.Context) ([]mnt.ObjVerifyRecord, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]mnt.ObjVerifyRecord), args.Error(1)
+}

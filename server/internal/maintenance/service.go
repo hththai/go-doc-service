@@ -15,7 +15,7 @@ import (
 // III. REPAIR if not.
 // 0. Report the list of obj_doc that need to be repaired with obj_id.
 // 1. Flag the file as "REPAIR" in database.
-// 	[ ] 1.1 Schema: Need column as system_flag true false (false by default) for obj_doc.
+// 	[x] 1.1 Schema: Need column as system_flag true false (false by default) for obj_doc.
 // !!!2. Move the file to a temporary folder.
 
 // If number of files less than obj_doc_path:
@@ -141,4 +141,13 @@ func FlagIssueDocObj() error {
 	return nil
 }
 
-// REPAIR PROCESS
+// REPAIR PROCESS MANUALLY
+// Path: maintenance/service.go
+// Show flag report and manually fix on client web to decide remove flagged docs.
+// there is using transition tables.
+
+// Step 1: show flag document.
+func GetFlagDocuments() error {
+
+	return nil
+}

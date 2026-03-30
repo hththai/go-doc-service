@@ -209,3 +209,59 @@ func TestInsertIssueRecord(t *testing.T) {
 		})
 	}
 }
+
+// REPAIR TEST CASE
+
+// Test Get all flag records.
+// server/internal/maintenance/test/integration/repo_test.go
+func TestGetFlagDocumentsIntegration(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	dropErr := dropAllTables(db)
+
+	if dropErr != nil {
+		t.Fatalf(errorDropAllTableMsg, dropErr)
+	}
+
+	_, _ = db.Exec(createObjDocTable)
+	_, _ = db.Exec(createObjVerficiationTable)
+
+	// Insert into obj_doc so foreign key is valid
+	_, _ = db.Exec(insertObjDocData)
+
+	// Insert test data
+	insertQuery := `
+	INSERT INTO obj_doc_verification (obj_id, has_issue, issue_code, issue_message) VALUES 
+	(1, true, 101, 'Issue message 1'),
+	(2, false, 102, 'Issue message 2'),
+	(3, true, 103, 'Issue message 3')
+	`
+	_, err := db.Exec(insertQuery)
+	if err != nil {
+		t.Fatalf("failed to insert test data: %v", err)
+	}
+
+	repo := mntRepo.NewMaintenanceRepository(db)
+
+	records, err := repo.GetFlagDocuments(context.Background())
+	if err != nil {
+		t.Fatalf("GetFlagDocuments returned error: %v", err)
+	}
+
+	expectedRecords := []mntRepo.ObjVerifyRecord{
+		{ObjId: 1, HasIssue: true, IssueCode: 101, IssueMessage: "Issue message 1"},
+		{ObjId: 3, HasIssue: true, IssueCode: 103, IssueMessage: "Issue message 3"},
+	}
+
+	if len(records) != len(expectedRecords) {
+		t.Errorf("expected %d records, got %d", len(expectedRecords), len(records))
+	}
+
+	for i, record := range records {
+		assert.Equal(t, expectedRecords[i].ObjId, record.ObjId)
+		assert.Equal(t, expectedRecords[i].HasIssue, record.HasIssue)
+		assert.Equal(t, expectedRecords[i].IssueCode, record.IssueCode)
+		assert.Equal(t, expectedRecords[i].IssueMessage, record.IssueMessage)
+	}
+}

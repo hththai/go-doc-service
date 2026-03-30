@@ -15,6 +15,10 @@ type MaintenanceRepository interface {
 	GetCurrentId() (int64, error)
 	GetTotalRecordsWithFilePath() (int64, error)
 	GetTotalFileInStorage(string) (int64, error)
+
+	// Repair.
+	GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error)
+
 	InsertIssueRecord(context.Context, ObjVerifyRecord) (int64, error)
 }
 
@@ -115,4 +119,36 @@ func (r *maintenanceRepoImpl) InsertIssueRecord(ctx context.Context, record ObjV
 	}
 
 	return id, nil
+}
+
+// REPAIR STEPS
+
+// Get flag documents
+// A function to retrieve all objects in obj_doc_verification, which have the has_issue is true
+func (r *maintenanceRepoImpl) GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error) {
+
+	errMess := "GetFlagDocuments: %w"
+
+	rows, err := r.db.QueryContext(ctx, "SELECT obj_id, has_issue, issue_code, issue_message FROM obj_doc_verification WHERE has_issue = true")
+	if err != nil {
+		return nil, fmt.Errorf(errMess, err)
+	}
+	defer rows.Close()
+
+	var records []ObjVerifyRecord
+
+	for rows.Next() {
+		var record ObjVerifyRecord
+		err := rows.Scan(&record.ObjId, &record.HasIssue, &record.IssueCode, &record.IssueMessage)
+		if err != nil {
+			return nil, fmt.Errorf(errMess, err)
+		}
+		records = append(records, record)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(errMess, err)
+	}
+
+	return records, nil
 }
