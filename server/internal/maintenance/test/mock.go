@@ -67,3 +67,9 @@ func (m *MockObjectIDProvider) GetFlagDocuments(ctx context.Context) ([]mnt.ObjV
 	args := m.Called(ctx)
 	return args.Get(0).([]mnt.ObjVerifyRecord), args.Error(1)
 }
+
+// GetFlagDetailDocument mocks the GetFlagDetailDocument method.
+func (m *MockObjectIDProvider) GetFlagDocumentDetail(ctx context.Context) ([]mnt.FlaggedDocument, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]mnt.FlaggedDocument), args.Error(1)
+}

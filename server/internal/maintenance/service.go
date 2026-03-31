@@ -151,3 +151,5 @@ func GetFlagDocuments() error {
 
 	return nil
 }
+
+// Step 2: list all flag document obj_id, name or title, file size, created at,extensions, and file path.

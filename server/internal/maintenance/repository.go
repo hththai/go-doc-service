@@ -20,6 +20,7 @@ type MaintenanceRepository interface {
 
 	// Repair.
 	GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error)
+	GetFlagDocumentDetail(ctx context.Context) ([]FlaggedDocument, error)
 
 	/// INSERT
 
@@ -129,6 +130,7 @@ func (r *maintenanceRepoImpl) InsertIssueRecord(ctx context.Context, record ObjV
 
 // Get flag documents
 // A function to retrieve all objects in obj_doc_verification, which have the has_issue is true
+// TODO: review if need to keep this function
 func (r *maintenanceRepoImpl) GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error) {
 
 	errMess := "GetFlagDocuments: %w"
@@ -158,7 +160,6 @@ func (r *maintenanceRepoImpl) GetFlagDocuments(ctx context.Context) ([]ObjVerify
 }
 
 // Get all flagged details
-
 func (r *maintenanceRepoImpl) GetFlagDocumentDetail(ctx context.Context) ([]FlaggedDocument, error) {
 
 	errMess := "GetFlagDocumentDetail: %w"
