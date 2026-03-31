@@ -28,7 +28,7 @@ func TestGetLastObjIdIntegration(t *testing.T) {
 	// Insert test data
 	_, err := db.Exec(insertObjDocData)
 	if err != nil {
-		t.Fatalf("failed to insert test data: %v", err)
+		t.Fatalf(errorFailToInsertMsg, err)
 	}
 
 	repo := mntRepo.NewMaintenanceRepository(db)
@@ -239,7 +239,7 @@ func TestGetFlagDocumentsIntegration(t *testing.T) {
 	`
 	_, err := db.Exec(insertQuery)
 	if err != nil {
-		t.Fatalf("failed to insert test data: %v", err)
+		t.Fatalf(errorFailToInsertMsg, err)
 	}
 
 	repo := mntRepo.NewMaintenanceRepository(db)
@@ -278,7 +278,7 @@ func TestGetFlagDocumentDetailIntegration(t *testing.T) {
 		t.Fatalf(errorDropAllTableMsg, dropErr)
 	}
 
-	_, _ = db.Exec(createObjFlagDocTable)
+	_, _ = db.Exec(createObjDocDetailTable)
 	_, _ = db.Exec(createObjVerficiationTable)
 
 	// Insert into obj_doc so foreign key is valid
@@ -297,7 +297,7 @@ func TestGetFlagDocumentDetailIntegration(t *testing.T) {
 	`
 	_, err = db.Exec(insertQuery)
 	if err != nil {
-		t.Fatalf("failed to insert test data: %v", err)
+		t.Fatalf(errorFailToInsertMsg, err)
 	}
 
 	repo := mntRepo.NewMaintenanceRepository(db)

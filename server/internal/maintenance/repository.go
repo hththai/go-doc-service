@@ -114,6 +114,7 @@ func (r *maintenanceRepoImpl) InsertIssueRecord(ctx context.Context, record ObjV
 		record.IssueCode,
 		record.IssueMessage,
 	)
+
 	if err != nil {
 		return 0, fmt.Errorf("InsertIssueRecord: %w", err)
 	}
