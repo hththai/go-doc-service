@@ -399,7 +399,7 @@ func (s *DocumentService) saveFileAndMetadata(file *multipart.FileHeader, doc *D
 // buildUploadPath constructs the storage path for uploaded files.
 func buildUploadPath(getId int, temId string, file *multipart.FileHeader, indexFolder int) string {
 	indexIdPath := getId / indexFolder
-	basePath := config.Get().FileDataBasePath
+	basePath := config.Load().FileDataBasePath
 	return basePath + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 }
 

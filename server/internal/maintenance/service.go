@@ -26,6 +26,10 @@ import (
 // 2. In obj_doc_path, find the address of obj_id 8, file_path: ./filedata/0/0/8.pdf
 // 3. Verify with obj_doc: extension, file_size
 
+// IV. FILE ISSUE:
+// 1. If there is duplicated files:
+// 1.1 Copy them to temp file, and renamed it to refix -1 -2, 8-1.png, 8-2.pdf, etc
+
 // internal/maintenance/error.go
 
 type ErrorCode int
