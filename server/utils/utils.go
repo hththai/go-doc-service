@@ -62,7 +62,7 @@ func previewPDF(c *gin.Context) {
 		return
 	}
 
-	filePath := filepath.Join("./filedata/0/0/", id+".pdf")
+	filePath := filepath.Join(config.Get().FileDataBasePath+"0/", id+".pdf")
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		c.String(http.StatusNotFound, "File not found")
 		return

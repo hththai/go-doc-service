@@ -19,6 +19,7 @@ type MaintenanceRepository interface {
 	GetTotalFileInStorage(string) (int64, error)
 
 	// Repair.
+
 	GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error)
 	GetFlagDocumentDetail(ctx context.Context) ([]FlaggedDocument, error)
 
@@ -190,7 +191,16 @@ func (r *maintenanceRepoImpl) GetFlagDocumentDetail(ctx context.Context) ([]Flag
 
 	for rows.Next() {
 		var record FlaggedDocument
-		err := rows.Scan(&record.ObjId, &record.HasIssue, &record.Status, &record.NameOrTitle, &record.Description, &record.CreatedAt, &record.ModifiedAt, &record.FileSize, &record.Extension)
+		err := rows.Scan(&record.ObjId,
+			&record.HasIssue,
+			&record.Status,
+			&record.NameOrTitle,
+			&record.Description,
+			&record.CreatedAt,
+			&record.ModifiedAt,
+			&record.FileSize,
+			&record.Extension)
+
 		if err != nil {
 			return nil, fmt.Errorf(errMess, err)
 		}

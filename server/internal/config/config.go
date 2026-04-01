@@ -11,15 +11,16 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Env       string
-	Server    ServerConfig
-	Database  DatabaseConfig
-	JWT       JWTConfig
-	CORS      CORSConfig
-	Redis     RedisConfig
-	RateLimit RateLimitConfig
-	Cookie    CookieConfig
-	Anthropic AnthropicConfig
+	Env              string
+	Server           ServerConfig
+	Database         DatabaseConfig
+	JWT              JWTConfig
+	CORS             CORSConfig
+	Redis            RedisConfig
+	RateLimit        RateLimitConfig
+	Cookie           CookieConfig
+	Anthropic        AnthropicConfig
+	FileDataBasePath string
 }
 
 type AnthropicConfig struct {
@@ -110,6 +111,7 @@ func Load() *Config {
 		Anthropic: AnthropicConfig{
 			APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		},
+		FileDataBasePath: getEnvOrDefault("FILE_DATA_BASE_PATH", "./filedata/0/"),
 	}
 
 	return cfg

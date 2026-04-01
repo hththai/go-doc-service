@@ -2,18 +2,20 @@ package document
 
 import (
 	"2_Go/internal/category"
+	"2_Go/internal/config"
 	"2_Go/internal/obj"
 	"2_Go/utils"
 	"crypto/rand"
 	"database/sql"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+
+	"github.com/google/uuid"
 )
 
 // UpdatePurchase replaces the metadata and line items of an existing purchase.
@@ -397,7 +399,8 @@ func (s *DocumentService) saveFileAndMetadata(file *multipart.FileHeader, doc *D
 // buildUploadPath constructs the storage path for uploaded files.
 func buildUploadPath(getId int, temId string, file *multipart.FileHeader, indexFolder int) string {
 	indexIdPath := getId / indexFolder
-	return "./filedata/0/" + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
+	basePath := config.Get().FileDataBasePath
+	return basePath + strconv.Itoa(indexIdPath) + "/" + temId + filepath.Ext(file.Filename)
 }
 
 // randomString generates a random hex string of length n*2.
