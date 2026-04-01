@@ -18,6 +18,7 @@ pipeline {
         API_PORT             = '8088'
         COOKIE_SECURE        = "${params.DEPLOY_ENV != 'development' ? 'true' : 'false'}"
         RATE_LIMIT_REQUESTS  = '100'
+        FILE_DATA_BASE_PATH  = './filedata/0/'
 
         // Secrets from Jenkins Credentials
         DB_ROOT_PASSWORD   = credentials('db-root-password')
@@ -84,6 +85,7 @@ JWT_SECRET=${JWT_SECRET}
 CORS_ORIGINS=https://${API_DOMAIN_PROD}
 COOKIE_SECURE=${COOKIE_SECURE}
 RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS}
+FILE_DATA_BASE_PATH=${FILE_DATA_BASE_PATH}
 ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 EOF
                     '''
