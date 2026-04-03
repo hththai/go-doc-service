@@ -2,6 +2,8 @@ package test
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	mntSvc "2_Go/internal/maintenance"
@@ -398,4 +400,95 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 			mockProvider.AssertExpectations(t)
 		})
 	}
+}
+
+// test for scanfile get duplication
+func TestScanFileFolder(t *testing.T) {
+	// Create a temporary directory for testing
+	// testDir, err := os.MkdirTemp("", "test-scanfilefolder")
+	// if err != nil {
+	// 	t.Fatalf("Failed to create temp directory: %v", err)
+	// }
+	testDir := "./filedata/0/"
+	err := os.MkdirAll(testDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+
+	// defer func() {
+	// 	if err := os.RemoveAll(testDir); err != nil {
+	// 		log.Printf("Failed to remove test directory: %v", err)
+	// 	}
+	// }()
+
+	defer func() {
+		removeDir := "./filedata/"
+		fmt.Println("Removing:", removeDir)
+		err := os.RemoveAll(removeDir)
+		fmt.Println("RemoveAll err:", err)
+
+		// Check if it exists immediately after deletion
+		_, statErr := os.Stat(removeDir)
+		fmt.Println("Exists right after RemoveAll:", !os.IsNotExist(statErr))
+	}()
+
+	// Set up the test environment
+	tempDir := filepath.Join(testDir, "temp")
+	os.MkdirAll(tempDir, 0755)
+
+	// Create some test files with duplicate names
+	files := []string{
+		"8.pdf",
+		"8.png",
+		"9.pdf",
+		"9.png",
+		"1.png",
+	}
+
+	for _, fileName := range files {
+		filePath := filepath.Join(testDir, fileName)
+		if err := os.WriteFile(filePath, []byte("test content"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+		fmt.Printf("Created file: %s\n", filePath) // Print the file path
+	}
+
+	// Set the FILE_BASE_PATH environment variable
+	os.Setenv("FILE_BASE_PATH", testDir)
+
+	// read the FILE_BASE_PATH env
+	// read the FILE_BASE_PATH env
+	fileBasePath := os.Getenv("FILE_BASE_PATH")
+
+	// Combine the base path with a relative path
+	fullbasePath, err := filepath.Abs(fileBasePath)
+	if err != nil {
+		t.Fatalf("Failed to get full path: %v", err)
+	}
+
+	fmt.Println(">>>Full base path: ", fullbasePath)
+
+	ms := mntSvc.NewMaintenanceRepository(nil)
+
+	// Call the function under test
+	err = ms.ScanFileFolder()
+	if err != nil {
+		t.Errorf("ScanFileFolder failed: %v", err)
+	}
+
+	// Check if the duplicate files were renamed and moved to the temp directory
+	expectedFiles := []string{
+		"8_1.pdf",
+		"8_2.png",
+		"9_1.pdf",
+		"9_2.png",
+	}
+
+	for _, expectedFileName := range expectedFiles {
+		expectedFilePath := filepath.Join(tempDir, expectedFileName)
+		if _, err := os.Stat(expectedFilePath); os.IsNotExist(err) {
+			t.Errorf("Expected file %s does not exist", expectedFilePath)
+		}
+	}
+
 }

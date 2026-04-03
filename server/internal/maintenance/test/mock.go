@@ -73,3 +73,9 @@ func (m *MockObjectIDProvider) GetFlagDocumentDetail(ctx context.Context) ([]mnt
 	args := m.Called(ctx)
 	return args.Get(0).([]mnt.FlaggedDocument), args.Error(1)
 }
+
+// dummy mock
+func (m *MockObjectIDProvider) ScanFileFolder() error {
+	args := m.Called()
+	return args.Error(0)
+}

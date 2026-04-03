@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -26,6 +28,9 @@ type MaintenanceRepository interface {
 	/// INSERT
 
 	InsertIssueRecord(context.Context, ObjVerifyRecord) (int64, error)
+
+	// dev scan file
+	ScanFileFolder() error
 }
 
 type maintenanceRepoImpl struct {
@@ -212,4 +217,119 @@ func (r *maintenanceRepoImpl) GetFlagDocumentDetail(ctx context.Context) ([]Flag
 	}
 
 	return records, nil
+}
+
+// dummy test
+func (r *maintenanceRepoImpl) ScanFileFolder() error {
+	return scanFileFolder()
+}
+
+// Scan file folder from config and find the duplicate object name files.
+// if there is a duplicate file name such as 8.pdf 8.png, add them into the list result
+// copy the file and rename it to 8_1.pdf or 8_2.png and store in temp folder in the path ./filedata/0/temp/..
+// get objId and create a temp folder ./filedata/0/temp/..
+func scanFileFolder() error {
+	// Read FILE_BASE_PATH from the .env file
+	configFilePath := os.Getenv("FILE_BASE_PATH")
+	if configFilePath == "" {
+		return fmt.Errorf("FILE_BASE_PATH environment variable is not set")
+	}
+
+	// Read configuration to get the directory path
+	dirPath, err := getConfigDirectory(configFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read config: %w", err)
+	}
+
+	// Create a map to track file names and their occurrences
+	fileMap := make(map[string][]string)
+
+	// Walk through the directory
+	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			baseName := filepath.Base(path)
+			ext := filepath.Ext(baseName)
+			key := baseName[:len(baseName)-len(ext)] // Remove the extension from the base name
+
+			fileMap[key] = append(fileMap[key], path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	// Create temp folder if it doesn't exist
+	// ./filedata/0/temp
+	tempDir := filepath.Join(configFilePath, "temp")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	// Process duplicate files
+	for _, paths := range fileMap {
+		if len(paths) > 1 {
+			for i, path := range paths {
+				ext := filepath.Ext(path)
+				baseName := filepath.Base(path[:len(path)-len(ext)])
+				newFileName := fmt.Sprintf("%s_%d%s", baseName, i+1, ext)
+				newFilePath := filepath.Join(tempDir, newFileName)
+
+				// Copy and rename the file
+				if err := copyFile(path, newFilePath); err != nil {
+					return fmt.Errorf("failed to copy file: %w", err)
+				}
+			}
+		} else {
+			fmt.Printf("Single file path found for key: %s\n", paths[0])
+		}
+	}
+
+	return nil
+}
+
+// getConfigDirectory reads the config file to get the directory path.
+func getConfigDirectory(configPath string) (string, error) {
+	// Implement reading config file and extracting directory path
+	// This is a placeholder implementation
+	return configPath, nil // Replace with actual logic
+}
+
+// copyFile copies a source file to a destination file.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+
+	err = out.Sync()
+	if err != nil {
+		return err
+	}
+
+	si, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	err = os.Chmod(dst, si.Mode())
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
