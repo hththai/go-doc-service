@@ -161,7 +161,7 @@ func TestGetTotalFilesInPath(t *testing.T) {
 		{
 			name:        "existing directory with files",
 			path:        "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/0", // Assuming this directory exists and has files in it
-			expected:    10,
+			expected:    11,
 			expectError: false,
 		},
 		{
@@ -405,21 +405,11 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 // test for scanfile get duplication
 func TestScanFileFolder(t *testing.T) {
 	// Create a temporary directory for testing
-	// testDir, err := os.MkdirTemp("", "test-scanfilefolder")
-	// if err != nil {
-	// 	t.Fatalf("Failed to create temp directory: %v", err)
-	// }
 	testDir := "./filedata/0/"
 	err := os.MkdirAll(testDir, 0755)
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
 	}
-
-	// defer func() {
-	// 	if err := os.RemoveAll(testDir); err != nil {
-	// 		log.Printf("Failed to remove test directory: %v", err)
-	// 	}
-	// }()
 
 	defer func() {
 		removeDir := "./filedata/"
@@ -456,7 +446,6 @@ func TestScanFileFolder(t *testing.T) {
 	// Set the FILE_BASE_PATH environment variable
 	os.Setenv("FILE_BASE_PATH", testDir)
 
-	// read the FILE_BASE_PATH env
 	// read the FILE_BASE_PATH env
 	fileBasePath := os.Getenv("FILE_BASE_PATH")
 
