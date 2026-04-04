@@ -229,62 +229,73 @@ func (r *maintenanceRepoImpl) ScanFileFolder() error {
 // copy the file and rename it to 8_1.pdf or 8_2.png and store in temp folder in the path ./filedata/0/temp/..
 // get objId and create a temp folder ./filedata/0/temp/..
 func scanFileFolder() error {
-	// Read FILE_BASE_PATH from the .env file
 	configFilePath := os.Getenv("FILE_BASE_PATH")
 	if configFilePath == "" {
 		return fmt.Errorf("FILE_BASE_PATH environment variable is not set")
 	}
 
-	// Read configuration to get the directory path
 	dirPath, err := getConfigDirectory(configFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read config: %w", err)
 	}
 
-	// Create a map to track file names and their occurrences
+	fileMap, err := buildFileMap(dirPath)
+	if err != nil {
+		return fmt.Errorf("failed to build file map: %w", err)
+	}
+
+	temp := "temp"
+	tempDir := filepath.Join(configFilePath, temp)
+
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	for _, paths := range fileMap {
+		if len(paths) > 1 {
+			if err := processDuplicateFiles(paths, tempDir); err != nil {
+				return fmt.Errorf("failed to process duplicate files: %w", err)
+			}
+		} else {
+			fmt.Printf("Single file path found for key: %s\n", paths[0])
+		}
+	}
+
+	return nil
+}
+
+func buildFileMap(dirPath string) (map[string][]string, error) {
 	fileMap := make(map[string][]string)
 
-	// Walk through the directory
-	err = filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
 			baseName := filepath.Base(path)
 			ext := filepath.Ext(baseName)
-			key := baseName[:len(baseName)-len(ext)] // Remove the extension from the base name
+			key := baseName[:len(baseName)-len(ext)]
 
 			fileMap[key] = append(fileMap[key], path)
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to walk directory: %w", err)
+		return nil, fmt.Errorf("failed to walk directory: %w", err)
 	}
 
-	// Create temp folder if it doesn't exist
-	// ./filedata/0/temp
-	tempDir := filepath.Join(configFilePath, "temp")
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
-	}
+	return fileMap, nil
+}
 
-	// Process duplicate files
-	for _, paths := range fileMap {
-		if len(paths) > 1 {
-			for i, path := range paths {
-				ext := filepath.Ext(path)
-				baseName := filepath.Base(path[:len(path)-len(ext)])
-				newFileName := fmt.Sprintf("%s_%d%s", baseName, i+1, ext)
-				newFilePath := filepath.Join(tempDir, newFileName)
+func processDuplicateFiles(paths []string, tempDir string) error {
+	for i, path := range paths {
+		ext := filepath.Ext(path)
+		baseName := filepath.Base(path[:len(path)-len(ext)])
+		newFileName := fmt.Sprintf("%s_%d%s", baseName, i+1, ext)
+		newFilePath := filepath.Join(tempDir, newFileName)
 
-				// Copy and rename the file
-				if err := copyFile(path, newFilePath); err != nil {
-					return fmt.Errorf("failed to copy file: %w", err)
-				}
-			}
-		} else {
-			fmt.Printf("Single file path found for key: %s\n", paths[0])
+		if err := copyFile(path, newFilePath); err != nil {
+			return fmt.Errorf("failed to copy file: %w", err)
 		}
 	}
 
