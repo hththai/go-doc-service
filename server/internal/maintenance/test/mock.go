@@ -14,18 +14,18 @@ type MockObjectIDProvider struct {
 }
 
 // GetLastObjId returns the last object ID or an error.
-func (m *MockObjectIDProvider) GetLastObjId() (int64, error) {
-	return extractIntAndErr(m.Called())
+func (m *MockObjectIDProvider) GetLastObjId(ctx context.Context) (int64, error) {
+	return extractIntAndErr(m.Called(ctx))
 }
 
 // GetCurrentObjId returns the current object ID or an error.
-func (m *MockObjectIDProvider) GetCurrentId() (int64, error) {
-	return extractIntAndErr(m.Called())
+func (m *MockObjectIDProvider) GetCurrentId(ctx context.Context) (int64, error) {
+	return extractIntAndErr(m.Called(ctx))
 }
 
 // GetTotalDocumentRecords returns the max number of object file doc or an error.
-func (m *MockObjectIDProvider) GetTotalRecordsWithFilePath() (int64, error) {
-	args := m.Called()
+func (m *MockObjectIDProvider) GetTotalRecordsWithFilePath(ctx context.Context) (int64, error) {
+	args := m.Called(ctx)
 	return args.Get(0).(int64), args.Error(1)
 }
 

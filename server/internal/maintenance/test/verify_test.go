@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"2_Go/utils"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // type mockProvider struct {
@@ -60,16 +62,16 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockProvider := new(MockObjectIDProvider)
 			mockProvider.
-				On("GetLastObjId").
+				On("GetLastObjId", mock.Anything).
 				Return(tt.lastObjId, tt.lastObjIdErr)
 			mockProvider.
-				On("GetCurrentId").
+				On("GetCurrentId", mock.Anything).
 				Return(tt.currentObjId, tt.currentObjIdErr).
 				Maybe()
 			ms := &mntSvc.MaintenanceService{
 				Repo: mockProvider,
 			}
-			match, err := ms.IsMatchedObjectDocAndCounter()
+			match, err := ms.IsMatchedObjectDocAndCounter(context.Background())
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -117,14 +119,14 @@ func TestGetTotalFilePathRecord(t *testing.T) {
 			mockProvider := new(MockObjectIDProvider)
 
 			mockProvider.
-				On("GetTotalRecordsWithFilePath").
+				On("GetTotalRecordsWithFilePath", mock.Anything).
 				Return(tt.input, tt.funcErr)
 
 			ms := &mntSvc.MaintenanceService{
 				Repo: mockProvider,
 			}
 
-			got, gotErr := ms.GetTotalFileRecord()
+			got, gotErr := ms.GetTotalFileRecord(context.Background())
 			t.Logf("Result is::: %v", got)
 
 			if tt.wantErr {
@@ -362,7 +364,7 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 			mockProvider := new(MockObjectIDProvider)
 
 			mockProvider.
-				On("GetTotalRecordsWithFilePath").
+				On("GetTotalRecordsWithFilePath", mock.Anything).
 				Return(tt.recordProcess.totalRecord, tt.recordProcess.countRecordErr).
 				Maybe()
 
@@ -375,7 +377,7 @@ func TestIsFilePathEqualToCountFile(t *testing.T) {
 				Repo: mockProvider,
 			}
 
-			isFileVerify, err := ms.IsFilePathEqualToCountFile(tt.path)
+			isFileVerify, err := ms.IsFilePathEqualToCountFile(context.Background(), tt.path)
 
 			// t.Logf("isFileVerify = %v", isFileVerify)
 

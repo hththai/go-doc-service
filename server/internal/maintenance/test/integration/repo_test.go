@@ -33,7 +33,7 @@ func TestGetLastObjIdIntegration(t *testing.T) {
 
 	repo := mntRepo.NewMaintenanceRepository(db)
 
-	id, err := repo.GetLastObjId()
+	id, err := repo.GetLastObjId(context.Background())
 	if err != nil {
 		t.Fatalf("GetLastObjId returned error: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestGetCurrentIdIntegration(t *testing.T) {
 
 	repo := mntRepo.NewMaintenanceRepository(db)
 
-	id, err := repo.GetCurrentId()
+	id, err := repo.GetCurrentId(context.Background())
 	if err != nil {
 		t.Fatalf("GetCurrentId returned error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 			repo := mntRepo.NewMaintenanceRepository(db)
 			svc := mntRepo.NewMaintenanceService(repo)
 
-			isMatch, err := svc.IsMatchedObjectDocAndCounter()
+			isMatch, err := svc.IsMatchedObjectDocAndCounter(context.Background())
 			if err != nil {
 				t.Fatalf("\x1b[31mIsMatchedObjectDocAndCounter returned error: %v\x1b[0m", err)
 			}

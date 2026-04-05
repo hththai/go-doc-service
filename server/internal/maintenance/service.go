@@ -1,6 +1,7 @@
 package maintenance
 
 import (
+	"context"
 	"strings"
 )
 
@@ -72,16 +73,13 @@ func NewMaintenanceService(repo MaintenanceRepository) *MaintenanceService {
 }
 
 // I. Verify matched Object Counter
-func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
-	// lastObjId, err := ms.Provider.GetLastObjId()
-	lastObjId, err := ms.Repo.GetLastObjId()
-
+func (ms *MaintenanceService) IsMatchedObjectDocAndCounter(ctx context.Context) (bool, error) {
+	lastObjId, err := ms.Repo.GetLastObjId(ctx)
 	if err != nil {
 		return false, err
 	}
 
-	// currentObjId, err := ms.Provider.GetCurrentObjId()
-	currentObjId, err := ms.Repo.GetCurrentId()
+	currentObjId, err := ms.Repo.GetCurrentId(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -92,8 +90,8 @@ func (ms *MaintenanceService) IsMatchedObjectDocAndCounter() (bool, error) {
 // II. Verify total files is matched with obj_doc_path.
 // 1. Find number of files in a directory file/0/
 // Step 1: Count object document has obj_doc_path
-func (ms *MaintenanceService) GetTotalFileRecord() (int64, error) {
-	totalRecords, err := ms.Repo.GetTotalRecordsWithFilePath()
+func (ms *MaintenanceService) GetTotalFileRecord(ctx context.Context) (int64, error) {
+	totalRecords, err := ms.Repo.GetTotalRecordsWithFilePath(ctx)
 	if err != nil {
 		return -1, NewError(ErrCodeDatabaseError, "error of getting total doc path records")
 	}
@@ -114,7 +112,7 @@ func (ms *MaintenanceService) GetTotalFileInStorage(path string) (int64, error) 
 }
 
 // Step 3: check if total file path and count file path are equal.
-func (ms *MaintenanceService) IsFilePathEqualToCountFile(path string) (bool, error) {
+func (ms *MaintenanceService) IsFilePathEqualToCountFile(ctx context.Context, path string) (bool, error) {
 	// Sanity path
 	if strings.Trim(path, " ") == "" {
 		return false, NewError(ErrCodeInvalidInput, "path cannot be empty")
@@ -127,7 +125,7 @@ func (ms *MaintenanceService) IsFilePathEqualToCountFile(path string) (bool, err
 	}
 
 	// Get total current file record
-	totalFileRecord, err := ms.GetTotalFileRecord()
+	totalFileRecord, err := ms.GetTotalFileRecord(ctx)
 	if err != nil {
 		return false, err
 	}

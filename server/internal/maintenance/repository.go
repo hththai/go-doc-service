@@ -15,9 +15,9 @@ import (
 type MaintenanceRepository interface {
 	/// GET
 
-	GetLastObjId() (int64, error)
-	GetCurrentId() (int64, error)
-	GetTotalRecordsWithFilePath() (int64, error)
+	GetLastObjId(ctx context.Context) (int64, error)
+	GetCurrentId(ctx context.Context) (int64, error)
+	GetTotalRecordsWithFilePath(ctx context.Context) (int64, error)
 	GetTotalFileInStorage(string) (int64, error)
 
 	// Repair.
@@ -42,9 +42,9 @@ func NewMaintenanceRepository(db *sql.DB) MaintenanceRepository {
 }
 
 // GetLastObjId retrieves the maximum object ID from the database
-func (r *maintenanceRepoImpl) GetLastObjId() (int64, error) {
+func (r *maintenanceRepoImpl) GetLastObjId(ctx context.Context) (int64, error) {
 	var maxObjId int64
-	err := r.db.QueryRow("SELECT MAX(obj_id) AS max_obj_id FROM obj_doc").Scan(&maxObjId)
+	err := r.db.QueryRowContext(ctx, "SELECT MAX(obj_id) AS max_obj_id FROM obj_doc").Scan(&maxObjId)
 	if err != nil {
 		return 0, err
 	}
@@ -52,9 +52,9 @@ func (r *maintenanceRepoImpl) GetLastObjId() (int64, error) {
 }
 
 // GetCurrentId retrieves the current object ID from the database
-func (r *maintenanceRepoImpl) GetCurrentId() (int64, error) {
+func (r *maintenanceRepoImpl) GetCurrentId(ctx context.Context) (int64, error) {
 	var currentId int64
-	err := r.db.QueryRow("SELECT obj_id FROM obj_id_counter WHERE name='document'").Scan(&currentId)
+	err := r.db.QueryRowContext(ctx, "SELECT obj_id FROM obj_id_counter WHERE name='document'").Scan(&currentId)
 	if err != nil {
 		return 0, err
 	}
@@ -62,9 +62,9 @@ func (r *maintenanceRepoImpl) GetCurrentId() (int64, error) {
 }
 
 // Count the number of records with file path in database.
-func (r *maintenanceRepoImpl) GetTotalRecordsWithFilePath() (int64, error) {
+func (r *maintenanceRepoImpl) GetTotalRecordsWithFilePath(ctx context.Context) (int64, error) {
 	var totalRecords int64
-	err := r.db.QueryRow("SELECT COUNT(id) AS total_records FROM obj_doc_path").Scan(&totalRecords)
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(id) AS total_records FROM obj_doc_path").Scan(&totalRecords)
 	if err != nil {
 		return 0, err
 	}
@@ -265,6 +265,10 @@ func scanFileFolder() error {
 }
 
 func buildFileMap(dirPath string) (map[string][]string, error) {
+	// buildFileMap traverses the specified directory and its subdirectories,
+	// collecting files into a map where keys are base names (without extensions)
+	// and values are slices of full file paths.
+
 	fileMap := make(map[string][]string)
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
@@ -280,6 +284,7 @@ func buildFileMap(dirPath string) (map[string][]string, error) {
 		}
 		return nil
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk directory: %w", err)
 	}
