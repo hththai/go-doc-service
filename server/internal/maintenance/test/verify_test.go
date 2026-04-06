@@ -459,7 +459,7 @@ func TestScanFileFolder(t *testing.T) {
 
 	fmt.Println(">>>Full base path: ", fullbasePath)
 
-	ms := mntSvc.NewMaintenanceRepository(nil)
+	ms := mntSvc.NewMaintenanceService(mntSvc.NewMaintenanceRepository(nil))
 
 	// Call the function under test
 	err = ms.ScanFileFolder()

@@ -155,3 +155,9 @@ func GetFlagDocuments() error {
 }
 
 // Step 2: list all flag document obj_id, name or title, file size, created at,extensions, and file path.
+
+// ScanFileFolder scans the configured file directory for duplicate base-name files
+// and moves them to a temp folder.
+func (ms *MaintenanceService) ScanFileFolder() error {
+	return scanFileFolder()
+}
