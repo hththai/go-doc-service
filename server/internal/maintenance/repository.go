@@ -22,6 +22,7 @@ type MaintenanceRepository interface {
 
 	GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error)
 	GetFlagDocumentDetail(ctx context.Context) ([]FlaggedDocument, error)
+	GetDocFileMeta(ctx context.Context) ([]DocFileMeta, error)
 
 	/// INSERT
 
@@ -212,4 +213,43 @@ func (r *maintenanceRepoImpl) GetFlagDocumentDetail(ctx context.Context) ([]Flag
 	}
 
 	return records, nil
+}
+
+// GetDocFileMeta returns the stored file path with extension and file size for every
+// document that has a path, ordered by obj_id.
+// A document can have more than one path row; each is returned so the caller can detect it.
+// obj_doc.extension and file_size are not updated when a file is replaced, so FilePath
+// is the reliable value; Extension and FileSize may be stale.
+func (r *maintenanceRepoImpl) GetDocFileMeta(ctx context.Context) ([]DocFileMeta, error) {
+	rows, err := r.db.QueryContext(ctx, `
+        SELECT
+            p.doc_id,
+            p.file_path,
+            COALESCE(d.extension, ''),
+            COALESCE(d.file_size, 0)
+        FROM obj_doc_path AS p
+        JOIN obj_doc AS d
+            ON d.obj_id = p.doc_id
+        WHERE p.file_path IS NOT NULL AND p.file_path <> ''
+        ORDER BY p.doc_id, p.id
+    `)
+	if err != nil {
+		return nil, fmt.Errorf("GetDocFileMeta: %w", err)
+	}
+	defer rows.Close()
+
+	var metas []DocFileMeta
+	for rows.Next() {
+		var m DocFileMeta
+		if err := rows.Scan(&m.ObjId, &m.FilePath, &m.Extension, &m.FileSize); err != nil {
+			return nil, fmt.Errorf("GetDocFileMeta: %w", err)
+		}
+		metas = append(metas, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetDocFileMeta: %w", err)
+	}
+
+	return metas, nil
 }

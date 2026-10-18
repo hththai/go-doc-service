@@ -31,6 +31,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 func dropAllTables(db *sql.DB) error {
 	deps := map[string][]string{
 		"obj_doc_verification": {"obj_doc"},
+		"obj_doc_path":         {},
 		"obj_doc":              {},
 		"obj_id_counter":       {},
 	}

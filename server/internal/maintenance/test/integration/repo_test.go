@@ -322,3 +322,40 @@ func TestGetFlagDocumentDetailIntegration(t *testing.T) {
 	}
 
 }
+
+// Get stored file path with metadata for each document.
+func TestGetDocFileMetaIntegration(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	if err := dropAllTables(db); err != nil {
+		t.Fatalf(errorDropAllTableMsg, err)
+	}
+
+	for _, stmt := range []string{
+		createObjDocDetailTable,
+		createObjDocPathTable,
+		insertObjDocDetailData,
+		insertObjDocMetaOnlyData,
+		insertObjDocPathData,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatalf(errorFailToInsertMsg, err)
+		}
+	}
+
+	repo := mntRepo.NewMaintenanceRepository(db)
+
+	metas, err := repo.GetDocFileMeta(context.Background())
+	if err != nil {
+		t.Fatalf("GetDocFileMeta returned error: %v", err)
+	}
+
+	// Doc 3 (no path), doc 4 (NULL path) and doc 99 (no document) are excluded.
+	expected := []mntRepo.DocFileMeta{
+		{ObjId: 1, FilePath: "./filedata/0/0/1.pdf", Extension: "pdf", FileSize: 2048},
+		{ObjId: 2, FilePath: "./filedata/0/0/2.jpg", Extension: "jpg", FileSize: 512},
+		{ObjId: 5, FilePath: "./filedata/0/0/5.png", Extension: "", FileSize: 0},
+	}
+	assert.Equal(t, expected, metas)
+}

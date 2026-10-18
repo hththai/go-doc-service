@@ -24,6 +24,22 @@ const (
 								FOREIGN KEY (obj_id) REFERENCES obj_doc(obj_id)
 								)`
 
+	createObjDocPathTable = `CREATE TABLE obj_doc_path (
+								id        INT AUTO_INCREMENT PRIMARY KEY,
+								doc_id    INT,
+								file_path VARCHAR(4000)
+							)`
+	// Doc 1, 2, 5: valid paths. Doc 3: no path. Doc 4: NULL path.
+	// Doc 99: path without a document. Doc 5 has NULL extension and file_size.
+	insertObjDocMetaOnlyData = `INSERT INTO obj_doc (obj_id, status, name_or_title, extension, file_size)
+								VALUES (5, 1, 'No metadata', NULL, NULL)`
+	insertObjDocPathData = `INSERT INTO obj_doc_path (doc_id, file_path) VALUES
+								(1, './filedata/0/0/1.pdf'),
+								(2, './filedata/0/0/2.jpg'),
+								(4, NULL),
+								(5, './filedata/0/0/5.png'),
+								(99, './filedata/0/0/99.pdf')`
+
 	createObjDocDetailTable = `CREATE TABLE obj_doc (
 								obj_id BIGINT PRIMARY KEY,
 								status INT NOT NULL,
