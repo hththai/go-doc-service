@@ -49,8 +49,9 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
-func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
-	return m.Called(tx, doc).Error(0)
+func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) (string, error) {
+	args := m.Called(tx, doc)
+	return args.String(0), args.Error(1)
 }
 
 func (m *MockDocumentRepository) SaveItems(tx *sql.Tx, docId int64, items []document.Item) error {
@@ -669,7 +670,7 @@ func TestHandleUpdatePurchaseUnauthorized(t *testing.T) {
 func setupUpdateWithFileTx(t *testing.T, repo *MockDocumentRepository, objId int64, userID int, docId int64) sqlmock.Sqlmock {
 	t.Helper()
 	dbMock := setupUpdateTx(t, repo, objId, userID, docId)
-	repo.On("UpsertFilePath", mock.Anything, mock.Anything).Return(nil)
+	repo.On("UpsertFilePath", mock.Anything, mock.Anything).Return("", nil)
 	return dbMock
 }
 

@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"os/exec"
@@ -130,42 +131,59 @@ func (s *DocumentService) UpdatePurchaseWithFile(objId int64, userID int, input 
 		return fmt.Errorf("save categories: %w", err)
 	}
 
-	if err = s.saveFileAndUpsertPath(input.File, &doc, tx, saveFile); err != nil {
+	var previousPath string
+	previousPath, err = s.saveFileAndUpsertPath(input.File, &doc, tx, saveFile)
+	if err != nil {
 		return fmt.Errorf("replace file: %w", err)
 	}
 
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
+
+	removeReplacedFile(previousPath, doc.FilePath)
 	return nil
 }
 
+// removeReplacedFile deletes the old file after a replacement with a different extension
+// (e.g. 8.pdf -> 8.png), so it is not left in storage as a duplicate.
+// The update is already committed, so a failure is only logged.
+func removeReplacedFile(previousPath, newPath string) {
+	if previousPath == "" || filepath.Clean(previousPath) == filepath.Clean(newPath) {
+		return
+	}
+	if err := os.Remove(previousPath); err != nil && !os.IsNotExist(err) {
+		log.Printf("remove replaced file %s: %v", previousPath, err)
+	}
+}
+
 // saveFileAndUpsertPath is like saveFileAndMetadata but uses UpsertFilePath so existing records are replaced.
-func (s *DocumentService) saveFileAndUpsertPath(file *multipart.FileHeader, doc *Document, tx *sql.Tx, saveFile FileSaveFunc) error {
+// It returns the file path that was replaced.
+func (s *DocumentService) saveFileAndUpsertPath(file *multipart.FileHeader, doc *Document, tx *sql.Tx, saveFile FileSaveFunc) (string, error) {
 	tmpPath, err := saveTemp(file, file.Filename)
 	if err != nil {
-		return fmt.Errorf("cannot save file tmp: %w", err)
+		return "", fmt.Errorf("cannot save file tmp: %w", err)
 	}
 	defer os.RemoveAll(filepath.Dir(tmpPath))
 
 	if utils.IsProduction() {
 		if err := fileScan(tmpPath); err != nil {
-			return fmt.Errorf("file error with scan: %w", err)
+			return "", fmt.Errorf("file error with scan: %w", err)
 		}
 	}
 
 	getId, err := strconv.Atoi(doc.Id)
 	if err != nil {
-		return fmt.Errorf("cannot convert id: %w", err)
+		return "", fmt.Errorf("cannot convert id: %w", err)
 	}
 
 	uploadPath := buildUploadPath(getId, doc.Id, file, IndexFolder)
 	if err := os.MkdirAll(filepath.Dir(uploadPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	if err := saveFile(file, uploadPath); err != nil {
-		return fmt.Errorf("failed to save file: %w", err)
+		return "", fmt.Errorf("failed to save file: %w", err)
 	}
 
 	doc.FilePath = uploadPath
@@ -209,7 +227,7 @@ func (s *DocumentService) SaveFilePath(tx *sql.Tx, document *Document) error {
 	return s.repo.InsertFilePath(tx, document)
 }
 
-func (s *DocumentService) UpsertFilePath(tx *sql.Tx, document *Document) error {
+func (s *DocumentService) UpsertFilePath(tx *sql.Tx, document *Document) (string, error) {
 	return s.repo.UpsertFilePath(tx, document)
 }
 

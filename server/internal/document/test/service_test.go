@@ -1,11 +1,15 @@
 package document_test
 
 import (
+	"2_Go/internal/config"
 	"2_Go/internal/document"
 	"2_Go/internal/testutil"
+	"bytes"
 	"database/sql"
 	"errors"
 	"mime/multipart"
+	"os"
+	"path/filepath"
 	"testing"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
@@ -87,8 +91,9 @@ func (m *mockRepo) DeleteItemsByDocId(tx *sql.Tx, docId int64) error {
 	return m.Called(tx, docId).Error(0)
 }
 
-func (m *mockRepo) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
-	return m.Called(tx, doc).Error(0)
+func (m *mockRepo) UpsertFilePath(tx *sql.Tx, doc *document.Document) (string, error) {
+	args := m.Called(tx, doc)
+	return args.String(0), args.Error(1)
 }
 
 func (m *mockRepo) SoftDeletePurchase(objId int64, userID int) error {
@@ -579,4 +584,89 @@ func TestUpdatePurchaseWithFileSaveItemsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "save items")
 	repo.AssertExpectations(t)
 	assert.NoError(t, dbMock.ExpectationsWereMet())
+}
+
+// --- UpdatePurchaseWithFile ---
+
+// newFileHeader builds a multipart.FileHeader holding content, as an upload request would.
+func newFileHeader(t *testing.T, fileName string, content []byte) *multipart.FileHeader {
+	t.Helper()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	part, err := w.CreateFormFile("file", fileName)
+	assert.NoError(t, err)
+	_, err = part.Write(content)
+	assert.NoError(t, err)
+	assert.NoError(t, w.Close())
+
+	form, err := multipart.NewReader(&body, w.Boundary()).ReadForm(1 << 20)
+	assert.NoError(t, err)
+	t.Cleanup(func() { form.RemoveAll() })
+	return form.File["file"][0]
+}
+
+// TestUpdatePurchaseWithFileRemovesReplacedFile verifies that replacing a file with a
+// different extension deletes the old file, so no duplicate is left in storage.
+func TestUpdatePurchaseWithFileRemovesReplacedFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		oldFileName   string
+		newFileName   string
+		expectOldGone bool
+	}{
+		{name: "different extension removes old file", oldFileName: "5.pdf", newFileName: "receipt.png", expectOldGone: true},
+		{name: "same extension keeps overwritten file", oldFileName: "5.png", newFileName: "receipt.png", expectOldGone: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// config.Load caches its first result, so use the loaded base path
+			// rather than setting FILE_DATA_BASE_PATH per test.
+			newPath := config.Load().FileDataBasePath + "0/5.png"
+			oldPath := filepath.Join(filepath.Dir(newPath), tt.oldFileName)
+			assert.NoError(t, os.MkdirAll(filepath.Dir(oldPath), 0755))
+			assert.NoError(t, os.WriteFile(oldPath, []byte("old"), 0644))
+			t.Cleanup(func() {
+				os.Remove(oldPath)
+				os.Remove(newPath)
+				// Remove the folders created for the test; os.Remove skips non-empty ones.
+				for dir := filepath.Dir(newPath); dir != "." && dir != "/"; dir = filepath.Dir(dir) {
+					if os.Remove(dir) != nil {
+						break
+					}
+				}
+			})
+
+			db, dbMock, tx := setupTx(t)
+			defer db.Close()
+			dbMock.ExpectCommit()
+
+			repo := new(mockRepo)
+			repo.On("BeginTx").Return(tx, nil)
+			repo.On("UpdatePurchaseMetadata", mock.Anything, int64(5), 1, mock.Anything).Return(nil)
+			repo.On("GetDocIdByObjId", mock.Anything, int64(5), 1).Return(int64(10), nil)
+			repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(nil)
+			repo.On("SaveItems", mock.Anything, int64(10), mock.Anything).Return(nil)
+			repo.On("UpsertFilePath", mock.Anything, mock.Anything).Return(oldPath, nil)
+
+			saveFile := func(_ *multipart.FileHeader, dst string) error {
+				return os.WriteFile(dst, []byte("new"), 0644)
+			}
+
+			svc := testutil.NewDocumentService(t, repo)
+			err := svc.UpdatePurchaseWithFile(5, 1, &document.UploadInput{
+				Title:  "Receipt",
+				File:   newFileHeader(t, tt.newFileName, []byte("new")),
+				UserId: 1,
+			}, saveFile)
+
+			assert.NoError(t, err)
+			_, statErr := os.Stat(oldPath)
+			assert.Equal(t, tt.expectOldGone, os.IsNotExist(statErr))
+			_, statErr = os.Stat(newPath)
+			assert.NoError(t, statErr, "new file must exist")
+			repo.AssertExpectations(t)
+			assert.NoError(t, dbMock.ExpectationsWereMet())
+		})
+	}
 }

@@ -23,7 +23,7 @@ type DocumentRepository interface {
 	SaveMetadataWithObjId(tx *sql.Tx, objId *int64, document *Document) (int64, error)
 	SaveMetadata(tx *sql.Tx, document *Document) (int64, error)
 	InsertFilePath(tx *sql.Tx, document *Document) error
-	UpsertFilePath(tx *sql.Tx, document *Document) error
+	UpsertFilePath(tx *sql.Tx, document *Document) (previousPath string, err error)
 	SaveItems(tx *sql.Tx, docId int64, items []Item) error
 	// Read operations
 	GetPurchasesByUser(userID int, year, month string) ([]Document, error)
@@ -425,19 +425,30 @@ func (r *documentRepositoryImpl) InsertFilePath(tx *sql.Tx, document *Document) 
 }
 
 // UpsertFilePath replaces the file path for a document, ensuring only one row exists per doc.
-func (r *documentRepositoryImpl) UpsertFilePath(tx *sql.Tx, document *Document) error {
+// It returns the path that was replaced, or "" if the document had no path yet.
+func (r *documentRepositoryImpl) UpsertFilePath(tx *sql.Tx, document *Document) (string, error) {
 	objId, err := strconv.ParseInt(document.Id, 10, 64)
 	if err != nil {
-		return err
+		return "", err
 	}
+
+	var previousPath sql.NullString
+	err = tx.QueryRow(`SELECT file_path FROM obj_doc_path WHERE doc_id = ? LIMIT 1`, objId).Scan(&previousPath)
+	if err != nil && err != sql.ErrNoRows {
+		return "", err
+	}
+
 	if _, err = tx.Exec(`DELETE FROM obj_doc_path WHERE doc_id = ?`, objId); err != nil {
-		return err
+		return "", err
 	}
 	_, err = tx.Exec(
 		`INSERT INTO obj_doc_path (doc_id, file_path) VALUES (?, ?)`,
 		objId, document.FilePath,
 	)
-	return err
+	if err != nil {
+		return "", err
+	}
+	return previousPath.String, nil
 }
 
 // GetDocIdByObjId returns the auto-increment primary key (id) of obj_doc for a given obj_id.

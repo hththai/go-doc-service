@@ -123,6 +123,10 @@ err := documentService.UpdatePurchase(objId, userID, &UploadInput{
     Title: "Updated receipt", BuyFrom: "Woolworths", BuyPrice: "55.00", UserId: userID,
 })
 
+// Update a purchase and replace its file. If the new file has a different extension
+// (e.g. 8.pdf -> 8.png), the old file is deleted after commit so no duplicate is left.
+err := documentService.UpdatePurchaseWithFile(objId, userID, input, saveFunc)
+
 // Soft-delete a purchase (sets status = -1)
 err := documentService.DeletePurchase(objId, userID)
 // errors.Is(err, sql.ErrNoRows) → true when not found or owned by another user
@@ -153,6 +157,7 @@ filePath, fileName, err := documentService.GetFilePath(objId, userID)
 | **Write** | `SaveMetadataWithObjId()` | Insert a document row into `obj_doc` with a pre-assigned obj_id |
 | **Write** | `SaveMetadata()` | Insert a document row without a pre-assigned obj_id |
 | **Write** | `InsertFilePath()` | Insert the file path into `obj_doc_path` |
+| **Write** | `UpsertFilePath()` | Replace the file path in `obj_doc_path`; returns the previous path (`""` if none) |
 | **Write** | `SaveItems()` | Bulk-insert line items into `obj_item` |
 | **Write** | `UpdatePurchaseMetadata()` | `UPDATE obj_doc` for editable fields; returns `sql.ErrNoRows` if not found/owned |
 | **Write** | `DeleteItemsByObjId()` | `DELETE FROM obj_item` by `obj_id` (used before re-inserting updated items) |

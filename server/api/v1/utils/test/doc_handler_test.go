@@ -98,8 +98,9 @@ func (m *MockDocumentRepository) DeleteItemsByDocId(tx *sql.Tx, docId int64) err
 	return m.Called(tx, docId).Error(0)
 }
 
-func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) error {
-	return m.Called(tx, doc).Error(0)
+func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) (string, error) {
+	args := m.Called(tx, doc)
+	return args.String(0), args.Error(1)
 }
 
 func (m *MockDocumentRepository) SoftDeletePurchase(objId int64, userID int) error {
