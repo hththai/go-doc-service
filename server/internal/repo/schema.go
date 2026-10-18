@@ -34,6 +34,7 @@ func MigrateAll(db *sql.DB) error {
 		{17, makeItemObjIdAutoIncrement},
 		{18, createCategoryTable},
 		{19, createDocCategoryTable},
+		{20, createDocVerificationTable},
 		// Add new migrations here — never edit existing ones above.
 	}
 
@@ -304,6 +305,24 @@ func createDocCategoryTable(db *sql.DB) error {
 	) ENGINE=InnoDB`)
 	if err != nil {
 		return fmt.Errorf("failed to create obj_doc_category: %w", err)
+	}
+	return nil
+}
+
+// createDocVerificationTable stores issues found by the maintenance service, keyed by obj_doc.obj_id.
+// obj_doc.obj_id is not a unique key, so it is indexed here instead of using a foreign key.
+func createDocVerificationTable(db *sql.DB) error {
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS obj_doc_verification (
+		id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+		obj_id        BIGINT       NOT NULL,
+		has_issue     TINYINT(1)   NOT NULL DEFAULT 0,
+		issue_code    INT          NULL,
+		issue_message VARCHAR(255) NULL,
+		verified_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		INDEX idx_verification_obj_id (obj_id)
+	) ENGINE=InnoDB`)
+	if err != nil {
+		return fmt.Errorf("failed to create obj_doc_verification: %w", err)
 	}
 	return nil
 }
