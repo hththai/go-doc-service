@@ -31,6 +31,7 @@ const (
 							)`
 	// Doc 1, 2, 5: valid paths. Doc 3: no path. Doc 4: NULL path.
 	// Doc 99: path without a document. Doc 5 has NULL extension and file_size.
+	// Owners: user 1 has docs 1, 3, 4, 5; user 2 has doc 2.
 	insertObjDocMetaOnlyData = `INSERT INTO obj_doc (obj_id, status, name_or_title, extension, file_size)
 								VALUES (5, 1, 'No metadata', NULL, NULL)`
 	insertObjDocPathData = `INSERT INTO obj_doc_path (doc_id, file_path) VALUES
@@ -39,9 +40,11 @@ const (
 								(4, NULL),
 								(5, './filedata/0/0/5.png'),
 								(99, './filedata/0/0/99.pdf')`
+	setObjDocOwners = `UPDATE obj_doc SET user_id = IF(obj_id = 2, 2, 1)`
 
 	createObjDocDetailTable = `CREATE TABLE obj_doc (
 								obj_id BIGINT PRIMARY KEY,
+								user_id INT NULL,
 								status INT NOT NULL,
 								name_or_title VARCHAR(100) NOT NULL,
 								description VARCHAR(1000),

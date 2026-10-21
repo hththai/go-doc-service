@@ -1,97 +1,94 @@
 package maintenance
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
 )
 
-// scanFileFolder scans the configured file directory for duplicate base-name files
-// and copies them into a temp subfolder with a numeric suffix.
-func scanFileFolder() error {
-	configFilePath := os.Getenv("FILE_BASE_PATH")
-	if configFilePath == "" {
-		return fmt.Errorf("FILE_BASE_PATH environment variable is not set")
-	}
-
-	dirPath, err := getConfigDirectory(configFilePath)
+// findSiblingFiles returns the files in dir whose name without extension equals stem,
+// e.g. stem "8" matches 8.pdf and 8.png but not 80.pdf. Hidden files are skipped.
+func findSiblingFiles(dir, stem string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("failed to read config: %w", err)
+		return nil, err
 	}
 
-	fileMap, err := buildFileMap(dirPath)
-	if err != nil {
-		return fmt.Errorf("failed to build file map: %w", err)
-	}
-
-	temp := "temp"
-	tempDir := filepath.Join(configFilePath, temp)
-
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp directory: %w", err)
-	}
-
-	for _, paths := range fileMap {
-		if len(paths) > 1 {
-			if err := processDuplicateFiles(paths, tempDir); err != nil {
-				return fmt.Errorf("failed to process duplicate files: %w", err)
-			}
-		} else {
-			fmt.Printf("Single file path found for key: %s\n", paths[0])
+	var paths []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || strings.HasPrefix(name, ".") {
+			continue
+		}
+		if strings.TrimSuffix(name, filepath.Ext(name)) == stem {
+			paths = append(paths, filepath.Join(dir, name))
 		}
 	}
-
-	return nil
+	return paths, nil
 }
 
-// buildFileMap traverses the specified directory and its subdirectories,
-// collecting files into a map where keys are base names (without extensions)
-// and values are slices of full file paths.
-func buildFileMap(dirPath string) (map[string][]string, error) {
-	fileMap := make(map[string][]string)
-
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			baseName := filepath.Base(path)
-			ext := filepath.Ext(baseName)
-			key := baseName[:len(baseName)-len(ext)]
-
-			fileMap[key] = append(fileMap[key], path)
-		}
-		return nil
-	})
-
+// isWithin reports whether path is inside base.
+func isWithin(base, path string) bool {
+	baseAbs, err := filepath.Abs(base)
 	if err != nil {
-		return nil, fmt.Errorf("failed to walk directory: %w", err)
+		return false
 	}
-
-	return fileMap, nil
+	pathAbs, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(baseAbs, pathAbs)
+	if err != nil {
+		return false
+	}
+	return rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-func processDuplicateFiles(paths []string, tempDir string) error {
-	for i, path := range paths {
-		ext := filepath.Ext(path)
-		baseName := filepath.Base(path[:len(path)-len(ext)])
-		newFileName := fmt.Sprintf("%s_%d%s", baseName, i+1, ext)
-		newFilePath := filepath.Join(tempDir, newFileName)
-
-		if err := copyFile(path, newFilePath); err != nil {
-			return fmt.Errorf("failed to copy file: %w", err)
-		}
+// moveToQuarantine moves src into quarantineDir as <objId>_<unix-nano>_<name> and
+// returns the new path. Across file systems it copies, checks the size, then removes src.
+func moveToQuarantine(src, quarantineDir string, objId int64) (string, error) {
+	if err := os.MkdirAll(quarantineDir, 0755); err != nil {
+		return "", fmt.Errorf("create quarantine directory: %w", err)
 	}
 
-	return nil
-}
+	dst := filepath.Join(quarantineDir, fmt.Sprintf("%d_%d_%s", objId, time.Now().UnixNano(), filepath.Base(src)))
+	if _, err := os.Lstat(dst); err == nil {
+		return "", fmt.Errorf("quarantine file already exists: %s", dst)
+	}
 
-// getConfigDirectory reads the config file to get the directory path.
-func getConfigDirectory(configPath string) (string, error) {
-	// Implement reading config file and extracting directory path
-	// This is a placeholder implementation
-	return configPath, nil // Replace with actual logic
+	err := os.Rename(src, dst)
+	if err == nil {
+		return dst, nil
+	}
+	if !errors.Is(err, syscall.EXDEV) {
+		return "", fmt.Errorf("move file: %w", err)
+	}
+
+	if err := copyFile(src, dst); err != nil {
+		os.Remove(dst)
+		return "", fmt.Errorf("copy file: %w", err)
+	}
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return "", err
+	}
+	dstInfo, err := os.Stat(dst)
+	if err != nil {
+		return "", err
+	}
+	if srcInfo.Size() != dstInfo.Size() {
+		os.Remove(dst)
+		return "", fmt.Errorf("copy size mismatch: %d != %d", srcInfo.Size(), dstInfo.Size())
+	}
+	if err := os.Remove(src); err != nil {
+		return "", fmt.Errorf("remove original after copy: %w", err)
+	}
+	return dst, nil
 }
 
 // copyFile copies a source file to a destination file.
@@ -106,15 +103,17 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 
-	_, err = io.Copy(out, in)
-	if err != nil {
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
 		return err
 	}
-
-	err = out.Sync()
-	if err != nil {
+	if err := out.Sync(); err != nil {
+		out.Close()
+		return err
+	}
+	// A failed write can surface only on Close, so its error must be checked.
+	if err := out.Close(); err != nil {
 		return err
 	}
 
@@ -122,10 +121,5 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Chmod(dst, si.Mode())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return os.Chmod(dst, si.Mode())
 }

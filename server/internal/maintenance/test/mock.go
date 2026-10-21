@@ -75,8 +75,13 @@ func (m *MockObjectIDProvider) GetFlagDocumentDetail(ctx context.Context) ([]mnt
 }
 
 // GetDocFileMeta mocks the GetDocFileMeta method.
-func (m *MockObjectIDProvider) GetDocFileMeta(ctx context.Context) ([]mnt.DocFileMeta, error) {
-	args := m.Called(ctx)
+func (m *MockObjectIDProvider) GetDocFileMeta(ctx context.Context, userID int) ([]mnt.DocFileMeta, error) {
+	args := m.Called(ctx, userID)
 	metas, _ := args.Get(0).([]mnt.DocFileMeta)
 	return metas, args.Error(1)
+}
+
+// UpdateFileMetadata mocks the UpdateFileMetadata method.
+func (m *MockObjectIDProvider) UpdateFileMetadata(ctx context.Context, objId int64, userID int, extension string, fileSize float64) error {
+	return m.Called(ctx, objId, userID, extension, fileSize).Error(0)
 }

@@ -124,7 +124,7 @@ func TestIsMatchedObjectDocAndCounter(t *testing.T) {
 			}
 
 			repo := mntRepo.NewMaintenanceRepository(db)
-			svc := mntRepo.NewMaintenanceService(repo)
+			svc := mntRepo.NewMaintenanceService(repo, "", "")
 
 			isMatch, err := svc.IsMatchedObjectDocAndCounter(context.Background())
 			if err != nil {
@@ -323,7 +323,7 @@ func TestGetFlagDocumentDetailIntegration(t *testing.T) {
 
 }
 
-// Get stored file path with metadata for each document.
+// Get stored file path with metadata for each active document of a user.
 func TestGetDocFileMetaIntegration(t *testing.T) {
 	db := setupTestDB(t)
 	defer db.Close()
@@ -338,6 +338,7 @@ func TestGetDocFileMetaIntegration(t *testing.T) {
 		insertObjDocDetailData,
 		insertObjDocMetaOnlyData,
 		insertObjDocPathData,
+		setObjDocOwners,
 	} {
 		if _, err := db.Exec(stmt); err != nil {
 			t.Fatalf(errorFailToInsertMsg, err)
@@ -345,17 +346,75 @@ func TestGetDocFileMetaIntegration(t *testing.T) {
 	}
 
 	repo := mntRepo.NewMaintenanceRepository(db)
+	ctx := context.Background()
 
-	metas, err := repo.GetDocFileMeta(context.Background())
+	// User 1: doc 3 (no path, status 0), doc 4 (NULL path) and doc 99 (no document) are excluded.
+	metas, err := repo.GetDocFileMeta(ctx, 1)
 	if err != nil {
 		t.Fatalf("GetDocFileMeta returned error: %v", err)
 	}
+	assert.Equal(t, []mntRepo.DocFileMeta{
+		{ObjId: 1, Title: "Invoice Jan", FilePath: "./filedata/0/0/1.pdf", Extension: "pdf", FileSize: 2048},
+		{ObjId: 5, Title: "No metadata", FilePath: "./filedata/0/0/5.png", Extension: "", FileSize: 0},
+	}, metas)
 
-	// Doc 3 (no path), doc 4 (NULL path) and doc 99 (no document) are excluded.
-	expected := []mntRepo.DocFileMeta{
-		{ObjId: 1, FilePath: "./filedata/0/0/1.pdf", Extension: "pdf", FileSize: 2048},
-		{ObjId: 2, FilePath: "./filedata/0/0/2.jpg", Extension: "jpg", FileSize: 512},
-		{ObjId: 5, FilePath: "./filedata/0/0/5.png", Extension: "", FileSize: 0},
+	// User 2 sees only their own document.
+	metas, err = repo.GetDocFileMeta(ctx, 2)
+	if err != nil {
+		t.Fatalf("GetDocFileMeta returned error: %v", err)
 	}
-	assert.Equal(t, expected, metas)
+	assert.Equal(t, []mntRepo.DocFileMeta{
+		{ObjId: 2, Title: "Receipt Laptop", FilePath: "./filedata/0/0/2.jpg", Extension: "jpg", FileSize: 512},
+	}, metas)
+
+	// Soft-deleted documents are excluded.
+	if _, err := db.Exec("UPDATE obj_doc SET status = -1 WHERE obj_id = 1"); err != nil {
+		t.Fatalf(errorFailToInsertMsg, err)
+	}
+	metas, err = repo.GetDocFileMeta(ctx, 1)
+	if err != nil {
+		t.Fatalf("GetDocFileMeta returned error: %v", err)
+	}
+	assert.Len(t, metas, 1)
+	assert.Equal(t, int64(5), metas[0].ObjId)
+}
+
+// UpdateFileMetadata changes only the owner's active document.
+func TestUpdateFileMetadataIntegration(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+
+	if err := dropAllTables(db); err != nil {
+		t.Fatalf(errorDropAllTableMsg, err)
+	}
+
+	for _, stmt := range []string{createObjDocDetailTable, insertObjDocDetailData, setObjDocOwners} {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatalf(errorFailToInsertMsg, err)
+		}
+	}
+
+	repo := mntRepo.NewMaintenanceRepository(db)
+	ctx := context.Background()
+
+	readMeta := func(objId int64) (string, float64) {
+		var ext string
+		var size float64
+		if err := db.QueryRow("SELECT extension, file_size FROM obj_doc WHERE obj_id = ?", objId).Scan(&ext, &size); err != nil {
+			t.Fatalf("read obj_doc %d: %v", objId, err)
+		}
+		return ext, size
+	}
+
+	// Owner updates their document.
+	assert.NoError(t, repo.UpdateFileMetadata(ctx, 1, 1, ".png", 4096))
+	ext, size := readMeta(1)
+	assert.Equal(t, ".png", ext)
+	assert.Equal(t, float64(4096), size)
+
+	// Another user cannot change it (doc 2 belongs to user 2).
+	assert.NoError(t, repo.UpdateFileMetadata(ctx, 2, 1, ".png", 1))
+	ext, size = readMeta(2)
+	assert.Equal(t, "jpg", ext)
+	assert.Equal(t, float64(512), size)
 }

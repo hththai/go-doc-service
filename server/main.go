@@ -9,6 +9,7 @@ import (
 	"2_Go/internal/config"
 	"2_Go/internal/document"
 	applog "2_Go/internal/log"
+	"2_Go/internal/maintenance"
 	"2_Go/internal/repo"
 	rateLimit "2_Go/middleware"
 	"2_Go/middleware/authen"
@@ -92,6 +93,9 @@ func main() {
 	docService := document.NewDocumentService(docRepo, catRepo)
 	ocrService := ocr.NewService(cfg.Anthropic.APIKey)
 
+	mntRepo := maintenance.NewMaintenanceRepository(db)
+	mntService := maintenance.NewMaintenanceService(mntRepo, cfg.FileDataBasePath, cfg.FileQuarantinePath)
+
 	// Register service.
 	acctRepo := auth.NewAuthRepoImpl(db)
 	acctSvc := auth.NewAuthService(acctRepo)
@@ -114,6 +118,7 @@ func main() {
 		AuthSvc: acctSvc,
 		DocSvc:  *docService,
 		CatSvc:  catService,
+		MntSvc:  mntService,
 		OcrSvc:  ocrService,
 		Logger:  log,
 	}

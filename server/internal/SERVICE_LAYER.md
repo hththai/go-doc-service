@@ -200,6 +200,42 @@ filePath, fileName, err := documentService.GetFilePath(objId, userID)
 
 ---
 
+## Maintenance Service
+
+**Location:** `internal/maintenance/service.go`
+**Endpoints:** `GET /v1/auth/maintenance/verify`, `POST /v1/auth/maintenance/repair` (`api/v1/maintenanceApi`)
+
+### Responsibilities
+- Let a logged-in user verify **their own** active documents against the files on disk
+- Repair only the issues the user selects; extra files are moved to `FILE_QUARANTINE_PATH` (default `./filedata/quarantine/`), never deleted
+- Record each applied repair in `obj_doc_verification` (`has_issue = false`)
+
+### Issue codes
+| Code | Issue | Repairable | Repair |
+|------|-------|------------|--------|
+| 1 | Duplicate file: other `<obj_id>.*` files next to the stored file | yes | move extras to quarantine |
+| 2 | Missing file: stored `file_path` not on disk | no | user re-uploads from Edit |
+| 3 | Metadata mismatch: `obj_doc.extension`/`file_size` differ from the file | yes | update from the file on disk |
+| 4 | Multiple `obj_doc_path` rows | no | report only |
+
+### Key Patterns
+- **Paths are injected:** `NewMaintenanceService(repo, basePath, quarantineDir)`; the service reads no env vars
+- **Repair re-verifies first:** the client sends only `{objId, code}`; the server applies a ref only if that issue still exists, is repairable and belongs to the user — other refs come back in `skipped`
+- **No server paths in responses:** issues carry file names only
+- **Moves stay inside storage:** a file outside `basePath` is never moved
+
+### Example Usage
+```go
+issues, err := mntService.VerifyUserDocuments(ctx, userID)
+
+result, err := mntService.RepairUserDocuments(ctx, userID, []maintenance.IssueRef{
+    {ObjId: 8, Code: maintenance.IssueDuplicateFile},
+})
+// result.Repaired / result.Skipped; RepairOutcome.Err is for server logs only
+```
+
+---
+
 ## Service Layer Contract
 
 All services must follow these principles:

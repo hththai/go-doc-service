@@ -2,6 +2,10 @@ package maintenance
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -63,12 +67,17 @@ func NewError(code ErrorCode, message string) *Error {
 type MaintenanceService struct {
 	// Provider ObjectIDProvider
 	Repo MaintenanceRepository
+
+	basePath      string // root of document storage, e.g. ./filedata/0/
+	quarantineDir string // where repair moves extra files
 }
 
-func NewMaintenanceService(repo MaintenanceRepository) *MaintenanceService {
+func NewMaintenanceService(repo MaintenanceRepository, basePath, quarantineDir string) *MaintenanceService {
 	return &MaintenanceService{
 		// Provider: &DefaultObjectIDProvider{},
-		Repo: repo,
+		Repo:          repo,
+		basePath:      basePath,
+		quarantineDir: quarantineDir,
 	}
 }
 
@@ -156,8 +165,215 @@ func GetFlagDocuments() error {
 
 // Step 2: list all flag document obj_id, name or title, file size, created at,extensions, and file path.
 
-// ScanFileFolder scans the configured file directory for duplicate base-name files
-// and moves them to a temp folder.
-func (ms *MaintenanceService) ScanFileFolder() error {
-	return scanFileFolder()
+// USER VERIFY AND REPAIR
+// A user verifies their own documents, sees the issues, and picks which to repair.
+
+// foundIssue is a DocIssue plus the server-side details needed to repair it.
+type foundIssue struct {
+	DocIssue
+	storedPath string
+	extraPaths []string
+	diskExt    string
+	diskSize   int64
+}
+
+// maxIssueMessageLen matches obj_doc_verification.issue_message VARCHAR(255).
+const maxIssueMessageLen = 255
+
+// VerifyUserDocuments checks the user's active documents against the files on disk.
+func (ms *MaintenanceService) VerifyUserDocuments(ctx context.Context, userID int) ([]DocIssue, error) {
+	found, err := ms.findIssues(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	issues := make([]DocIssue, 0, len(found))
+	for _, f := range found {
+		issues = append(issues, f.DocIssue)
+	}
+	return issues, nil
+}
+
+// RepairUserDocuments repairs the selected issues of the user's documents.
+// It verifies again first, so only issues that still exist, are repairable and belong
+// to the user are repaired; every other selection is returned as skipped.
+func (ms *MaintenanceService) RepairUserDocuments(ctx context.Context, userID int, refs []IssueRef) (RepairResult, error) {
+	found, err := ms.findIssues(ctx, userID)
+	if err != nil {
+		return RepairResult{}, err
+	}
+
+	current := make(map[IssueRef]foundIssue, len(found))
+	for _, f := range found {
+		current[IssueRef{ObjId: f.ObjId, Code: f.Code}] = f
+	}
+
+	result := RepairResult{Repaired: []RepairOutcome{}, Skipped: []RepairOutcome{}}
+	done := make(map[IssueRef]bool, len(refs))
+
+	for _, ref := range refs {
+		if done[ref] {
+			continue
+		}
+		done[ref] = true
+
+		f, ok := current[ref]
+		if !ok {
+			result.Skipped = append(result.Skipped, RepairOutcome{ObjId: ref.ObjId, Code: ref.Code,
+				Message: "issue no longer found; verify again"})
+			continue
+		}
+		if !f.Repairable {
+			result.Skipped = append(result.Skipped, RepairOutcome{ObjId: ref.ObjId, Code: ref.Code,
+				Message: f.Message})
+			continue
+		}
+
+		message, err := ms.repairIssue(ctx, userID, f)
+		if err != nil {
+			result.Skipped = append(result.Skipped, RepairOutcome{ObjId: ref.ObjId, Code: ref.Code,
+				Message: "repair failed", Err: err})
+			continue
+		}
+
+		outcome := RepairOutcome{ObjId: ref.ObjId, Code: ref.Code, Message: message}
+		// The repair is done; a failed audit record is reported in Err but does not undo it.
+		if _, err := ms.Repo.InsertIssueRecord(ctx, ObjVerifyRecord{
+			ObjId:        f.ObjId,
+			HasIssue:     false,
+			IssueCode:    int(f.Code),
+			IssueMessage: truncate(message, maxIssueMessageLen),
+		}); err != nil {
+			outcome.Err = fmt.Errorf("record repair: %w", err)
+		}
+		result.Repaired = append(result.Repaired, outcome)
+	}
+
+	return result, nil
+}
+
+// findIssues returns every issue found on the user's active documents that have a file.
+func (ms *MaintenanceService) findIssues(ctx context.Context, userID int) ([]foundIssue, error) {
+	metas, err := ms.Repo.GetDocFileMeta(ctx, userID)
+	if err != nil {
+		return nil, NewError(ErrCodeDatabaseError, "error of getting document file metadata")
+	}
+
+	// Group path rows by document, keeping the obj_id order from the repository.
+	var order []int64
+	byDoc := make(map[int64][]DocFileMeta)
+	for _, m := range metas {
+		if _, ok := byDoc[m.ObjId]; !ok {
+			order = append(order, m.ObjId)
+		}
+		byDoc[m.ObjId] = append(byDoc[m.ObjId], m)
+	}
+
+	var issues []foundIssue
+	for _, objId := range order {
+		docIssues, err := ms.checkDocument(byDoc[objId])
+		if err != nil {
+			return nil, err
+		}
+		issues = append(issues, docIssues...)
+	}
+	return issues, nil
+}
+
+// checkDocument returns the issues of one document, given all its path rows.
+func (ms *MaintenanceService) checkDocument(rows []DocFileMeta) ([]foundIssue, error) {
+	m := rows[0]
+	base := DocIssue{ObjId: m.ObjId, Title: m.Title, FileName: filepath.Base(m.FilePath)}
+
+	// With several paths it is unknown which file is real, so nothing else is checked.
+	if len(rows) > 1 {
+		issue := base
+		issue.Code = IssueMultiplePaths
+		issue.Message = fmt.Sprintf("document has %d stored file paths; contact support", len(rows))
+		return []foundIssue{{DocIssue: issue}}, nil
+	}
+
+	info, err := os.Stat(m.FilePath)
+	if os.IsNotExist(err) {
+		issue := base
+		issue.Code = IssueMissingFile
+		issue.Message = "file is missing; re-upload it from Edit"
+		return []foundIssue{{DocIssue: issue}}, nil
+	}
+	if err != nil {
+		return nil, NewError(ErrCodeFilePath, fmt.Sprintf("cannot read file of document %d", m.ObjId))
+	}
+
+	var issues []foundIssue
+
+	siblings, err := findSiblingFiles(filepath.Dir(m.FilePath), strconv.FormatInt(m.ObjId, 10))
+	if err != nil {
+		return nil, NewError(ErrCodeFilePath, fmt.Sprintf("cannot read folder of document %d", m.ObjId))
+	}
+	var extraPaths, extraNames []string
+	for _, p := range siblings {
+		if filepath.Base(p) == base.FileName {
+			continue
+		}
+		extraPaths = append(extraPaths, p)
+		extraNames = append(extraNames, filepath.Base(p))
+	}
+	if len(extraPaths) > 0 {
+		issue := base
+		issue.Code = IssueDuplicateFile
+		issue.Repairable = true
+		issue.ExtraFiles = extraNames
+		issue.Message = fmt.Sprintf("%d extra file(s) next to %s", len(extraNames), base.FileName)
+		issues = append(issues, foundIssue{DocIssue: issue, storedPath: m.FilePath, extraPaths: extraPaths})
+	}
+
+	diskExt := filepath.Ext(m.FilePath)
+	if normalizeExt(m.Extension) != normalizeExt(diskExt) || int64(m.FileSize) != info.Size() {
+		issue := base
+		issue.Code = IssueMetadataMismatch
+		issue.Repairable = true
+		issue.Message = fmt.Sprintf("saved as %q, %d bytes; file is %q, %d bytes",
+			m.Extension, int64(m.FileSize), diskExt, info.Size())
+		issues = append(issues, foundIssue{DocIssue: issue, storedPath: m.FilePath, diskExt: diskExt, diskSize: info.Size()})
+	}
+
+	return issues, nil
+}
+
+// repairIssue applies the repair for one issue and returns a message describing it.
+func (ms *MaintenanceService) repairIssue(ctx context.Context, userID int, f foundIssue) (string, error) {
+	switch f.Code {
+	case IssueDuplicateFile:
+		var moved []string
+		for _, p := range f.extraPaths {
+			if !isWithin(ms.basePath, p) || filepath.Clean(p) == filepath.Clean(f.storedPath) {
+				return "", fmt.Errorf("refusing to move %s", p)
+			}
+			if _, err := moveToQuarantine(p, ms.quarantineDir, f.ObjId); err != nil {
+				return "", err
+			}
+			moved = append(moved, filepath.Base(p))
+		}
+		return fmt.Sprintf("moved %s to quarantine", strings.Join(moved, ", ")), nil
+
+	case IssueMetadataMismatch:
+		if err := ms.Repo.UpdateFileMetadata(ctx, f.ObjId, userID, f.diskExt, float64(f.diskSize)); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("updated metadata to %q, %d bytes", f.diskExt, f.diskSize), nil
+	}
+
+	return "", fmt.Errorf("issue code %d is not repairable", f.Code)
+}
+
+// normalizeExt makes ".PDF", "pdf" and ".pdf" compare equal.
+func normalizeExt(ext string) string {
+	return strings.ToLower(strings.TrimPrefix(ext, "."))
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max]
 }

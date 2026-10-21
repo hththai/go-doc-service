@@ -22,7 +22,11 @@ type MaintenanceRepository interface {
 
 	GetFlagDocuments(ctx context.Context) ([]ObjVerifyRecord, error)
 	GetFlagDocumentDetail(ctx context.Context) ([]FlaggedDocument, error)
-	GetDocFileMeta(ctx context.Context) ([]DocFileMeta, error)
+	GetDocFileMeta(ctx context.Context, userID int) ([]DocFileMeta, error)
+
+	/// UPDATE
+
+	UpdateFileMetadata(ctx context.Context, objId int64, userID int, extension string, fileSize float64) error
 
 	/// INSERT
 
@@ -216,14 +220,15 @@ func (r *maintenanceRepoImpl) GetFlagDocumentDetail(ctx context.Context) ([]Flag
 }
 
 // GetDocFileMeta returns the stored file path with extension and file size for every
-// document that has a path, ordered by obj_id.
+// active document of the user that has a path, ordered by obj_id.
 // A document can have more than one path row; each is returned so the caller can detect it.
 // obj_doc.extension and file_size are not updated when a file is replaced, so FilePath
 // is the reliable value; Extension and FileSize may be stale.
-func (r *maintenanceRepoImpl) GetDocFileMeta(ctx context.Context) ([]DocFileMeta, error) {
+func (r *maintenanceRepoImpl) GetDocFileMeta(ctx context.Context, userID int) ([]DocFileMeta, error) {
 	rows, err := r.db.QueryContext(ctx, `
         SELECT
             p.doc_id,
+            d.name_or_title,
             p.file_path,
             COALESCE(d.extension, ''),
             COALESCE(d.file_size, 0)
@@ -231,8 +236,9 @@ func (r *maintenanceRepoImpl) GetDocFileMeta(ctx context.Context) ([]DocFileMeta
         JOIN obj_doc AS d
             ON d.obj_id = p.doc_id
         WHERE p.file_path IS NOT NULL AND p.file_path <> ''
+            AND d.user_id = ? AND d.status = 1
         ORDER BY p.doc_id, p.id
-    `)
+    `, userID)
 	if err != nil {
 		return nil, fmt.Errorf("GetDocFileMeta: %w", err)
 	}
@@ -241,7 +247,7 @@ func (r *maintenanceRepoImpl) GetDocFileMeta(ctx context.Context) ([]DocFileMeta
 	var metas []DocFileMeta
 	for rows.Next() {
 		var m DocFileMeta
-		if err := rows.Scan(&m.ObjId, &m.FilePath, &m.Extension, &m.FileSize); err != nil {
+		if err := rows.Scan(&m.ObjId, &m.Title, &m.FilePath, &m.Extension, &m.FileSize); err != nil {
 			return nil, fmt.Errorf("GetDocFileMeta: %w", err)
 		}
 		metas = append(metas, m)
@@ -252,4 +258,16 @@ func (r *maintenanceRepoImpl) GetDocFileMeta(ctx context.Context) ([]DocFileMeta
 	}
 
 	return metas, nil
+}
+
+// UpdateFileMetadata sets extension and file_size of the user's active document.
+func (r *maintenanceRepoImpl) UpdateFileMetadata(ctx context.Context, objId int64, userID int, extension string, fileSize float64) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE obj_doc SET extension = ?, file_size = ? WHERE obj_id = ? AND user_id = ? AND status = 1`,
+		extension, fileSize, objId, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateFileMetadata: %w", err)
+	}
+	return nil
 }

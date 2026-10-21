@@ -21,6 +21,8 @@ type Config struct {
 	Cookie           CookieConfig
 	Anthropic        AnthropicConfig
 	FileDataBasePath string
+	// FileQuarantinePath holds files moved out of storage by maintenance repair.
+	FileQuarantinePath string
 }
 
 type AnthropicConfig struct {
@@ -111,7 +113,8 @@ func Load() *Config {
 		Anthropic: AnthropicConfig{
 			APIKey: os.Getenv("ANTHROPIC_API_KEY"),
 		},
-		FileDataBasePath: getEnvOrDefault("FILE_DATA_BASE_PATH", "./filedata/0/"),
+		FileDataBasePath:   getEnvOrDefault("FILE_DATA_BASE_PATH", "./filedata/0/"),
+		FileQuarantinePath: getEnvOrDefault("FILE_QUARANTINE_PATH", "./filedata/quarantine/"),
 	}
 
 	return cfg
