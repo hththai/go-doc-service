@@ -33,6 +33,7 @@ type DocumentRepository interface {
 	GetDocIdByObjId(tx *sql.Tx, objId int64, userID int) (int64, error)
 	// Write operations
 	UpdatePurchaseMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error
+	UpdateFileMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error
 	DeleteItemsByDocId(tx *sql.Tx, docId int64) error
 	SoftDeletePurchase(objId int64, userID int) error
 	// Transaction support
@@ -476,6 +477,19 @@ func (r *documentRepositoryImpl) UpdatePurchaseMetadata(tx *sql.Tx, objId int64,
 		nullableString(doc.PurchaseInfo.BuyPrice),
 		doc.PurchaseInfo.BuyAt,
 		doc.FileName,
+		objId,
+		userID,
+	)
+	return err
+}
+
+// UpdateFileMetadata sets extension and file_size after the document's file is replaced.
+// It is separate from UpdatePurchaseMetadata, which also runs when no file is uploaded.
+func (r *documentRepositoryImpl) UpdateFileMetadata(tx *sql.Tx, objId int64, userID int, doc *Document) error {
+	_, err := tx.Exec(
+		`UPDATE obj_doc SET extension=?, file_size=? WHERE obj_id=? AND user_id=? AND status=1`,
+		doc.Extension,
+		doc.FileSize,
 		objId,
 		userID,
 	)

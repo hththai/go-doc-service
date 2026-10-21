@@ -160,6 +160,7 @@ filePath, fileName, err := documentService.GetFilePath(objId, userID)
 | **Write** | `UpsertFilePath()` | Replace the file path in `obj_doc_path`; returns the previous path (`""` if none) |
 | **Write** | `SaveItems()` | Bulk-insert line items into `obj_item` |
 | **Write** | `UpdatePurchaseMetadata()` | `UPDATE obj_doc` for editable fields; returns `sql.ErrNoRows` if not found/owned |
+| **Write** | `UpdateFileMetadata()` | Set `extension` and `file_size` on `obj_doc`; called only when the file is replaced |
 | **Write** | `DeleteItemsByObjId()` | `DELETE FROM obj_item` by `obj_id` (used before re-inserting updated items) |
 | **Write** | `SoftDeletePurchase()` | Set `status=-1` on `obj_doc`; returns `sql.ErrNoRows` if not found/owned |
 | **Read** | `GetPurchasesByUser()` | Query purchases with optional year/month filter; assembles items per document |

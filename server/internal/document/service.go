@@ -137,6 +137,10 @@ func (s *DocumentService) UpdatePurchaseWithFile(objId int64, userID int, input 
 		return fmt.Errorf("replace file: %w", err)
 	}
 
+	if err = s.repo.UpdateFileMetadata(tx, objId, userID, &doc); err != nil {
+		return fmt.Errorf("update file metadata: %w", err)
+	}
+
 	if err = tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}

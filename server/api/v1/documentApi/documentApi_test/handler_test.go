@@ -49,6 +49,10 @@ func (m *MockDocumentRepository) InsertFilePath(tx *sql.Tx, doc *document.Docume
 	return args.Error(0)
 }
 
+func (m *MockDocumentRepository) UpdateFileMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error {
+	return m.Called(tx, objId, userID, doc).Error(0)
+}
+
 func (m *MockDocumentRepository) UpsertFilePath(tx *sql.Tx, doc *document.Document) (string, error) {
 	args := m.Called(tx, doc)
 	return args.String(0), args.Error(1)
@@ -671,6 +675,7 @@ func setupUpdateWithFileTx(t *testing.T, repo *MockDocumentRepository, objId int
 	t.Helper()
 	dbMock := setupUpdateTx(t, repo, objId, userID, docId)
 	repo.On("UpsertFilePath", mock.Anything, mock.Anything).Return("", nil)
+	repo.On("UpdateFileMetadata", mock.Anything, objId, userID, mock.Anything).Return(nil)
 	return dbMock
 }
 

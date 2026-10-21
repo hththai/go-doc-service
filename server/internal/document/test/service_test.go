@@ -91,6 +91,10 @@ func (m *mockRepo) DeleteItemsByDocId(tx *sql.Tx, docId int64) error {
 	return m.Called(tx, docId).Error(0)
 }
 
+func (m *mockRepo) UpdateFileMetadata(tx *sql.Tx, objId int64, userID int, doc *document.Document) error {
+	return m.Called(tx, objId, userID, doc).Error(0)
+}
+
 func (m *mockRepo) UpsertFilePath(tx *sql.Tx, doc *document.Document) (string, error) {
 	args := m.Called(tx, doc)
 	return args.String(0), args.Error(1)
@@ -655,6 +659,9 @@ func TestUpdatePurchaseWithFileRemovesReplacedFile(t *testing.T) {
 			repo.On("DeleteItemsByDocId", mock.Anything, int64(10)).Return(nil)
 			repo.On("SaveItems", mock.Anything, int64(10), mock.Anything).Return(nil)
 			repo.On("UpsertFilePath", mock.Anything, mock.Anything).Return(oldPath, nil)
+			repo.On("UpdateFileMetadata", mock.Anything, int64(5), 1, mock.MatchedBy(func(d *document.Document) bool {
+				return d.Extension == ".png" && d.FileSize == float64(len("new"))
+			})).Return(nil)
 
 			saveFile := func(_ *multipart.FileHeader, dst string) error {
 				return os.WriteFile(dst, []byte("new"), 0644)
