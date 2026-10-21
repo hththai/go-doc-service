@@ -3,6 +3,8 @@ package test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	mntSvc "2_Go/internal/maintenance"
@@ -151,22 +153,57 @@ func TestGetTotalFilePathRecord(t *testing.T) {
 // Test for GetTotalFilesInPath function
 func TestGetTotalFilesInPath(t *testing.T) {
 
+	// writeFiles creates the files under a temp storage root, using the same
+	// layout as uploads (<root>/<obj_id/100>/<obj_id>.<ext>), and returns the root.
+	writeFiles := func(t *testing.T, files ...string) string {
+		t.Helper()
+		root := t.TempDir()
+		for _, f := range files {
+			p := filepath.Join(root, f)
+			if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+				t.Fatalf("create dir: %v", err)
+			}
+			if err := os.WriteFile(p, []byte("test"), 0644); err != nil {
+				t.Fatalf("create file: %v", err)
+			}
+		}
+		return root
+	}
+
 	// test case
 	tests := []struct {
 		name        string
-		path        string
+		path        func(t *testing.T) string
 		expected    int64
 		expectError bool
 	}{
 		{
-			name:        "existing directory with files",
-			path:        "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/0", // Assuming this directory exists and has files in it
-			expected:    11,
+			name: "existing directory with files",
+			path: func(t *testing.T) string {
+				return writeFiles(t, "0/9.txt", "0/31.pdf", "4/491.pdf", "45/4599.png")
+			},
+			expected:    4,
 			expectError: false,
 		},
 		{
-			name:        "non-existent directory",
-			path:        "./non_existent_directory",
+			name: "hidden files are not counted",
+			path: func(t *testing.T) string {
+				return writeFiles(t, "0/9.txt", ".DS_Store", "0/.DS_Store")
+			},
+			expected:    1,
+			expectError: false,
+		},
+		{
+			name:        "empty directory",
+			path:        func(t *testing.T) string { return t.TempDir() },
+			expected:    0,
+			expectError: false,
+		},
+		{
+			name: "non-existent directory",
+			path: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "non_existent_directory")
+			},
 			expected:    0,
 			expectError: true,
 		},
@@ -179,7 +216,7 @@ func TestGetTotalFilesInPath(t *testing.T) {
 
 			ms := mntSvc.NewMaintenanceRepository(nil)
 
-			count, err := ms.GetTotalFileInStorage(tt.path)
+			count, err := ms.GetTotalFileInStorage(tt.path(t))
 			if tt.expectError {
 				assert.Error(t, err, utils.Colorize("red", "An error is expected but got nil"))
 				assert.Equalf(t, tt.expected, count, utils.Colorize("red", "fail negative by returning wrong number of files"))
@@ -193,7 +230,7 @@ func TestGetTotalFilesInPath(t *testing.T) {
 
 // Test if verification of number path file and path record.
 func TestIsFilePathEqualToCountFile(t *testing.T) {
-	defaultPath := "/Users/huythai/Documents/0_Projects/2_Go/server/filedata/"
+	defaultPath := "./filedata/0/" // only passed to the mock
 	tests := []struct {
 		name          string
 		path          string
