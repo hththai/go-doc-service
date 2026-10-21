@@ -616,6 +616,8 @@ func TestUpdatePurchaseWithFileRemovesReplacedFile(t *testing.T) {
 	}{
 		{name: "different extension removes old file", oldFileName: "5.pdf", newFileName: "receipt.png", expectOldGone: true},
 		{name: "same extension keeps overwritten file", oldFileName: "5.png", newFileName: "receipt.png", expectOldGone: false},
+		// Document created without a file: there is no previous path, so nothing is deleted.
+		{name: "first file on document without file", oldFileName: "", newFileName: "receipt.png"},
 	}
 
 	for _, tt := range tests {
@@ -623,11 +625,16 @@ func TestUpdatePurchaseWithFileRemovesReplacedFile(t *testing.T) {
 			// config.Load caches its first result, so use the loaded base path
 			// rather than setting FILE_DATA_BASE_PATH per test.
 			newPath := config.Load().FileDataBasePath + "0/5.png"
-			oldPath := filepath.Join(filepath.Dir(newPath), tt.oldFileName)
-			assert.NoError(t, os.MkdirAll(filepath.Dir(oldPath), 0755))
-			assert.NoError(t, os.WriteFile(oldPath, []byte("old"), 0644))
+			oldPath := ""
+			if tt.oldFileName != "" {
+				oldPath = filepath.Join(filepath.Dir(newPath), tt.oldFileName)
+				assert.NoError(t, os.MkdirAll(filepath.Dir(oldPath), 0755))
+				assert.NoError(t, os.WriteFile(oldPath, []byte("old"), 0644))
+			}
 			t.Cleanup(func() {
-				os.Remove(oldPath)
+				if oldPath != "" {
+					os.Remove(oldPath)
+				}
 				os.Remove(newPath)
 				// Remove the folders created for the test; os.Remove skips non-empty ones.
 				for dir := filepath.Dir(newPath); dir != "." && dir != "/"; dir = filepath.Dir(dir) {
@@ -661,9 +668,11 @@ func TestUpdatePurchaseWithFileRemovesReplacedFile(t *testing.T) {
 			}, saveFile)
 
 			assert.NoError(t, err)
-			_, statErr := os.Stat(oldPath)
-			assert.Equal(t, tt.expectOldGone, os.IsNotExist(statErr))
-			_, statErr = os.Stat(newPath)
+			if oldPath != "" {
+				_, statErr := os.Stat(oldPath)
+				assert.Equal(t, tt.expectOldGone, os.IsNotExist(statErr))
+			}
+			_, statErr := os.Stat(newPath)
 			assert.NoError(t, statErr, "new file must exist")
 			repo.AssertExpectations(t)
 			assert.NoError(t, dbMock.ExpectationsWereMet())
