@@ -34,6 +34,26 @@ pipeline {
             }
         }
 
+        stage('Check API') {
+            // The client must not go live before the server it calls. A deployed
+            // server answers 401 (not logged in) for this route; an older server
+            // without the maintenance API answers 404. Deploy the server job first.
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    URL="${VITE_API_URL}/v1/auth/maintenance/verify"
+                    # curl prints 000 when the server cannot be reached.
+                    CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$URL" || true)
+                    echo "GET $URL -> $CODE"
+                    case "$CODE" in
+                        401|200) echo "Server API is up to date." ;;
+                        404) echo "Server is missing /maintenance endpoints. Deploy the server pipeline first."; exit 1 ;;
+                        *)   echo "Server API not reachable or unhealthy (HTTP $CODE)."; exit 1 ;;
+                    esac
+                '''
+            }
+        }
+
         stage('Deploy') {
             steps {
                 dir('client-vite/client-vite') {

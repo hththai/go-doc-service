@@ -20,6 +20,10 @@ pipeline {
         RATE_LIMIT_REQUESTS  = '100'
         FILE_DATA_BASE_PATH  = './filedata/0/'
 
+        // Backups of the database and file storage, kept in a Docker volume
+        BACKUP_VOLUME        = '2go_backups'
+        BACKUP_KEEP          = '10'
+
         // Secrets from Jenkins Credentials
         DB_ROOT_PASSWORD   = credentials('db-root-password')
         DB_USER            = credentials('db-user')
@@ -55,6 +59,58 @@ pipeline {
                 sh 'apt-get install -y --no-install-recommends libmupdf-dev'
                 dir('server') {
                     sh 'go test -v ./...'
+                }
+            }
+        }
+
+        stage('Integration Test') {
+            // Runs against a throwaway MySQL on its own Docker network, never the
+            // production database. Tests run in a golang container on that network,
+            // so this works whether Jenkins runs on the host or in a container.
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    NET="it-net-${BUILD_NUMBER}"
+                    DB="it-mysql-${BUILD_NUMBER}"
+                    RUNNER="it-go-${BUILD_NUMBER}"
+
+                    docker network create "$NET"
+                    docker run -d --name "$DB" --network "$NET" \
+                        -e MYSQL_ROOT_PASSWORD=root \
+                        -e MYSQL_DATABASE=testdb \
+                        -e MYSQL_USER=testuser \
+                        -e MYSQL_PASSWORD=password \
+                        mysql:8.0
+
+                    # Wait for the real server (the init server does not listen on TCP).
+                    for i in $(seq 1 60); do
+                        if docker exec "$DB" mysql -h127.0.0.1 -utestuser -ppassword -e 'SELECT 1' testdb >/dev/null 2>&1; then
+                            break
+                        fi
+                        if [ "$i" -eq 60 ]; then
+                            echo "Test MySQL did not start"; docker logs "$DB"; exit 1
+                        fi
+                        sleep 2
+                    done
+
+                    docker create --name "$RUNNER" --network "$NET" -w /server \
+                        -e GO_ENV=test \
+                        -e TEST_DB_DSN="testuser:password@tcp(${DB}:3306)/testdb?parseTime=true" \
+                        -v 2go_gomodcache:/go/pkg/mod \
+                        golang:1.25-bookworm \
+                        go test -tags=integration ./internal/maintenance/test/integration/...
+
+                    # server/ needs ../ocr for the go.mod replace directive.
+                    tar --no-xattrs --exclude=server/main --exclude=server/.env --exclude=server/filedata -cf - server ocr | docker cp - "$RUNNER":/
+                    docker start -a "$RUNNER"
+                '''
+            }
+            post {
+                always {
+                    sh '''
+                        docker rm -f "it-go-${BUILD_NUMBER}" "it-mysql-${BUILD_NUMBER}" >/dev/null 2>&1 || true
+                        docker network rm "it-net-${BUILD_NUMBER}" >/dev/null 2>&1 || true
+                    '''
                 }
             }
         }
@@ -98,6 +154,45 @@ EOF
                 // Build context is the project root so Docker can reach both
                 // server/ and ocr/ (required by the go.mod replace directive).
                 sh 'docker build -f server/Dockerfile -t 2go-server:latest .'
+            }
+        }
+
+        stage('Backup') {
+            // Dump the database and archive file storage before deploying, so a bad
+            // release or a wrong repair can be restored. Fails the build (no deploy)
+            // if a backup cannot be written.
+            steps {
+                sh '''#!/bin/bash
+                    set -euo pipefail
+                    TS=$(date +%Y%m%d-%H%M%S)
+
+                    docker volume create "$BACKUP_VOLUME" >/dev/null
+
+                    if docker ps --format '{{.Names}}' | grep -qx mysql_db; then
+                        echo "Backing up database to db-$TS.sql.gz"
+                        docker exec mysql_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump -uroot --single-transaction --routines --no-tablespaces "$MYSQL_DATABASE"' \
+                            | gzip \
+                            | docker run -i --rm -v "$BACKUP_VOLUME":/backup alpine sh -c "cat > /backup/db-$TS.sql.gz && test -s /backup/db-$TS.sql.gz"
+                    else
+                        echo "mysql_db is not running (first deploy?); skipping database backup"
+                    fi
+
+                    if docker volume inspect server_filedata >/dev/null 2>&1; then
+                        echo "Backing up file storage to filedata-$TS.tgz"
+                        docker run --rm -v server_filedata:/data:ro -v "$BACKUP_VOLUME":/backup alpine \
+                            tar czf "/backup/filedata-$TS.tgz" -C /data .
+                    else
+                        echo "server_filedata volume not found (first deploy?); skipping file backup"
+                    fi
+
+                    # Keep only the newest backups of each kind.
+                    docker run --rm -v "$BACKUP_VOLUME":/backup alpine sh -c "
+                        cd /backup
+                        ls -1t db-*.sql.gz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) | xargs -r rm -f
+                        ls -1t filedata-*.tgz 2>/dev/null | tail -n +$((BACKUP_KEEP + 1)) | xargs -r rm -f
+                        ls -lh
+                    "
+                '''
             }
         }
 
