@@ -65,10 +65,12 @@ pipeline {
                 // time via purego. Install it so the shared library is present
                 // on the agent even though the tests themselves use a mock.
                 // Refresh the package list first: a stale list asks for removed
-                // package versions and fails with 404. Skip when already installed.
+                // package versions and fails with 404. --error-on=any stops here with
+                // the real cause if the refresh fails, instead of a later 404.
+                // Skip when already installed.
                 sh '''
                     if ! dpkg -s libmupdf-dev >/dev/null 2>&1; then
-                        apt-get update
+                        apt-get update --error-on=any
                         apt-get install -y --no-install-recommends libmupdf-dev
                     fi
                 '''
