@@ -36,7 +36,7 @@ services:
       start_period: 30s
 
   api:
-    image: 2go-server:latest
+    image: 2go-server:${IMAGE_TAG:-latest}
     container_name: golang_api
     restart: always
     volumes:

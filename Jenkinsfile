@@ -3,6 +3,7 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY_ENV', choices: ['production', 'staging', 'development'], description: 'Target deployment environment')
+        string(name: 'ROLLBACK_TAG', defaultValue: '', description: 'Build number of an earlier image to redeploy. Leave empty to build and deploy this commit.')
     }
 
     tools {
@@ -19,6 +20,11 @@ pipeline {
         COOKIE_SECURE        = "${params.DEPLOY_ENV != 'development' ? 'true' : 'false'}"
         RATE_LIMIT_REQUESTS  = '100'
         FILE_DATA_BASE_PATH  = './filedata/0/'
+
+        // Image tag: this build's number, or the build number given to roll back to
+        IMAGE_NAME           = '2go-server'
+        IMAGE_TAG            = "${params.ROLLBACK_TAG?.trim() ?: env.BUILD_NUMBER}"
+        IMAGE_KEEP           = '5'
 
         // Backups of the database and file storage, kept in a Docker volume
         BACKUP_VOLUME        = '2go_backups'
@@ -40,6 +46,7 @@ pipeline {
         }
 
         stage('Build') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             steps {
                 dir('server') {
                     sh 'go mod download'
@@ -49,6 +56,7 @@ pipeline {
         }
 
         stage('Test') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             environment {
                 GO_ENV = 'test'
             }
@@ -64,6 +72,7 @@ pipeline {
         }
 
         stage('Integration Test') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             // Runs against a throwaway MySQL on its own Docker network, never the
             // production database. Tests run in a golang container on that network,
             // so this works whether Jenkins runs on the host or in a container.
@@ -150,10 +159,25 @@ EOF
         }
 
         stage('Docker Build') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             steps {
                 // Build context is the project root so Docker can reach both
                 // server/ and ocr/ (required by the go.mod replace directive).
-                sh 'docker build -f server/Dockerfile -t 2go-server:latest .'
+                sh 'docker build -f server/Dockerfile -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
+            }
+        }
+
+        stage('Check Rollback Image') {
+            when { expression { params.ROLLBACK_TAG?.trim() as boolean } }
+            steps {
+                sh '''
+                    if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
+                        echo "Image ${IMAGE_NAME}:${IMAGE_TAG} not found. Available build numbers:"
+                        docker images "${IMAGE_NAME}" --format '{{.Tag}}' | grep -E '^[0-9]+$' | sort -rn
+                        exit 1
+                    fi
+                    echo "Rolling back to ${IMAGE_NAME}:${IMAGE_TAG}"
+                '''
             }
         }
 
@@ -219,7 +243,15 @@ EOF
                             echo "Migration done. Remove old volume manually when ready: docker volume rm server_mydata"
                         fi
 
+                        # Deploy IMAGE_TAG (read by docker-compose.prod.yml) and point latest at it,
+                        # so a manual `docker-compose up` runs the same image.
+                        docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
                         docker-compose -p server -f docker-compose.prod.yml up -d --force-recreate --no-build api
+
+                        # Keep the newest IMAGE_KEEP numbered images for rollback; never the deployed one.
+                        docker images "${IMAGE_NAME}" --format '{{.Tag}}' | grep -E '^[0-9]+$' | sort -rn \
+                            | tail -n +$((IMAGE_KEEP + 1)) | grep -vx "${IMAGE_TAG}" \
+                            | xargs -r -I{} sh -c 'docker rmi "${IMAGE_NAME}:{}" || true'
                         docker image prune -f
                     '''
                 }
@@ -229,7 +261,7 @@ EOF
 
     post {
         success {
-            echo 'Build completed successfully!'
+            echo "Build completed successfully! Deployed ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
         }
         failure {
             echo 'Build failed!'

@@ -3,7 +3,7 @@
 
 services:
   client:
-    image: 2go-client-vite:latest
+    image: 2go-client-vite:${IMAGE_TAG:-latest}
     container_name: vite_client
     restart: always
     networks:

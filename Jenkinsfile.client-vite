@@ -3,12 +3,16 @@ pipeline {
 
     parameters {
         choice(name: 'DEPLOY_ENV', choices: ['production', 'staging', 'development'], description: 'Target deployment environment')
+        string(name: 'ROLLBACK_TAG', defaultValue: '', description: 'Build number of an earlier image to redeploy. Leave empty to build and deploy this commit.')
     }
 
     environment {
         CLIENT_DOMAIN = 'box.hthai.cloud'
         VITE_API_URL  = "https://${CLIENT_DOMAIN}/go"
         IMAGE_NAME    = '2go-client-vite'
+        // Image tag: this build's number, or the build number given to roll back to
+        IMAGE_TAG     = "${params.ROLLBACK_TAG?.trim() ?: env.BUILD_NUMBER}"
+        IMAGE_KEEP    = '5'
     }
 
     stages {
@@ -19,6 +23,7 @@ pipeline {
         }
 
         stage('Test') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             steps {
                 dir('client-vite/client-vite') {
                     sh 'docker build --target test .'
@@ -27,14 +32,30 @@ pipeline {
         }
 
         stage('Docker Build') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             steps {
                 dir('client-vite/client-vite') {
-                    sh "docker build --build-arg VITE_API_URL=${VITE_API_URL} -t ${IMAGE_NAME}:latest ."
+                    sh "docker build --build-arg VITE_API_URL=${VITE_API_URL} -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest ."
                 }
             }
         }
 
+        stage('Check Rollback Image') {
+            when { expression { params.ROLLBACK_TAG?.trim() as boolean } }
+            steps {
+                sh '''
+                    if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
+                        echo "Image ${IMAGE_NAME}:${IMAGE_TAG} not found. Available build numbers:"
+                        docker images "${IMAGE_NAME}" --format '{{.Tag}}' | grep -E '^[0-9]+$' | sort -rn
+                        exit 1
+                    fi
+                    echo "Rolling back to ${IMAGE_NAME}:${IMAGE_TAG}"
+                '''
+            }
+        }
+
         stage('Check API') {
+            when { expression { !params.ROLLBACK_TAG?.trim() } }
             // The client must not go live before the server it calls. A deployed
             // server answers 401 (not logged in) for this route; an older server
             // without the maintenance API answers 404. Deploy the server job first.
@@ -57,11 +78,18 @@ pipeline {
         stage('Deploy') {
             steps {
                 dir('client-vite/client-vite') {
-                    sh """
-                        export CLIENT_DOMAIN=${CLIENT_DOMAIN}
+                    sh '''
+                        # Deploy IMAGE_TAG (read by docker-compose.prod.yml) and point latest at it.
+                        docker tag "${IMAGE_NAME}:${IMAGE_TAG}" "${IMAGE_NAME}:latest"
                         docker-compose -f docker-compose.prod.yml down --remove-orphans || true
                         docker-compose -f docker-compose.prod.yml up -d
-                    """
+
+                        # Keep the newest IMAGE_KEEP numbered images for rollback; never the deployed one.
+                        docker images "${IMAGE_NAME}" --format '{{.Tag}}' | grep -E '^[0-9]+$' | sort -rn \\
+                            | tail -n +$((IMAGE_KEEP + 1)) | grep -vx "${IMAGE_TAG}" \\
+                            | xargs -r -I{} sh -c 'docker rmi "${IMAGE_NAME}:{}" || true'
+                        docker image prune -f
+                    '''
                 }
             }
         }
@@ -69,7 +97,7 @@ pipeline {
 
     post {
         success {
-            echo 'Client Vite deployed successfully!'
+            echo "Client Vite deployed successfully! Deployed ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
         }
         failure {
             echo 'Client Vite build failed!'
