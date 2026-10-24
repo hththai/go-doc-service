@@ -31,12 +31,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmupdf-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Maldet
-RUN wget https://github.com/rfxn/linux-malware-detect/archive/refs/heads/master.tar.gz -O maldetect.tar.gz \
-    && tar -xzf maldetect.tar.gz \
-    && cd linux-malware-detect-master && ./install.sh \
+# Install Maldet, pinned to a release. Do not use master: v2.x made its library
+# files unreadable to non-root users, so scans as appuser fail with exit 127.
+ARG MALDET_VERSION=1.6.6.1
+RUN wget https://github.com/rfxn/linux-malware-detect/archive/refs/tags/${MALDET_VERSION}.tar.gz -O maldetect.tar.gz \
+    && mkdir maldetect-src \
+    && tar -xzf maldetect.tar.gz -C maldetect-src --strip-components=1 \
+    && cd maldetect-src && ./install.sh \
     && cd /app \
-    && rm -rf linux-malware-detect-master maldetect.tar.gz
+    && rm -rf maldetect-src maldetect.tar.gz
 
 # Add Maldet to PATH
 ENV PATH="/usr/local/maldetect:${PATH}"
