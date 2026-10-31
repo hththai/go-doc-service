@@ -1,0 +1,101 @@
+plan_task:
+  agent: planner
+  description: >
+    Plan the change described in this brief.
+
+    BRIEF:
+    {brief}
+
+    PROJECT CONTEXT (CLAUDE.md files, SERVICE_LAYER.md, file layout):
+    {repo_context}
+
+    Read the files the brief mentions and their tests before planning. Decide
+    whether the client (client-vite) needs changes at all. List every file to
+    change, in dependency order (model, repository, service, handler, client),
+    what to change in each, and the tests to add or update. Note risks.
+  expected_output: A structured plan with a summary, ordered steps, tests and risks.
+
+backend_task:
+  agent: go_developer
+  description: >
+    Implement the server/ part of this plan in the worktree.
+
+    BRIEF:
+    {brief}
+
+    PLAN (JSON):
+    {plan}
+
+    FEEDBACK FROM THE PREVIOUS ATTEMPT (fix these first):
+    {feedback}
+
+    Steps: read each file before editing, use edit_file for focused changes,
+    update or add tests in the module's test/ folder, then call run_checks with
+    area "server" and keep fixing until it passes. Do not change go.mod/go.sum.
+    If the plan has no server work, say so and change nothing.
+  expected_output: Short summary of files changed, tests added, and the final run_checks result.
+
+frontend_task:
+  agent: frontend_developer
+  description: >
+    Implement the client-vite part of this plan in the worktree.
+
+    BRIEF:
+    {brief}
+
+    PLAN (JSON):
+    {plan}
+
+    FEEDBACK FROM THE PREVIOUS ATTEMPT (fix these first):
+    {feedback}
+
+    Keep API calls in src/api and use TanStack Query hooks. Add or update Vitest
+    tests. Call run_checks with area "client" and keep fixing until it passes.
+  expected_output: Short summary of files changed, tests added, and the final run_checks result.
+
+review_task:
+  agent: reviewer
+  description: >
+    Review this change against the brief and plan.
+
+    BRIEF:
+    {brief}
+
+    PLAN (JSON):
+    {plan}
+
+    CHECK RESULTS (already passing):
+    {check_summary}
+
+    DIFF:
+    {diff}
+
+    You may read surrounding files for context. Approve only if the change fully
+    addresses the brief, respects clean architecture, has meaningful tests and
+    introduces no security or correctness problems. Each issue must name the file
+    and say exactly what to change.
+  expected_output: approved true/false, a list of concrete issues, and a one-paragraph summary.
+
+docs_task:
+  agent: docs_writer
+  description: >
+    The change below passed checks and review. Update documentation and write
+    the commit message.
+
+    BRIEF:
+    {brief}
+
+    PLAN (JSON):
+    {plan}
+
+    DIFF:
+    {diff}
+
+    1. If service methods, responsibilities or patterns changed, update
+       server/internal/SERVICE_LAYER.md (and its "Last Updated" date).
+    2. Tick off items in server/TODO.md, client-vite/client-vite/TODO.md or a
+       module CLAUDE.md that this change completed. Do not invent new items.
+    3. Write a Conventional Commit message: one subject line under 72 chars
+       (type(scope): summary), a blank line, then 2-6 bullet lines.
+    Only edit .md files. If no docs need changing, change nothing.
+  expected_output: The list of Markdown files you updated and the commit message.
