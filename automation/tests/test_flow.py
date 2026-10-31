@@ -86,3 +86,12 @@ def test_flow_gives_up(repo, tmp_path):
     assert flow.state.outcome == "failed"
     assert runner.calls == ["plan", "implement"]
     assert "worktree remove --force" in (Path(flow.state.run_dir) / "report.md").read_text()
+
+
+def test_llm_sends_no_temperature_by_default(monkeypatch):
+    from dev_crew.crews import llm_options
+
+    monkeypatch.delenv("TEMPERATURE", raising=False)
+    assert llm_options() == {}
+    monkeypatch.setenv("TEMPERATURE", "0.2")
+    assert llm_options() == {"temperature": 0.2}

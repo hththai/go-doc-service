@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date
 from pathlib import Path
 from typing import Protocol
@@ -55,6 +56,13 @@ class StageRunner(Protocol):
     def docs(self, brief: str, plan: Plan, diff: str) -> DocsResult: ...
 
 
+def llm_options() -> dict:
+    """Extra LLM settings. Nothing is sent by default: some models (newer Claude ones)
+    reject `temperature`. Set TEMPERATURE=0.2 in .env only for models that accept it."""
+    raw = os.getenv("TEMPERATURE", "").strip()
+    return {"temperature": float(raw)} if raw else {}
+
+
 def _load(name: str) -> dict:
     return yaml.safe_load((CONFIG_DIR / name).read_text(encoding="utf-8"))
 
@@ -67,7 +75,7 @@ class CrewRunner:
         self.sandbox = sandbox
         self.agents_cfg = _load("agents.yaml")
         self.tasks_cfg = _load("tasks.yaml")
-        self.llm = LLM(model=settings.model, temperature=0.2)
+        self.llm = LLM(model=settings.model, **llm_options())
 
     def _agent(self, name: str, tools: list) -> Agent:
         cfg = self.agents_cfg[name]
